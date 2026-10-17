@@ -110,8 +110,13 @@ export const Message = defineMessageUnion({
   SucceededSaveFile: { fileName: Schema.String },
   FailedSaveFile: { error: Schema.String },
   CancelledFilePicker: {},
-  CompletedForgetFileHandle: {},
+  CompletedForgetActiveFile: {},
   CompletedFocusInput: {},
   ClickedDismissNotice: {},
+
+  // Window
+  RequestedWindowClose: {},
+  CompletedCloseWindow: {},
+  CancelledCloseWindow: {},
 });
 export type Message = typeof Message.Type;

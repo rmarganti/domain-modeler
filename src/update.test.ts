@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 
-import { FocusInput, ForgetFileHandle, OpenFile, SaveFile } from "./command";
+import { ConfirmCloseWindow, FocusInput, ForgetActiveFile, OpenFile, SaveFile } from "./command";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
 import { Message } from "./message";
@@ -404,7 +404,7 @@ describe("files", () => {
       update,
       given({ ...baseModel, maybeFileName: Option.some("blog.domain.json") }),
       message(Message.ClickedNewDocument()),
-      Command.resolve(ForgetFileHandle, Message.CompletedForgetFileHandle()),
+      Command.resolve(ForgetActiveFile, Message.CompletedForgetActiveFile()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(0);
         expect(m.maybeFileName).toEqual(Option.none());
@@ -421,6 +421,19 @@ describe("files", () => {
       message(Message.ClickedOpen()),
       Command.resolve(OpenFile, Message.FailedOpenFile({ error: "bad file" })),
       model((m) => expect(m.maybeNotice).toEqual(Option.some({ tone: "Error", text: "bad file" }))),
+    );
+  });
+});
+
+describe("window", () => {
+  test("a close request with unsaved changes asks before closing", () => {
+    story(
+      update,
+      given({ ...baseModel, saveStatus: "Dirty" }),
+      message(Message.RequestedWindowClose()),
+      Command.expectExact(ConfirmCloseWindow),
+      Command.resolve(ConfirmCloseWindow, Message.CancelledCloseWindow()),
+      model((m) => expect(m.saveStatus).toBe("Dirty")),
     );
   });
 });

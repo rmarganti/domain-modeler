@@ -275,6 +275,26 @@ export const moveProperty = (
 
 // RELATIONSHIPS
 
+export const DEFAULT_CARDINALITY: Cardinality = "1:N";
+
+/** A relationship as first drawn: default cardinality, optionally bound to the
+ *  source property it was dragged from. */
+export const newRelationship = (
+  relationshipId: string,
+  sourceEntityId: string,
+  targetEntityId: string,
+  maybeSourcePropertyId: Option.Option<string>,
+): RelationshipDefinition => ({
+  id: relationshipId,
+  sourceEntityId,
+  targetEntityId,
+  cardinality: DEFAULT_CARDINALITY,
+  ...Option.match(maybeSourcePropertyId, {
+    onNone: () => ({}),
+    onSome: (sourcePropertyId) => ({ sourcePropertyId }),
+  }),
+});
+
 export const addRelationship = (
   document: DomainModelDocument,
   relationship: RelationshipDefinition,

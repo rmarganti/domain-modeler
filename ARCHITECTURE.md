@@ -216,14 +216,16 @@ export type History = typeof History.Type;
 
 ---
 
-## 7. File Persistence (File System Access API)
+## 7. File Persistence (Tauri)
 
-Designed exclusively for modern browsers:
+The editor ships as a standalone desktop app built with **Tauri v2**, so file access works the same on every platform and does not depend on browser support for the File System Access API.
 
-- Uses `window.showOpenFilePicker({ types: [{ description: 'Domain Model JSON', accept: { 'application/json': ['.json', '.domain.json'] } }] })`.
-- Uses `window.showSaveFilePicker(...)` for "Save As".
-- Retains the active `FileSystemFileHandle` in runtime memory.
-- Subsequent "Save" operations (`Cmd/Ctrl+S`) write directly to the active handle via `handle.createWritable()`.
+- "Open" uses the dialog plugin's native `open({ filters: [{ name: 'Domain Model JSON', extensions: ['json'] }] })`, then reads the file with the fs plugin's `readTextFile`.
+- "Save As" uses the native `save({ defaultPath: '<name>.domain.json', filters })`, then writes with `writeTextFile`.
+- The active file's path is retained in runtime memory, outside the Model.
+- Subsequent "Save" operations (`Cmd/Ctrl+S`) write directly to the active path without a dialog.
+- Capabilities are least-privilege: the app holds no standing filesystem scope. The dialog plugin grants the fs plugin access to exactly the paths the user picks, for the lifetime of the process.
+- Closing the window with unsaved changes asks for confirmation before discarding them.
 
 ---
 
@@ -245,4 +247,5 @@ Live schema validation runs in the background on every model update and reports 
 - **Bundler**: Vite (`8.3.1`) + `@foldkit/vite-plugin`
 - **Styling**: Tailwind CSS v4 (`@tailwindcss/vite`, `tailwindcss 4.3.3`)
 - **Testing**: Vitest (`5.0.2`) + `happy-dom`
+- **Desktop Shell**: Tauri v2 (`@tauri-apps/cli`, `@tauri-apps/api`, `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`)
 - **Package Manager**: pnpm

@@ -23,6 +23,8 @@ export const PORT_RADIUS = 6;
 
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 4;
+/** Multiplicative step for the HUD zoom buttons. */
+export const ZOOM_STEP = 1.2;
 export const FIT_PADDING = 80;
 
 export const STAGGER_ORIGIN: Point = { x: 80, y: 80 };
@@ -142,6 +144,8 @@ export const chooseSides = (
     ? { sourceSide: "right", targetSide: "left" }
     : { sourceSide: "left", targetSide: "right" };
 };
+
+export const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
 
 // VIEWPORT TRANSFORMS
 

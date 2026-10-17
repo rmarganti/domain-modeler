@@ -1,104 +1,19 @@
-import { Data, Effect, Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { Command, Dom } from "foldkit";
 
 import { DomainModelDocument, DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
+import * as Files from "./platform/files";
+import * as AppWindow from "./platform/window";
 
-// FILE SYSTEM ACCESS
-// The active FileSystemFileHandle is a live browser object that cannot be
-// serialized into the Model, so it is retained in runtime memory here. The
-// Model only records the file's name.
+// FILES
+// The active file's path is runtime state outside the Model, so Save can
+// write back to it; the Model only records the file's name.
 
-type FilePickerAcceptType = Readonly<{
-  description: string;
-  accept: Record<string, ReadonlyArray<string>>;
-}>;
-
-type WritableFileHandle = FileSystemFileHandle &
-  Readonly<{
-    createWritable: () => Promise<{
-      write: (data: string) => Promise<void>;
-      close: () => Promise<void>;
-    }>;
-  }>;
-
-type FileSystemAccessWindow = Window &
-  Readonly<{
-    showOpenFilePicker?: (options: {
-      types: ReadonlyArray<FilePickerAcceptType>;
-      multiple?: boolean;
-    }) => Promise<ReadonlyArray<WritableFileHandle>>;
-    showSaveFilePicker?: (options: {
-      types: ReadonlyArray<FilePickerAcceptType>;
-      suggestedName?: string;
-    }) => Promise<WritableFileHandle>;
-  }>;
-
-const FILE_TYPES: ReadonlyArray<FilePickerAcceptType> = [
-  {
-    description: "Domain Model JSON",
-    accept: { "application/json": [".json", ".domain.json"] },
-  },
-];
-
-let maybeActiveHandle: Option.Option<WritableFileHandle> = Option.none();
-
-const fileSystemWindow = (): FileSystemAccessWindow => window;
-
-class PickerCancelled extends Data.TaggedError("PickerCancelled")<{}> {}
-
-class FileError extends Data.TaggedError("FileError")<{ readonly reason: string }> {}
-
-const toFileError = (error: unknown): PickerCancelled | FileError =>
-  error instanceof DOMException && error.name === "AbortError"
-    ? new PickerCancelled()
-    : new FileError({ reason: error instanceof Error ? error.message : String(error) });
-
-const fromPromise = <A>(evaluate: () => Promise<A>) =>
-  Effect.tryPromise({ try: evaluate, catch: toFileError });
-
-const UNSUPPORTED = new FileError({
-  reason: "This browser does not support the File System Access API. Try Chrome or Edge.",
-});
-
-const pickFileToOpen = Effect.suspend(() => {
-  const picker = fileSystemWindow().showOpenFilePicker;
-  return picker === undefined
-    ? Effect.fail(UNSUPPORTED)
-    : fromPromise(() => picker({ types: FILE_TYPES, multiple: false }));
-});
-
-const pickFileToSave = (suggestedName: string) =>
-  Effect.suspend(() => {
-    const picker = fileSystemWindow().showSaveFilePicker;
-    return picker === undefined
-      ? Effect.fail(UNSUPPORTED)
-      : fromPromise(() => picker({ types: FILE_TYPES, suggestedName }));
-  });
+let maybeActivePath: Option.Option<string> = Option.none();
 
 const encodeDocument = Schema.encodeEffect(DomainModelDocumentJsonString);
 const decodeDocument = Schema.decodeUnknownEffect(DomainModelDocumentJsonString);
-
-const writeDocument = (handle: WritableFileHandle, document: DomainModelDocument) =>
-  Effect.gen(function* () {
-    const json = yield* encodeDocument(document).pipe(
-      Effect.mapError((error) => new FileError({ reason: error.message })),
-    );
-    const writable = yield* fromPromise(() => handle.createWritable());
-    yield* fromPromise(() => writable.write(`${json}\n`));
-    yield* fromPromise(() => writable.close());
-    maybeActiveHandle = Option.some(handle);
-    return Message.SucceededSaveFile({ fileName: handle.name });
-  });
-
-const toFailureMessage =
-  <FailureMessage>(toMessage: (error: string) => FailureMessage) =>
-  (
-    error: PickerCancelled | FileError,
-  ): Effect.Effect<FailureMessage | typeof Message.CancelledFilePicker.Type> =>
-    Effect.succeed(
-      error._tag === "PickerCancelled" ? Message.CancelledFilePicker() : toMessage(error.reason),
-    );
 
 const suggestedFileName = (document: DomainModelDocument): string => {
   const slug = document.name
@@ -109,37 +24,51 @@ const suggestedFileName = (document: DomainModelDocument): string => {
   return `${slug === "" ? "untitled" : slug}.domain.json`;
 };
 
+const writeDocument = (path: string, document: DomainModelDocument) =>
+  Effect.gen(function* () {
+    const json = yield* encodeDocument(document).pipe(
+      Effect.mapError((error) => new Files.FileError({ reason: error.message })),
+    );
+    yield* Files.write(path, `${json}\n`);
+    maybeActivePath = Option.some(path);
+    return Message.SucceededSaveFile({ fileName: Files.fileNameOf(path) });
+  });
+
+const toFailureMessage =
+  <FailureMessage>(toMessage: (error: string) => FailureMessage) =>
+  (
+    error: Files.PickerCancelled | Files.FileError,
+  ): Effect.Effect<FailureMessage | typeof Message.CancelledFilePicker.Type> =>
+    Effect.succeed(
+      error._tag === "PickerCancelled" ? Message.CancelledFilePicker() : toMessage(error.reason),
+    );
+
 export const OpenFile = Command.define("OpenFile", {
   messages: [Message.SucceededOpenFile, Message.FailedOpenFile, Message.CancelledFilePicker],
   execute: Effect.gen(function* () {
-    const handles = yield* pickFileToOpen;
-    const handle = handles[0];
-    if (handle === undefined) {
-      return Message.CancelledFilePicker();
-    }
-    const file = yield* fromPromise(() => handle.getFile());
-    const text = yield* fromPromise(() => file.text());
+    const path = yield* Files.pickToOpen;
+    const text = yield* Files.read(path);
     const document = yield* decodeDocument(text).pipe(
       Effect.mapError(
-        (error) => new FileError({ reason: `Not a valid domain model: ${error.message}` }),
+        (error) => new Files.FileError({ reason: `Not a valid domain model: ${error.message}` }),
       ),
     );
-    maybeActiveHandle = Option.some(handle);
-    return Message.SucceededOpenFile({ document, fileName: handle.name });
+    maybeActivePath = Option.some(path);
+    return Message.SucceededOpenFile({ document, fileName: Files.fileNameOf(path) });
   }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedOpenFile({ error })))),
 });
 
-/** Writes straight to the active handle; without one, falls back to Save As. */
+/** Writes straight to the active file; without one, falls back to Save As. */
 export const SaveFile = Command.define("SaveFile", {
   args: { document: DomainModelDocument },
   messages: [Message.SucceededSaveFile, Message.FailedSaveFile, Message.CancelledFilePicker],
   execute: ({ document }) =>
     Effect.gen(function* () {
-      const handle = yield* Option.match(maybeActiveHandle, {
-        onNone: () => pickFileToSave(suggestedFileName(document)),
+      const path = yield* Option.match(maybeActivePath, {
+        onNone: () => Files.pickToSave(suggestedFileName(document)),
         onSome: Effect.succeed,
       });
-      return yield* writeDocument(handle, document);
+      return yield* writeDocument(path, document);
     }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedSaveFile({ error })))),
 });
 
@@ -148,16 +77,30 @@ export const SaveFileAs = Command.define("SaveFileAs", {
   messages: [Message.SucceededSaveFile, Message.FailedSaveFile, Message.CancelledFilePicker],
   execute: ({ document }) =>
     Effect.gen(function* () {
-      const handle = yield* pickFileToSave(suggestedFileName(document));
-      return yield* writeDocument(handle, document);
+      const path = yield* Files.pickToSave(suggestedFileName(document));
+      return yield* writeDocument(path, document);
     }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedSaveFile({ error })))),
 });
 
-export const ForgetFileHandle = Command.define("ForgetFileHandle", {
-  messages: [Message.CompletedForgetFileHandle],
+export const ForgetActiveFile = Command.define("ForgetActiveFile", {
+  messages: [Message.CompletedForgetActiveFile],
   execute: Effect.sync(() => {
-    maybeActiveHandle = Option.none();
-    return Message.CompletedForgetFileHandle();
+    maybeActivePath = Option.none();
+    return Message.CompletedForgetActiveFile();
+  }),
+});
+
+// WINDOW
+
+/** Asks before discarding unsaved changes, then closes the window. */
+export const ConfirmCloseWindow = Command.define("ConfirmCloseWindow", {
+  messages: [Message.CompletedCloseWindow, Message.CancelledCloseWindow],
+  execute: Effect.gen(function* () {
+    if (!(yield* AppWindow.confirmDiscardChanges)) {
+      return Message.CancelledCloseWindow();
+    }
+    yield* AppWindow.destroy;
+    return Message.CompletedCloseWindow();
   }),
 });
 

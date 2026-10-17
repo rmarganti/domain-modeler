@@ -8,21 +8,27 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "tauri": "tauri",
+    "app:dev": "tauri dev",
+    "app:build": "tauri build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "oxlint",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "check": "tsc --noEmit && oxlint && oxfmt --check && vitest run"
   },
   "dependencies": {
-    "@effect/platform-browser": "4.0.0",
-    "@foldkit/ui": "0.168.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "~2.8.3",
+    "@tauri-apps/plugin-fs": "~2.7.1",
     "effect": "4.0.0",
     "foldkit": "0.168.0"
   },
   "devDependencies": {
     "@foldkit/vite-plugin": "^0.27.1",
     "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.12.3",
     "happy-dom": "^21.0.3",
     "oxfmt": "^0.73.0",
     "oxlint": "^1.88.0",

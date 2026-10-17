@@ -1,10 +1,12 @@
 import { Effect, Option, Schema, Stream } from "effect";
 import { Dom, Subscription } from "foldkit";
 
-import { CANVAS_ID, ENTITY_ID_ATTRIBUTE } from "./constant";
+import { CANVAS_ID, ENTITY_ID_ATTRIBUTE } from "./dom";
 import { classifyWheel } from "./domain/geometry";
 import { Message } from "./message";
 import { EditorState, type Model } from "./model";
+import * as AppWindow from "./platform/window";
+import { windowTitle } from "./view";
 
 // KEYBINDING MODES
 // Each editor state activates one binding table, per the keybinding matrix.
@@ -201,5 +203,26 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
       mapEvent: () =>
         Message.ResizedScreen({ width: window.innerWidth, height: window.innerHeight }),
     }),
+  ),
+
+  closeGuard: entry(
+    { isGuarded: Schema.Boolean },
+    {
+      modelToDependencies: (model) => ({ isGuarded: model.saveStatus === "Dirty" }),
+      dependenciesToStream: ({ isGuarded }) =>
+        Stream.when(
+          AppWindow.closeRequests(() => Message.RequestedWindowClose()),
+          Effect.sync(() => isGuarded),
+        ),
+    },
+  ),
+
+  windowTitle: entry(
+    { title: Schema.String },
+    {
+      modelToDependencies: (model) => ({ title: windowTitle(model) }),
+      dependenciesToStream: ({ title }) =>
+        Stream.fromEffect(AppWindow.setTitle(title)).pipe(Stream.drain),
+    },
   ),
 }));

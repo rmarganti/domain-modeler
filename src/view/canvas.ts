@@ -1,7 +1,7 @@
 import { Array, Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
-import { CANVAS_ID, CANVAS_ITEM_ATTRIBUTE } from "../constant";
+import { CANVAS_ID, CANVAS_ITEM_ATTRIBUTE } from "../dom";
 import * as Diagnostics from "../domain/diagnostics";
 import { bezierRouter, type EdgeRouter } from "../domain/edgeRouter";
 import type { DomainModelDocument } from "../domain/schema";

@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
-import { CANVAS_ITEM_ATTRIBUTE } from "../constant";
+import { CANVAS_ITEM_ATTRIBUTE } from "../dom";
 import type { Message } from "../message";
 
 export type PointerPress = Readonly<{ button: number; clientX: number; clientY: number }>;

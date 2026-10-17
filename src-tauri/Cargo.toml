@@ -1,0 +1,19 @@
+[package]
+name = "domain-modeler"
+version = "0.1.0"
+description = "Visual domain model and ERD designer"
+authors = ["Ryan Marganti"]
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "domain_modeler_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.4", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"

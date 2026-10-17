@@ -1,34 +1,35 @@
-import { Array, Option, Record, pipe } from "effect";
-import { defineTaggedUnion } from "foldkit/schema";
-import { Schema } from "effect";
+import { Array, Data, Option, Record, pipe } from "effect";
 
-import { findEntity, findProperty } from "./document";
+import { findEntity, findProperty, type RelationshipEnd } from "./document";
 import type { DomainModelDocument, EntityDefinition, RelationshipDefinition } from "./schema";
 
-export const Diagnostic = defineTaggedUnion({
-  DuplicateEntityName: { entityId: Schema.String, name: Schema.String },
+// Diagnostics are derived from the document on every render and never stored
+// in the Model, so a plain tagged enum is enough; no Schema is needed.
+
+export type Diagnostic = Data.TaggedEnum<{
+  DuplicateEntityName: { readonly entityId: string; readonly name: string };
   DuplicatePropertyName: {
-    entityId: Schema.String,
-    propertyId: Schema.String,
-    name: Schema.String,
-  },
+    readonly entityId: string;
+    readonly propertyId: string;
+    readonly name: string;
+  };
   DanglingEntityReference: {
-    relationshipId: Schema.String,
-    end: Schema.Literals(["Source", "Target"]),
-    entityId: Schema.String,
-  },
+    readonly relationshipId: string;
+    readonly end: RelationshipEnd;
+    readonly entityId: string;
+  };
   DanglingPropertyReference: {
-    relationshipId: Schema.String,
-    end: Schema.Literals(["Source", "Target"]),
-    propertyId: Schema.String,
-  },
+    readonly relationshipId: string;
+    readonly end: RelationshipEnd;
+    readonly propertyId: string;
+  };
   TypeMismatch: {
-    relationshipId: Schema.String,
-    sourceType: Schema.String,
-    targetType: Schema.String,
-  },
-});
-export type Diagnostic = typeof Diagnostic.Type;
+    readonly relationshipId: string;
+    readonly sourceType: string;
+    readonly targetType: string;
+  };
+}>;
+export const Diagnostic = Data.taggedEnum<Diagnostic>();
 
 const normalizeName = (name: string): string => name.trim().toLowerCase();
 
@@ -92,7 +93,7 @@ const relationshipDiagnostics = (
   const checkProperty = (
     maybeEntity: Option.Option<EntityDefinition>,
     maybePropertyId: string | undefined,
-    end: "Source" | "Target",
+    end: RelationshipEnd,
   ): ReadonlyArray<Diagnostic> =>
     Option.isSome(maybeEntity) &&
     maybePropertyId !== undefined &&
@@ -186,7 +187,7 @@ export const forRelationship = (
   );
 
 export const describe = (diagnostic: Diagnostic): string =>
-  Diagnostic.match(diagnostic, {
+  Diagnostic.$match(diagnostic, {
     DuplicateEntityName: ({ name }) => `Duplicate entity name “${name}”`,
     DuplicatePropertyName: ({ name }) => `Duplicate property name “${name}”`,
     DanglingEntityReference: ({ end, entityId }) => `${end} entity “${entityId}” does not exist`,

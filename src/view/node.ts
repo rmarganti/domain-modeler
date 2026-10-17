@@ -1,7 +1,7 @@
 import { Array, Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
-import { ENTITY_ID_ATTRIBUTE, ENTITY_NAME_INPUT_ID, PROPERTY_NAME_INPUT_ID } from "../constant";
+import { ENTITY_ID_ATTRIBUTE, ENTITY_NAME_INPUT_ID, PROPERTY_NAME_INPUT_ID } from "../dom";
 import * as Diagnostics from "../domain/diagnostics";
 import * as Geometry from "../domain/geometry";
 import {
