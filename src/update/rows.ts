@@ -10,6 +10,7 @@ import {
   commitDocument,
   present,
   reconcile,
+  toggleExpanded as toggleNodeExpanded,
   toIdle,
   type UpdateReturn,
 } from "./shared";
@@ -103,6 +104,19 @@ export const reorder = (model: Model, direction: Doc.MoveDirection): Model =>
         : model,
     SelectedEnum: ({ typeId, row }) =>
       row._tag === "Value" ? Enums.moveValue(model, typeId, row.valueId, direction) : model,
+  });
+
+/** Toggles the current card. Collapsing hides its rows, so the cursor
+ *  returns to the title. */
+export const toggleExpanded = (model: Model): Model =>
+  Option.match(cardCursor(model), {
+    onNone: () => model,
+    onSome: (cursor) => {
+      const toggled = toggleNodeExpanded(model, cursor.nodeId);
+      return present(toggled).layout.nodes[cursor.nodeId]?.isExpanded
+        ? toggled
+        : { ...toggled, selection: cursor.select(CardRow.Title()) };
+    },
   });
 
 export const select = (model: Model, selection: Selection): Model =>

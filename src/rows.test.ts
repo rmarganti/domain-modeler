@@ -72,6 +72,46 @@ describe("card row cursor", () => {
     expect(m.saveStatus).toBe("Clean");
   });
 
+  test.each(["Entity", "Enum"])(
+    "%s t toggles from any row and collapsing resets to title",
+    (kind) => {
+      const nodeId = kind === "Entity" ? "e1" : "t1";
+      const row =
+        kind === "Entity"
+          ? CardRow.Attribute({ attributeId: Doc.sampleDocument.entities[0]!.attributes[0]!.id })
+          : CardRow.Value({ valueId: Doc.sampleDocument.types[0]!.values[0]!.id });
+      const start = kind === "Entity" ? entity(row) : enumeration(row);
+      const m = {
+        ...start,
+        history: History.init(Doc.setExpanded(Doc.sampleDocument, nodeId, true)),
+      };
+      const toggle = (model: Model) => step(model, Message.PressedToggleExpandKey());
+      const collapsed = toggle(m);
+      expect(collapsed.history.present.layout.nodes[nodeId]?.isExpanded).toBe(false);
+      expect(currentRow(collapsed)).toEqual(CardRow.Title());
+      const expanded = toggle(collapsed);
+      expect(expanded.history.present.layout.nodes[nodeId]?.isExpanded).toBe(true);
+      expect(currentRow(expanded)).toEqual(CardRow.Title());
+      expect(expanded.history.past).toHaveLength(0);
+      const fromTitle = toggle({
+        ...m,
+        selection:
+          start.selection._tag === "SelectedEntity"
+            ? Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() })
+            : Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() }),
+      });
+      expect(fromTitle.history.present.layout.nodes[nodeId]?.isExpanded).toBe(false);
+    },
+  );
+
+  test.each([Selection.NoSelection(), Selection.SelectedAssociation({ associationId: "r1" })])(
+    "toggle ignores $._tag",
+    (selection) => {
+      const m = { ...initial, selection };
+      expect(step(m, Message.PressedToggleExpandKey())).toBe(m);
+    },
+  );
+
   test.each([Selection.NoSelection(), Selection.SelectedAssociation({ associationId: "r1" })])(
     "motion ignores $._tag",
     (selection) => {

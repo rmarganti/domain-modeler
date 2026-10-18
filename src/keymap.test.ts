@@ -106,6 +106,7 @@ describe("keybinding registry", () => {
       ["Shift+K", { _tag: "ReorderedCardRow", direction: "Up" }],
       ["J", { _tag: "MovedCardRow", motion: "Next" }],
       ["K", { _tag: "MovedCardRow", motion: "Previous" }],
+      ["T", { _tag: "PressedToggleExpandKey" }],
     ] as const;
     for (const [keys, expected] of actions) {
       const binding = bindingsFor("Normal").find((binding) => binding.keys === keys);

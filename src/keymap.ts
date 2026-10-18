@@ -184,6 +184,13 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     mapEvent: () => Message.MovedCardRow({ motion: "Last" }),
   },
   {
+    id: "toggleExpand",
+    keys: ["T"],
+    description: "Expand / collapse current card",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedToggleExpandKey(),
+  },
+  {
     id: "insertRowBelow",
     keys: ["O"],
     description: "Add row below (first on title)",
@@ -460,6 +467,7 @@ export const HELP_SECTIONS: ReadonlyArray<HelpSection> = [
       [
         { label: "Next / previous row", ids: ["nextRow", "previousRow"], paired: true },
         { label: "First / last row", ids: ["firstRow", "lastRow"], paired: true },
+        { label: "Expand / collapse card", ids: ["toggleExpand"] },
         { label: "Deselect or close", ids: ["escape"] },
       ],
     ],
