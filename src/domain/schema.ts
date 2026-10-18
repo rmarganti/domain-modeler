@@ -16,18 +16,25 @@ export const Primitive = Schema.Literals([
   "Date",
   "DateTime",
   "Json",
-  "Literal", // temporary: removed in part 5
 ]);
 export type Primitive = typeof Primitive.Type;
 
 export const PRIMITIVES: ReadonlyArray<Primitive> = Primitive.literals;
 
+/** A reference to an entry of the document's `types`. */
+export const TypeRef = Schema.Struct({ typeId: Schema.String });
+export type TypeRef = typeof TypeRef.Type;
+
+export const AttributeType = Schema.Union([Primitive, TypeRef]);
+export type AttributeType = typeof AttributeType.Type;
+
+export const isTypeRef = (type: AttributeType): type is TypeRef => typeof type !== "string";
+
 export const AttributeDefinition = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   description: Schema.optional(Schema.String),
-  type: Primitive,
-  literalOptions: Schema.optional(Schema.Array(Schema.String)), // temporary: removed in part 5
+  type: AttributeType,
   multiplicity: Multiplicity,
   unique: Schema.Boolean,
 });

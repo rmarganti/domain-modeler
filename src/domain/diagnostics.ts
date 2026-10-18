@@ -1,13 +1,14 @@
 import { Array, Data, Option, Record, pipe } from "effect";
 
-import { findEntity } from "./document";
+import { findEntity, findEnum } from "./document";
 import { effectiveRole } from "./naming";
-import type {
-  AssociationDefinition,
-  DomainModelDocument,
-  EndIndex,
-  EntityDefinition,
-  EnumDefinition,
+import {
+  isTypeRef,
+  type AssociationDefinition,
+  type DomainModelDocument,
+  type EndIndex,
+  type EntityDefinition,
+  type EnumDefinition,
 } from "./schema";
 
 // Diagnostics are derived from the document on every render and never stored
@@ -22,6 +23,11 @@ export type Diagnostic = Data.TaggedEnum<{
     readonly name: string;
   };
   UniqueOnList: { readonly entityId: string; readonly attributeId: string };
+  DanglingTypeReference: {
+    readonly entityId: string;
+    readonly attributeId: string;
+    readonly typeId: string;
+  };
   DuplicateEnumValueName: {
     readonly typeId: string;
     readonly valueId: string;
@@ -83,6 +89,24 @@ const uniqueOnLists = (entity: EntityDefinition): ReadonlyArray<Diagnostic> =>
     Array.filter((attribute) => attribute.unique && attribute.multiplicity.max === "many"),
     Array.map((attribute) =>
       Diagnostic.UniqueOnList({ entityId: entity.id, attributeId: attribute.id }),
+    ),
+  );
+
+const danglingTypeReferences = (
+  document: DomainModelDocument,
+  entity: EntityDefinition,
+): ReadonlyArray<Diagnostic> =>
+  Array.getSomes(
+    Array.map(entity.attributes, (attribute) =>
+      isTypeRef(attribute.type) && Option.isNone(findEnum(document, attribute.type.typeId))
+        ? Option.some(
+            Diagnostic.DanglingTypeReference({
+              entityId: entity.id,
+              attributeId: attribute.id,
+              typeId: attribute.type.typeId,
+            }),
+          )
+        : Option.none(),
     ),
   );
 
@@ -183,6 +207,7 @@ export const diagnose = (document: DomainModelDocument): ReadonlyArray<Diagnosti
   ...duplicateTypeNames(document),
   ...Array.flatMap(document.entities, duplicateAttributeNames),
   ...Array.flatMap(document.entities, uniqueOnLists),
+  ...Array.flatMap(document.entities, (entity) => danglingTypeReferences(document, entity)),
   ...Array.flatMap(document.types, duplicateEnumValueNames),
   ...emptyEnums(document),
   ...Array.flatMap(document.associations, (association) =>
@@ -201,7 +226,9 @@ export const forEntity = (
     diagnostics,
     (diagnostic) =>
       (diagnostic._tag === "DuplicateTypeName" && diagnostic.nodeId === entityId) ||
-      ((diagnostic._tag === "DuplicateAttributeName" || diagnostic._tag === "UniqueOnList") &&
+      ((diagnostic._tag === "DuplicateAttributeName" ||
+        diagnostic._tag === "UniqueOnList" ||
+        diagnostic._tag === "DanglingTypeReference") &&
         diagnostic.entityId === entityId),
   );
 
@@ -212,7 +239,9 @@ export const forAttribute = (
   Array.filter(
     diagnostics,
     (diagnostic) =>
-      (diagnostic._tag === "DuplicateAttributeName" || diagnostic._tag === "UniqueOnList") &&
+      (diagnostic._tag === "DuplicateAttributeName" ||
+        diagnostic._tag === "UniqueOnList" ||
+        diagnostic._tag === "DanglingTypeReference") &&
       diagnostic.attributeId === attributeId,
   );
 
@@ -253,6 +282,7 @@ export const describe = (diagnostic: Diagnostic): string =>
     DuplicateTypeName: ({ name }) => `Duplicate type name “${name}”`,
     DuplicateAttributeName: ({ name }) => `Duplicate field name “${name}”`,
     UniqueOnList: () => "A list field can't be unique",
+    DanglingTypeReference: ({ typeId }) => `Enum “${typeId}” does not exist`,
     DuplicateEnumValueName: ({ name }) => `Duplicate value name “${name}”`,
     EmptyEnum: () => "Enum has no values",
     DanglingEntityReference: ({ endIndex, entityId }) =>

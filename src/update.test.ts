@@ -253,8 +253,7 @@ describe("attributes", () => {
         expect(m.history.present.layout.nodes["e3"]?.isExpanded).toBe(true);
       }),
       message(Message.UpdatedAttributeDraftName({ name: "kind" })),
-      message(Message.SelectedAttributeDraftType({ type: "Literal" })),
-      message(Message.UpdatedAttributeDraftLiteralOptions({ text: "a, b, , a" })),
+      message(Message.SelectedAttributeDraftType({ type: "Integer" })),
       message(Message.SelectedAttributeDraftMultiplicity({ multiplicity: { min: 0, max: "one" } })),
       message(Message.ToggledAttributeDraftUnique()),
       message(Message.PressedEnterKey()),
@@ -263,8 +262,7 @@ describe("attributes", () => {
         expect(tag.attributes.at(-1)).toEqual({
           id: "p11",
           name: "kind",
-          type: "Literal",
-          literalOptions: ["a", "b"],
+          type: "Integer",
           multiplicity: { min: 0, max: "one" },
           unique: true,
         });
@@ -502,6 +500,7 @@ describe("enums", () => {
             typeId: "t1",
             valueId: "v4",
             draft: { name: "value4", description: "" },
+            save: "Commit",
           }),
         );
         expect(m.history.present.layout.nodes["t1"]?.isExpanded).toBe(true);
@@ -650,6 +649,113 @@ describe("enums", () => {
         expect(m.history.present.associations).toHaveLength(2);
         expect(m.history.past).toHaveLength(0);
         expect(m.editor).toEqual(EditorState.Idle());
+      }),
+    );
+  });
+});
+
+describe("enum-typed fields", () => {
+  const post = (m: Model) => Option.getOrThrow(Doc.findEntity(m.history.present, "e2"));
+
+  test("New enum… is one undo step that types the field and opens the first value", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedAddAttribute({ entityId: "e2" })),
+      focused,
+      message(Message.UpdatedAttributeDraftName({ name: "status" })),
+      message(Message.SelectedAttributeDraftNewEnum()),
+      focused,
+      model((m) => {
+        expect(m.editor).toEqual(
+          EditorState.EditingEnumValue({
+            typeId: "t2",
+            valueId: "v4",
+            draft: { name: "", description: "" },
+            save: "Amend",
+          }),
+        );
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2" }));
+        expect(post(m).attributes.at(-1)).toMatchObject({
+          id: "p11",
+          name: "status",
+          type: { typeId: "t2" },
+        });
+        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
+        expect(m.history.present.layout.nodes["t2"]?.isExpanded).toBe(true);
+        // One snapshot for adding the field, one for the whole "New enum…".
+        expect(m.history.past).toHaveLength(2);
+      }),
+      message(Message.UpdatedEnumValueDraftName({ name: "draft" })),
+      message(Message.PressedEnterKey()),
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.Idle());
+        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
+          { id: "v4", name: "draft" },
+        ]);
+        // Naming the first value folds into the same step.
+        expect(m.history.past).toHaveLength(2);
+      }),
+      message(Message.PressedUndoKey()),
+      model((m) => {
+        expect(Doc.findEnum(m.history.present, "t2")).toEqual(Option.none());
+        expect(m.history.present.layout.nodes["t2"]).toBeUndefined();
+        expect(post(m).attributes.at(-1)).toEqual(Doc.newAttribute("p11", "field3"));
+        expect(m.selection).toEqual(Selection.NoSelection());
+      }),
+      message(Message.PressedRedoKey()),
+      model((m) => {
+        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
+          { id: "v4", name: "draft" },
+        ]);
+        expect(post(m).attributes.at(-1)?.type).toEqual({ typeId: "t2" });
+      }),
+    );
+  });
+
+  test("New enum… with a blank field name makes NewEnum", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedEditAttribute({ entityId: "e2", attributeId: "p7" })),
+      focused,
+      message(Message.UpdatedAttributeDraftName({ name: " " })),
+      message(Message.SelectedAttributeDraftNewEnum()),
+      focused,
+      model((m) => {
+        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("NewEnum");
+        // A blank draft name keeps the field's own name.
+        expect(post(m).attributes[0]).toMatchObject({ name: "title", type: { typeId: "t2" } });
+      }),
+    );
+  });
+
+  test("choosing an existing enum types the field by reference", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedEditAttribute({ entityId: "e2", attributeId: "p7" })),
+      focused,
+      message(Message.SelectedAttributeDraftType({ type: { typeId: "t1" } })),
+      message(Message.PressedEnterKey()),
+      model((m) => {
+        expect(post(m).attributes[0]?.type).toEqual({ typeId: "t1" });
+        expect(m.history.past).toHaveLength(1);
+      }),
+    );
+  });
+
+  test("going to a field's enum selects it without moving the camera", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedGoToEnum({ typeId: "t1" })),
+      model((m) => {
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t1" }));
+        expect(m.history.present.layout.viewport).toEqual(
+          baseModel.history.present.layout.viewport,
+        );
+        expect(m.history.past).toHaveLength(0);
       }),
     );
   });

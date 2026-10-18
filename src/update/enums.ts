@@ -2,7 +2,7 @@ import { Option, pipe } from "effect";
 
 import { ENUM_NAME_INPUT_ID, ENUM_VALUE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
-import { EditorState, Selection, type Model } from "../model";
+import { EditorState, Selection, type EnumValueSave, type Model } from "../model";
 import { draftFromEnumValue, finishEditing } from "./editing";
 import {
   amendDocument,
@@ -11,6 +11,7 @@ import {
   newCardPosition,
   present,
   reconcile,
+  toIdle,
   type UpdateReturn,
 } from "./shared";
 
@@ -41,6 +42,13 @@ export const startRenaming = (model: Model, typeId: string): UpdateReturn =>
     }),
   });
 
+/** Selects an enum card, as following an enum-typed field to its enum does.
+ *  The camera stays put. */
+export const select = (model: Model, typeId: string): Model =>
+  Option.isSome(Doc.findEnum(present(model), typeId))
+    ? { ...toIdle(finishEditing(model)), selection: Selection.SelectedEnum({ typeId }) }
+    : model;
+
 export const updateDraftName = (model: Model, name: string): UpdateReturn => ({
   model: EditorState.matchOrElse(
     model.editor,
@@ -54,7 +62,12 @@ export const updateDraftName = (model: Model, name: string): UpdateReturn => ({
 
 // VALUES
 
-export const startEditingValue = (model: Model, typeId: string, valueId: string): UpdateReturn =>
+export const startEditingValue = (
+  model: Model,
+  typeId: string,
+  valueId: string,
+  save: EnumValueSave = "Commit",
+): UpdateReturn =>
   pipe(
     Doc.findEnum(present(model), typeId),
     Option.flatMap((definition) => Doc.findEnumValue(definition, valueId)),
@@ -67,6 +80,7 @@ export const startEditingValue = (model: Model, typeId: string, valueId: string)
             typeId,
             valueId,
             draft: draftFromEnumValue(value),
+            save,
           }),
           selection: Selection.SelectedEnum({ typeId }),
         },

@@ -6,7 +6,7 @@ import * as Doc from "./document";
 import { bezierRouter } from "./edgeRouter";
 import * as Geometry from "./geometry";
 import * as History from "./history";
-import { defaultRole } from "./naming";
+import { defaultRole, enumNameForAttribute, toPascalCase } from "./naming";
 import {
   DomainModelDocumentJsonString,
   type AssociationDefinition,
@@ -203,6 +203,63 @@ describe("document", () => {
     expect(Schema.decodeUnknownSync(DomainModelDocumentJsonString)(json)).toEqual(sample);
   });
 
+  test("the codec accepts an enum reference and rejects the removed Literal type", () => {
+    const withType = (type: unknown) =>
+      JSON.stringify({
+        ...JSON.parse(Schema.encodeSync(DomainModelDocumentJsonString)(sample)),
+        entities: [
+          {
+            id: "e1",
+            name: "User",
+            attributes: [
+              {
+                id: "p1",
+                name: "role",
+                type,
+                multiplicity: { min: 1, max: "one" },
+                unique: false,
+              },
+            ],
+          },
+        ],
+      });
+    const decode = Schema.decodeUnknownSync(DomainModelDocumentJsonString);
+    expect(decode(withType({ typeId: "t1" })).entities[0]?.attributes[0]?.type).toEqual({
+      typeId: "t1",
+    });
+    expect(() => decode(withType(`Literal`))).toThrow();
+  });
+
+  test("attributeTypeLabel names primitives, enums, and dangling references", () => {
+    expect(Doc.attributeTypeLabel(sample, "DateTime")).toBe("DateTime");
+    expect(Doc.attributeTypeLabel(sample, { typeId: "t1" })).toBe("Role");
+    expect(Doc.attributeTypeLabel(sample, { typeId: "t9" })).toBe("?");
+  });
+
+  test("addEnumForAttribute creates an expanded enum beside the entity and types the field", () => {
+    const status = { ...Doc.newAttribute("p11", "status"), unique: true };
+    const document = Doc.addEnumForAttribute(
+      Doc.addAttribute(sample, "e2", Doc.newAttribute("p11", "field3")),
+      "e2",
+      status,
+      "t2",
+      "v4",
+      "Status",
+    );
+    expect(Option.getOrThrow(Doc.findEnum(document, "t2"))).toEqual({
+      id: "t2",
+      kind: "Enum",
+      name: "Status",
+      values: [{ id: "v4", name: "" }],
+    });
+    const post = Option.getOrThrow(Doc.findEntity(document, "e2"));
+    expect(post.attributes.at(-1)).toEqual({ ...status, type: { typeId: "t2" } });
+    const node = document.layout.nodes["t2"];
+    expect(node?.isExpanded).toBe(true);
+    // Post is expanded at x 560, so the card starts right of its 300px width.
+    expect(node?.position.x).toBeGreaterThanOrEqual(560 + Geometry.EXPANDED_NODE_WIDTH);
+  });
+
   test("the document codec rejects malformed input", () => {
     expect(() =>
       Schema.decodeUnknownSync(DomainModelDocumentJsonString)('{"version":"2.0.0"}'),
@@ -275,7 +332,45 @@ describe("naming", () => {
   });
 });
 
+describe("naming enums", () => {
+  test("toPascalCase and the enum name for a field", () => {
+    expect(toPascalCase("order status")).toBe("OrderStatus");
+    expect(toPascalCase("displayName")).toBe("DisplayName");
+    expect(enumNameForAttribute("role")).toBe("Role");
+    expect(enumNameForAttribute("order status")).toBe("OrderStatus");
+    expect(enumNameForAttribute("  ")).toBe("NewEnum");
+  });
+});
+
 describe("diagnostics", () => {
+  test("deleting an enum leaves its fields dangling until undo", () => {
+    const history = History.commit(History.init(sample), (document) =>
+      Doc.deleteEnum(document, "t1"),
+    );
+    const diagnostics = Diagnostics.diagnose(history.present);
+    expect(diagnostics).toEqual([
+      Diagnostics.Diagnostic.DanglingTypeReference({
+        entityId: "e1",
+        attributeId: "p4",
+        typeId: "t1",
+      }),
+    ]);
+    expect(Diagnostics.forAttribute(diagnostics, "p4")).toHaveLength(1);
+    expect(Diagnostics.forEntity(diagnostics, "e1")).toHaveLength(1);
+    expect(Diagnostics.describe(diagnostics[0]!)).toBe("Enum “t1” does not exist");
+    const undone = Option.getOrThrow(History.undo(history));
+    expect(Diagnostics.diagnose(undone.present)).toEqual([]);
+  });
+
+  test("an enum-typed field may be unique", () => {
+    const document = Doc.replaceAttribute(sample, "e1", {
+      ...Doc.newAttribute("p4", "role"),
+      type: { typeId: "t1" },
+      unique: true,
+    });
+    expect(Diagnostics.diagnose(document)).toEqual([]);
+  });
+
   test("the sample document is clean", () => {
     expect(Diagnostics.diagnose(sample)).toEqual([]);
   });

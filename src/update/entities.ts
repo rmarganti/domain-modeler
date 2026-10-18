@@ -2,8 +2,9 @@ import { Option, pipe } from "effect";
 
 import { ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
+import { enumNameForAttribute } from "../domain/naming";
 import { EditorState, Selection, type Model } from "../model";
-import { draftFromAttribute, finishEditing } from "./editing";
+import { attributeFromDraft, draftFromAttribute, finishEditing } from "./editing";
 import * as Enums from "./enums";
 import {
   amendDocument,
@@ -118,4 +119,43 @@ export const addAttribute = (model: Model, entityId: string): UpdateReturn =>
 export const deleteAttribute = (model: Model, entityId: string, attributeId: string): Model =>
   reconcile(
     commitDocument(model, (document) => Doc.deleteAttribute(document, entityId, attributeId)),
+  );
+
+/** "New enum…" in the field type picker: one undoable step creates an enum
+ *  named after the field, types the field by it with the rest of the draft
+ *  saved, and opens the enum's blank first value for naming. Saving that
+ *  value folds into the same step. */
+export const addEnumForAttribute = (model: Model): UpdateReturn =>
+  EditorState.matchOrElse(
+    model.editor,
+    {
+      EditingAttribute: ({ entityId, attributeId, draft }) =>
+        pipe(
+          Doc.findEntity(present(model), entityId),
+          Option.flatMap((entity) => Doc.findAttribute(entity, attributeId)),
+          Option.match({
+            onNone: () => ({ model }),
+            onSome: (attribute) => {
+              const typeId = Doc.nextId(present(model), "t");
+              const valueId = Doc.nextId(present(model), "v");
+              return Enums.startEditingValue(
+                commitDocument(model, (document) =>
+                  Doc.addEnumForAttribute(
+                    document,
+                    entityId,
+                    attributeFromDraft(attribute, draft),
+                    typeId,
+                    valueId,
+                    enumNameForAttribute(draft.name),
+                  ),
+                ),
+                typeId,
+                valueId,
+                "Amend",
+              );
+            },
+          }),
+        ),
+    },
+    () => ({ model }),
   );

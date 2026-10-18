@@ -6,7 +6,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 - Launch with `.agents/skills/verify-domain-modeler/scripts/verify.sh launch` (web mode unless the feature says otherwise).
 - `.agents/skills/verify-domain-modeler/scripts/verify.sh doctor` reports `doctor: OK`.
-- The canvas shows the `Blog` sample: entities `User`, `Post`, `Tag`; a collapsed enum card `Enum Role` (values `reader`, `author`, `admin`) below `User`; edges `Relationship writes 1:0..*` and `Relationship tagged 0..*:0..*`; `Undo` and `Redo` disabled.
+- The canvas shows the `Blog` sample: entities `User`, `Post`, `Tag`; a collapsed enum card `Enum Role` (values `reader`, `author`, `admin`) below `User`, which types `User.role`; edges `Relationship writes 1:0..*` and `Relationship tagged 0..*:0..*`; `Undo` and `Redo` disabled.
 - `ab …` in every recipe means `.agents/skills/verify-domain-modeler/scripts/verify.sh ab …`, which aims `agent-browser` at the latest run's session.
 - Never drive an instance this run did not launch (in particular nothing on port 1420).
 
@@ -41,8 +41,8 @@ Keep implementation details out of the map. Name only user paths, stable handles
 ## Features
 
 - [Create an entity](./create-entity.md) covers keyboard and toolbar creation, cancel, delete, and undo.
-- [Edit fields](./edit-fields.md) covers adding, editing, and cancelling fields on an entity.
-- [Enums](./enums.md) covers enum cards: create, rename, values, reorder, drag, delete, and undo.
+- [Edit fields](./edit-fields.md) covers adding, editing, and cancelling fields on an entity, including typing a field by an enum and "New enum…".
+- [Enums](./enums.md) covers enum cards: create, rename, values, reorder, drag, delete, undo, and "used by" highlighting.
 - [Connect entities](./connect-entities.md) covers port-drag relationship creation and the relationship inspector.
 - [Undo and redo](./undo-redo.md) covers toolbar and keyboard history across discrete edits.
 - [Open and save files](./files.md) covers native file dialogs. Desktop only; web mode can only prove the refusal notice.

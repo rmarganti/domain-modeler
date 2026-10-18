@@ -7,18 +7,32 @@ import type { AssociationDefinition, DomainModelDocument, EndIndex, Multiplicity
 // Role names are derived, never stored, unless the user overrides them. This
 // is the only module that knows about English plurals.
 
+const words = (name: string): ReadonlyArray<string> =>
+  Array.filter(name.split(/[^\p{L}\p{N}]+/u), (word) => word !== "");
+
+const capitalize = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
+
 /** `"Line Item"` → `lineItem`. Splits on anything that isn't a letter or
  *  digit and keeps each word's casing apart from its first letter. */
 export const toCamelCase = (name: string): string =>
   pipe(
-    name.split(/[^\p{L}\p{N}]+/u),
-    Array.filter((word) => word !== ""),
-    Array.map(
-      (word, index) =>
-        (index === 0 ? word.charAt(0).toLowerCase() : word.charAt(0).toUpperCase()) + word.slice(1),
+    words(name),
+    Array.map((word, index) =>
+      index === 0 ? word.charAt(0).toLowerCase() + word.slice(1) : capitalize(word),
     ),
     Array.join(""),
   );
+
+/** `"order status"` → `OrderStatus`, splitting words like {@link toCamelCase}. */
+export const toPascalCase = (name: string): string =>
+  pipe(words(name), Array.map(capitalize), Array.join(""));
+
+/** The name of an enum created from a field: the field name in PascalCase,
+ *  or `NewEnum` when that is blank. */
+export const enumNameForAttribute = (attributeName: string): string => {
+  const name = toPascalCase(attributeName);
+  return name === "" ? "NewEnum" : name;
+};
 
 export const defaultRole = (entityName: string, multiplicity: Multiplicity): string => {
   const role = toCamelCase(entityName);

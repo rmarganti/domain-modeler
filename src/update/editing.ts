@@ -1,4 +1,4 @@
-import { Array, Option, pipe } from "effect";
+import { Option, pipe } from "effect";
 
 import * as Doc from "../domain/document";
 import type { AttributeDefinition, EnumValue, Multiplicity, Point } from "../domain/schema";
@@ -8,8 +8,10 @@ import {
   type Model,
   type AttributeDraft,
   type EnumValueDraft,
+  type EnumValueSave,
 } from "../model";
 import {
+  amendDocument,
   commitDocument,
   deselect,
   present,
@@ -27,34 +29,21 @@ import {
 export const draftFromAttribute = (attribute: AttributeDefinition): AttributeDraft => ({
   name: attribute.name,
   type: attribute.type,
-  literalOptions: (attribute.literalOptions ?? []).join(", "),
   multiplicity: attribute.multiplicity,
   unique: attribute.unique,
 });
-
-const parseLiteralOptions = (text: string): ReadonlyArray<string> =>
-  pipe(
-    text.split(","),
-    Array.map((option) => option.trim()),
-    Array.filter((option) => option !== ""),
-    Array.dedupe,
-  );
 
 export const attributeFromDraft = (
   attribute: AttributeDefinition,
   draft: AttributeDraft,
 ): AttributeDefinition => {
-  const { literalOptions: _literalOptions, ...rest } = attribute;
   const name = draft.name.trim();
   return {
-    ...rest,
+    ...attribute,
     name: name === "" ? attribute.name : name,
     type: draft.type,
     multiplicity: draft.multiplicity,
     unique: draft.unique,
-    ...(draft.type === "Literal"
-      ? { literalOptions: parseLiteralOptions(draft.literalOptions) }
-      : {}),
   };
 };
 
@@ -173,6 +162,7 @@ const commitEnumValueEdit = (
   typeId: string,
   valueId: string,
   draft: EnumValueDraft,
+  save: EnumValueSave,
 ): Model =>
   pipe(
     Doc.findEnum(present(model), typeId),
@@ -181,8 +171,9 @@ const commitEnumValueEdit = (
       onNone: () => toIdle(model),
       onSome: (value) => {
         const name = draft.name.trim();
+        const apply = save === "Amend" ? amendDocument : commitDocument;
         return toIdle(
-          commitDocument(model, (document) =>
+          apply(model, (document) =>
             Doc.updateEnumValue(
               document,
               typeId,
@@ -208,8 +199,8 @@ export const finishEditing = (model: Model): Model =>
       commitAttributeEdit(model, entityId, attributeId, draft),
     CreatingEnum: ({ position, draftName }) => commitCreateEnum(model, position, draftName),
     RenamingEnum: ({ typeId, draftName }) => commitRenameEnum(model, typeId, draftName),
-    EditingEnumValue: ({ typeId, valueId, draft }) =>
-      commitEnumValueEdit(model, typeId, valueId, draft),
+    EditingEnumValue: ({ typeId, valueId, draft, save }) =>
+      commitEnumValueEdit(model, typeId, valueId, draft, save),
     EditingAssociation: () => toIdle(model),
     ConnectingAssociation: () => toIdle(model),
     DraggingNode: () => model,

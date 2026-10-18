@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
-import { DomainModelDocument, EndIndex, Multiplicity, Primitive } from "./domain/schema";
+import { AttributeType, DomainModelDocument, EndIndex, Multiplicity } from "./domain/schema";
 
 const PointerFields = {
   button: Schema.Number,
@@ -82,14 +82,15 @@ export const Message = defineMessageUnion({
     direction: MoveDirection,
   },
   UpdatedAttributeDraftName: { name: Schema.String },
-  SelectedAttributeDraftType: { type: Primitive },
+  SelectedAttributeDraftType: { type: AttributeType },
+  SelectedAttributeDraftNewEnum: {},
   SelectedAttributeDraftMultiplicity: { multiplicity: Multiplicity },
   ToggledAttributeDraftUnique: {},
-  UpdatedAttributeDraftLiteralOptions: { text: Schema.String },
   ClickedSaveAttribute: {},
   ClickedCancelEdit: {},
 
   // Enums
+  ClickedGoToEnum: { typeId: Schema.String },
   DoubleClickedEnumName: { typeId: Schema.String },
   UpdatedEnumDraftName: { name: Schema.String },
   ClickedDeleteEnum: { typeId: Schema.String },

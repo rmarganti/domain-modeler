@@ -111,16 +111,16 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       updateAttributeDraft(model, (draft) => ({ ...draft, name })),
     SelectedAttributeDraftType: ({ type }) =>
       updateAttributeDraft(model, (draft) => ({ ...draft, type })),
+    SelectedAttributeDraftNewEnum: () => Entities.addEnumForAttribute(model),
     SelectedAttributeDraftMultiplicity: ({ multiplicity }) =>
       updateAttributeDraft(model, (draft) => selectDraftMultiplicity(draft, multiplicity)),
     ToggledAttributeDraftUnique: () => updateAttributeDraft(model, toggleDraftUnique),
-    UpdatedAttributeDraftLiteralOptions: ({ text }) =>
-      updateAttributeDraft(model, (draft) => ({ ...draft, literalOptions: text })),
     ClickedSaveAttribute: () => ({ model: finishEditing(model) }),
     ClickedCancelEdit: () => ({ model: cancelEditing(model) }),
 
     // Enums
 
+    ClickedGoToEnum: ({ typeId }) => ({ model: Enums.select(model, typeId) }),
     DoubleClickedEnumName: ({ typeId }) => Enums.startRenaming(model, typeId),
     UpdatedEnumDraftName: ({ name }) => Enums.updateDraftName(model, name),
     ClickedDeleteEnum: ({ typeId }) => ({

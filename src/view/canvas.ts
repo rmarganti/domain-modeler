@@ -64,6 +64,9 @@ export const canvasView = (
   const maybeEditingValueId =
     editor._tag === "EditingEnumValue" ? Option.some(editor.valueId) : Option.none<string>();
 
+  const maybeSelectedTypeId =
+    selection._tag === "SelectedEnum" ? Option.some(selection.typeId) : Option.none<string>();
+
   const edges = Array.getSomes(
     Array.map(document.associations, (association) =>
       edgeGeometry(document, association, editor, router),
@@ -139,11 +142,13 @@ export const canvasView = (
             Array.map(document.entities, (entity) =>
               Option.map(Option.fromNullishOr(document.layout.nodes[entity.id]), (layout) =>
                 nodeView(h, entity, layout, {
+                  document,
                   editor,
                   isSelected:
                     selection._tag === "SelectedEntity" && selection.entityId === entity.id,
                   diagnostics,
                   maybeEditingAttributeId,
+                  maybeSelectedTypeId,
                 }),
               ),
             ),

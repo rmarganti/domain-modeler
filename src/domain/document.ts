@@ -4,23 +4,27 @@ import {
   COLLAPSED_NODE_WIDTH,
   NODE_HEADER_HEIGHT,
   cardRects,
+  enumRect,
   nearestFreePosition,
   nextStaggerPosition,
+  nodeRect,
 } from "./geometry";
-import type {
-  AssociationDefinition,
-  AssociationEnd,
-  DomainLayout,
-  DomainModelDocument,
-  EndIndex,
-  EntityDefinition,
-  EnumDefinition,
-  EnumValue,
-  Multiplicity,
-  NodeLayout,
-  Point,
-  AttributeDefinition,
-  ViewportLayout,
+import {
+  isTypeRef,
+  type AssociationDefinition,
+  type AssociationEnd,
+  type AttributeType,
+  type DomainLayout,
+  type DomainModelDocument,
+  type EndIndex,
+  type EntityDefinition,
+  type EnumDefinition,
+  type EnumValue,
+  type Multiplicity,
+  type NodeLayout,
+  type Point,
+  type AttributeDefinition,
+  type ViewportLayout,
 } from "./schema";
 
 // CONSTRUCTION
@@ -96,6 +100,16 @@ export const findAssociation = (
   associationId: string,
 ): Option.Option<AssociationDefinition> =>
   Array.findFirst(document.associations, (association) => association.id === associationId);
+
+/** How an attribute's type reads: the primitive's name, the referenced enum's
+ *  name, or `?` when the reference dangles. */
+export const attributeTypeLabel = (document: DomainModelDocument, type: AttributeType): string =>
+  isTypeRef(type)
+    ? Option.match(findEnum(document, type.typeId), {
+        onNone: () => "?",
+        onSome: (definition) => definition.name,
+      })
+    : type;
 
 /** The layout node of an entity or type card. */
 export const findNode = (
@@ -315,7 +329,64 @@ export const renameEnum = (
   name: string,
 ): DomainModelDocument => mapEnum(document, typeId, (definition) => ({ ...definition, name }));
 
-/** Removes an enum and its layout node. */
+/** The gap between an entity card and an enum created from one of its
+ *  fields. */
+const NEW_ENUM_GAP = 40;
+
+/** Creates an enum for an attribute in one step: the enum, with one blank
+ *  first value, sits expanded to the right of the entity's card, and the
+ *  attribute (`attribute` replaces the one with its ID) is typed by it. */
+export const addEnumForAttribute = (
+  document: DomainModelDocument,
+  entityId: string,
+  attribute: AttributeDefinition,
+  typeId: string,
+  valueId: string,
+  name: string,
+): DomainModelDocument => {
+  const definition: EnumDefinition = {
+    id: typeId,
+    kind: "Enum",
+    name,
+    values: [{ id: valueId, name: "" }],
+  };
+  const preferred = pipe(
+    Option.all([findEntity(document, entityId), findNode(document, entityId)]),
+    Option.match({
+      onNone: () => nextStaggerPosition(nodePositions(document.layout.nodes)),
+      onSome: ([entity, node]) => {
+        const rect = nodeRect(entity, node, Option.none());
+        return { x: rect.x + rect.width + NEW_ENUM_GAP, y: rect.y };
+      },
+    }),
+  );
+  const { width, height } = enumRect(
+    definition,
+    { position: preferred, isExpanded: true },
+    Option.none(),
+  );
+  return replaceAttribute(
+    {
+      ...document,
+      types: [...document.types, definition],
+      layout: {
+        ...document.layout,
+        nodes: {
+          ...document.layout.nodes,
+          [typeId]: {
+            position: nearestFreePosition(preferred, { width, height }, cardRects(document)),
+            isExpanded: true,
+          },
+        },
+      },
+    },
+    entityId,
+    { ...attribute, type: { typeId } },
+  );
+};
+
+/** Removes an enum and its layout node. Attributes typed by it are left
+ *  dangling, which a diagnostic reports; undo is the way back. */
 export const deleteEnum = (document: DomainModelDocument, typeId: string): DomainModelDocument => ({
   ...document,
   types: Array.filter(document.types, (definition) => definition.id !== typeId),
@@ -581,8 +652,7 @@ export const sampleDocument: DomainModelDocument = {
         {
           id: "p4",
           name: "role",
-          type: "Literal",
-          literalOptions: ["reader", "author", "admin"],
+          type: { typeId: "t1" },
           multiplicity: { min: 1, max: "one" },
           unique: false,
         },

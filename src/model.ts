@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { History } from "./domain/history";
-import { Multiplicity, Point, Primitive } from "./domain/schema";
+import { AttributeType, Multiplicity, Point } from "./domain/schema";
 
 // EDITOR STATE MACHINE
 // The editor never tracks interaction with boolean flags: exactly one of these
@@ -10,8 +10,7 @@ import { Multiplicity, Point, Primitive } from "./domain/schema";
 
 export const AttributeDraft = Schema.Struct({
   name: Schema.String,
-  type: Primitive,
-  literalOptions: Schema.String,
+  type: AttributeType,
   multiplicity: Multiplicity,
   unique: Schema.Boolean,
 });
@@ -22,6 +21,12 @@ export const EnumValueDraft = Schema.Struct({
   description: Schema.String,
 });
 export type EnumValueDraft = typeof EnumValueDraft.Type;
+
+/** How saving an enum value edit lands in history. `Amend` folds it into the
+ *  latest snapshot: the first value of an enum made with "New enum…" is part
+ *  of that one undo step. */
+export const EnumValueSave = Schema.Literals(["Commit", "Amend"]);
+export type EnumValueSave = typeof EnumValueSave.Type;
 
 export const EditorState = defineTaggedUnion({
   Idle: {},
@@ -38,6 +43,7 @@ export const EditorState = defineTaggedUnion({
     typeId: Schema.String,
     valueId: Schema.String,
     draft: EnumValueDraft,
+    save: EnumValueSave,
   },
   ConnectingAssociation: {
     fromEntityId: Schema.String,

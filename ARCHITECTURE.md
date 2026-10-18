@@ -31,16 +31,20 @@ export const Primitive = Schema.Literals([
   "Date",
   "DateTime",
   "Json",
-  "Literal", // temporary: replaced by enums
 ]);
 export type Primitive = typeof Primitive.Type;
+
+export const TypeRef = Schema.Struct({ typeId: Schema.String }); // an entry of `types`
+export type TypeRef = typeof TypeRef.Type;
+
+export const AttributeType = Schema.Union([Primitive, TypeRef]);
+export type AttributeType = typeof AttributeType.Type;
 
 export const AttributeDefinition = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   description: Schema.optional(Schema.String),
-  type: Primitive,
-  literalOptions: Schema.optional(Schema.Array(Schema.String)), // temporary: replaced by enums
+  type: AttributeType,
   multiplicity: Multiplicity,
   unique: Schema.Boolean,
 });
@@ -91,7 +95,7 @@ export type AssociationDefinition = typeof AssociationDefinition.Type;
 
 Entity identity is implicit: every entity is distinguishable without an ID attribute, so there is no primary key flag; business keys are expressed with `unique`. An association connects two entities and nothing else; it never references individual attributes. Foreign keys and join tables are a concern of future exporters, which can derive them from the association's ends.
 
-Enums live in the document's top-level `types` collection. An enum is only its `types` entry plus its `layout.nodes` card; nothing on an entity points at it yet, which keeps enums movable to a separate view later. Entity and enum names share one namespace (see §8). IDs are derived from the document with one prefix per kind: `e` entities, `p` attributes, `t` types, `v` enum values, `r` associations.
+Enums live in the document's top-level `types` collection. An enum is only its `types` entry plus its `layout.nodes` card, and the only thing that points at it is an attribute typed `{ typeId }`; that keeps enums movable to a separate view later. `isTypeRef` (`schema.ts`) tells a reference from a primitive, and `attributeTypeLabel` (`document.ts`) reads a type as the primitive's name, the enum's name, or `?` for a dangling reference. Deleting an enum does not retype the attributes that use it: they dangle, a diagnostic reports it (§8), and undo is the way back. `unique` is allowed on an enum-typed attribute. Entity and enum names share one namespace (see §8). IDs are derived from the document with one prefix per kind: `e` entities, `p` attributes, `t` types, `v` enum values, `r` associations.
 
 The code and the file format say "association" and "attribute"; everything the user sees says "Relationship" and "field".
 
@@ -183,6 +187,9 @@ A domain validation pass ensures that:
 - The footer has `+ Add value` and `Delete <Name>`. The toolbar's `+ Enum` button (aria-label `Create enum`) starts naming a new enum at the viewport center.
 - Enum cards have no ports and carry `data-type-id`, never `data-entity-id`, so they are not relationship drop targets: releasing a connection over one cancels it, as on empty canvas.
 - Enum cards are dragged by the header and selected like entity cards; every change is undoable.
+- **Field typing.** The field editor's `Field type` select groups its options: `Primitives`, then `Enums` (every enum by name, option value `type:<id>`; left out when there are none), then `New enum…`. A field whose enum no longer exists shows a disabled, selected `?`. On an expanded entity, an enum-typed field shows the enum's name as a link-like button (`Go to enum <Name>`) that selects the enum card without moving the camera; the button stays put on hover (the row reserves room for its actions), and a dangling type reads `?` with a warning.
+- **New enum….** Choosing it is one undo step: `addEnumForAttribute` creates an enum named after the field (PascalCase via `naming.ts`'s `enumNameForAttribute`, `NewEnum` when blank) with one blank value, places it expanded to the right of the entity card, and saves the field's draft typed `{ typeId }`. The editor moves to `EditingEnumValue` on that value with `save: "Amend"`, so naming the value folds into the same snapshot: one `u` removes the enum and restores the field. Escape leaves the blank value in place as an empty row; no diagnostic flags a blank value name yet.
+- **Used-by highlight.** While an enum card is selected, the rows of fields typed by it get a highlight and the attribute `data-uses-selected-type`. There are no connector lines.
 
 ### 4.4 Port Drag-and-Drop Connection
 
@@ -234,6 +241,7 @@ export type EditorState =
       readonly typeId: string;
       readonly valueId: string;
       readonly draft: { name: string; description: string };
+      readonly save: "Commit" | "Amend"; // Amend: the first value of a "New enum…"
     }
   | {
       readonly _tag: "ConnectingAssociation";
@@ -301,6 +309,7 @@ Live schema validation runs in the background on every model update and reports 
 - **Duplicate Enum Value Names** (`DuplicateEnumValueName { typeId, valueId, name }`): flagged on the value row and the enum card ("Duplicate value name “…”").
 - **Empty Enums** (`EmptyEnum { typeId }`): an enum with no values is flagged on its card ("Enum has no values").
 - **Duplicate Attribute Names** (`DuplicateAttributeName`): flagged on the field row ("Duplicate field name “…”").
+- **Dangling Type References** (`DanglingTypeReference { entityId, attributeId, typeId }`): a field typed by an enum that no longer exists, as after deleting the enum, is flagged on its field row and entity card ("Enum “…” does not exist").
 - **Unique Lists** (`UniqueOnList`): a loaded file with an attribute that is both `unique` and `max: "many"` is flagged on its field row ("A list field can't be unique"). The editor can't produce this combination.
 - **Dangling References** (`DanglingEntityReference`): an edge whose end entity no longer exists is flagged with a warning badge ("Entity “…” at end 1 does not exist").
 - **Role Clashes** (`RoleClash`): for each entity, its attribute names and the effective role of the far end of every association touching it (both roles for a self association) must be unique, case-insensitively. Every association end whose role collides is flagged on its edge ("Role “posts” clashes on User"); giving the end an explicit role clears it.
