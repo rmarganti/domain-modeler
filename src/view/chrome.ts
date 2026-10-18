@@ -65,6 +65,11 @@ export const statusPill = (editor: EditorState): StatusPill =>
       className: "bg-slate-800 text-white",
       hint: "c create · d delete · i edit · u undo · ⌃r redo · space+drag pan",
     }),
+    ChoosingNew: () => ({
+      label: "NEW",
+      className: "bg-emerald-600 text-white",
+      hint: "↑↓ choose · Enter pick · 1 entity · 2 enum · Esc cancel",
+    }),
     CreatingEntity: () => ({
       label: "CREATING",
       className: "bg-emerald-600 text-white",
@@ -168,6 +173,7 @@ export const toolbarView = (
       toolbarButton(h, {
         label: "New model",
         content: "New",
+        shortcut: "⌘N",
         onClick: Message.ClickedNewDocument(),
       }),
       toolbarButton(h, {
@@ -245,7 +251,7 @@ export const toolbarView = (
         [
           h.Type("button"),
           h.AriaLabel("Create enum"),
-          h.Title("Create enum"),
+          h.Title("Create enum (c)"),
           h.OnClick(Message.ClickedAddEnum()),
           h.Class(
             "rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-violet-700",

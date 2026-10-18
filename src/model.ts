@@ -28,8 +28,14 @@ export type EnumValueDraft = typeof EnumValueDraft.Type;
 export const EnumValueSave = Schema.Literals(["Commit", "Amend"]);
 export type EnumValueSave = typeof EnumValueSave.Type;
 
+/** What the "New…" chooser creates, in the order it lists them. */
+export const NewKind = Schema.Literals(["Entity", "Enum"]);
+export type NewKind = typeof NewKind.Type;
+
 export const EditorState = defineTaggedUnion({
   Idle: {},
+  /** The "New…" chooser is open; picking creates a card at `position`. */
+  ChoosingNew: { position: Point, highlighted: NewKind },
   CreatingEntity: { position: Point, draftName: Schema.String },
   RenamingEntity: { entityId: Schema.String, draftName: Schema.String },
   EditingAttribute: {

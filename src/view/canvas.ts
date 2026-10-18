@@ -183,6 +183,7 @@ export const canvasView = (
 
       ...(Array.isReadonlyArrayNonEmpty(document.entities) ||
       Array.isReadonlyArrayNonEmpty(document.types) ||
+      editor._tag === "ChoosingNew" ||
       editor._tag === "CreatingEntity" ||
       editor._tag === "CreatingEnum"
         ? []
@@ -205,7 +206,7 @@ const emptyState = (h: HtmlBuilder<Message>): Html =>
           h.p([h.Class("text-sm font-semibold text-slate-700")], ["An empty domain"]),
           h.p(
             [h.Class("mt-1 text-xs text-slate-500")],
-            ["Press C to create an entity, or open an existing model with ⌘O."],
+            ["Press C to create an entity or enum, or open an existing model with ⌘O."],
           ),
         ],
       ),

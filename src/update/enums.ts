@@ -2,6 +2,7 @@ import { Option, pipe } from "effect";
 
 import { ENUM_NAME_INPUT_ID, ENUM_VALUE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
+import type { Point } from "../domain/schema";
 import { EditorState, Selection, type EnumValueSave, type Model } from "../model";
 import { draftFromEnumValue, finishEditing } from "./editing";
 import {
@@ -17,17 +18,17 @@ import {
 
 // ENUMS
 
-export const startCreating = (model: Model): UpdateReturn => {
-  const ready = finishEditing(model);
-  return {
-    model: {
-      ...ready,
-      editor: EditorState.CreatingEnum({ position: newCardPosition(ready), draftName: "" }),
-      selection: Selection.NoSelection(),
-    },
-    commands: [focus(ENUM_NAME_INPUT_ID)],
-  };
-};
+export const startCreatingAt = (model: Model, position: Point): UpdateReturn => ({
+  model: {
+    ...finishEditing(model),
+    editor: EditorState.CreatingEnum({ position, draftName: "" }),
+    selection: Selection.NoSelection(),
+  },
+  commands: [focus(ENUM_NAME_INPUT_ID)],
+});
+
+export const startCreating = (model: Model): UpdateReturn =>
+  startCreatingAt(model, newCardPosition(model));
 
 export const startRenaming = (model: Model, typeId: string): UpdateReturn =>
   Option.match(Doc.findEnum(present(model), typeId), {

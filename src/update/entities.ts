@@ -2,6 +2,7 @@ import { Option, pipe } from "effect";
 
 import { ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
+import type { Point } from "../domain/schema";
 import { enumNameForAttribute } from "../domain/naming";
 import { EditorState, Selection, type Model } from "../model";
 import { attributeFromDraft, draftFromAttribute, finishEditing } from "./editing";
@@ -18,17 +19,17 @@ import {
 
 // ENTITIES
 
-export const startCreating = (model: Model): UpdateReturn => {
-  const ready = finishEditing(model);
-  return {
-    model: {
-      ...ready,
-      editor: EditorState.CreatingEntity({ position: newCardPosition(ready), draftName: "" }),
-      selection: Selection.NoSelection(),
-    },
-    commands: [focus(ENTITY_NAME_INPUT_ID)],
-  };
-};
+export const startCreatingAt = (model: Model, position: Point): UpdateReturn => ({
+  model: {
+    ...finishEditing(model),
+    editor: EditorState.CreatingEntity({ position, draftName: "" }),
+    selection: Selection.NoSelection(),
+  },
+  commands: [focus(ENTITY_NAME_INPUT_ID)],
+});
+
+export const startCreating = (model: Model): UpdateReturn =>
+  startCreatingAt(model, newCardPosition(model));
 
 export const startRenaming = (model: Model, entityId: string): UpdateReturn =>
   Option.match(Doc.findEntity(present(model), entityId), {

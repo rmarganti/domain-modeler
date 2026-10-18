@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
 import { AttributeType, DomainModelDocument, EndIndex, Multiplicity } from "./domain/schema";
+import { NewKind } from "./model";
 
 const PointerFields = {
   button: Schema.Number,
@@ -14,7 +15,8 @@ export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
 
 export const Message = defineMessageUnion({
   // Keyboard
-  PressedCreateEntityKey: {},
+  PressedNewKey: {},
+  PressedNewDocumentKey: {},
   PressedDeleteKey: {},
   PressedUndoKey: {},
   PressedRedoKey: {},
@@ -26,6 +28,10 @@ export const Message = defineMessageUnion({
   PressedOpenKey: {},
   PressedSpace: {},
   ReleasedSpace: {},
+
+  // New… chooser
+  MovedChooserHighlight: { direction: MoveDirection },
+  PickedNew: { kind: NewKind },
 
   // Pointer & canvas
   PressedCanvas: PointerFields,

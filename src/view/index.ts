@@ -4,6 +4,7 @@ import { diagnose } from "../domain/diagnostics";
 import type { Message } from "../message";
 import type { Model } from "../model";
 import { canvasView } from "./canvas";
+import { chooserView } from "./chooser";
 import { hudView, noticeView, toolbarView } from "./chrome";
 
 export const windowTitle = (model: Model): string =>
@@ -23,6 +24,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         hudView(model, h),
         ...noticeView(model, h),
         toolbarView(model, diagnostics, h),
+        ...chooserView(model, h),
       ],
     ),
   };

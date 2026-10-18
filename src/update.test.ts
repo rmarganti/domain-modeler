@@ -8,6 +8,7 @@ import * as History from "./domain/history";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
 import { EditorState, Selection, type Model } from "./model";
+import { bindingsFor, toKeyMode } from "./subscription";
 import { update } from "./update";
 
 // Viewport at pan (0, 0) and zoom 1, so screen and world coordinates match.
@@ -152,12 +153,202 @@ describe("canvas", () => {
   });
 });
 
+describe("new chooser", () => {
+  const chosen = (m: Model) => (m.editor._tag === "ChoosingNew" ? m.editor.highlighted : undefined);
+
+  test("c opens the chooser at the viewport center with Entity highlighted", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.PressedNewKey()),
+      model((m) => {
+        expect(m.editor).toEqual(
+          EditorState.ChoosingNew({ position: { x: 500, y: 378 }, highlighted: "Entity" }),
+        );
+        expect(m.history).toBe(baseModel.history);
+      }),
+    );
+  });
+
+  test("c closes the relationship inspector and uses the transformed viewport center", () => {
+    const inspecting: Model = {
+      ...baseModel,
+      editor: EditorState.EditingAssociation({ associationId: "r1" }),
+      history: History.init(
+        Doc.setViewport(Doc.sampleDocument, { pan: { x: 100, y: -40 }, zoom: 2 }),
+      ),
+    };
+    const opened = update(inspecting, Message.PressedNewKey()).model;
+    expect(opened.editor).toEqual(
+      EditorState.ChoosingNew({ position: { x: 150, y: 198 }, highlighted: "Entity" }),
+    );
+    expect(opened.history).toBe(inspecting.history);
+  });
+
+  test("arrow keys move the highlight and wrap", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.PressedNewKey()),
+      message(Message.MovedChooserHighlight({ direction: "Down" })),
+      model((m) => expect(chosen(m)).toBe("Enum")),
+      message(Message.MovedChooserHighlight({ direction: "Down" })),
+      model((m) => expect(chosen(m)).toBe("Entity")),
+      message(Message.MovedChooserHighlight({ direction: "Up" })),
+      model((m) => expect(chosen(m)).toBe("Enum")),
+    );
+  });
+
+  test("picking Entity starts creating an entity at the stored position", () => {
+    const position = { x: 23, y: 47 };
+    const opened = {
+      ...baseModel,
+      editor: EditorState.ChoosingNew({ position, highlighted: "Entity" }),
+    };
+    story(
+      update,
+      given(opened),
+      message(Message.PickedNew({ kind: "Entity" })),
+      Command.expectExact(FocusInput),
+      focused,
+      model((m) =>
+        expect(m.editor).toEqual(EditorState.CreatingEntity({ position, draftName: "" })),
+      ),
+    );
+  });
+
+  test("Enter picks the highlighted option, so Enum after ArrowDown", () => {
+    const position = { x: -75, y: 125 };
+    const opened = {
+      ...baseModel,
+      editor: EditorState.ChoosingNew({ position, highlighted: "Entity" }),
+    };
+    story(
+      update,
+      given(opened),
+      message(Message.MovedChooserHighlight({ direction: "Down" })),
+      message(Message.PressedEnterKey()),
+      focused,
+      model((m) => expect(m.editor).toEqual(EditorState.CreatingEnum({ position, draftName: "" }))),
+    );
+  });
+
+  test("picking Enum starts creating an enum at the stored position", () => {
+    const position = { x: 31, y: -58 };
+    story(
+      update,
+      given({
+        ...baseModel,
+        editor: EditorState.ChoosingNew({ position, highlighted: "Entity" }),
+      }),
+      message(Message.PickedNew({ kind: "Enum" })),
+      Command.expectExact(FocusInput),
+      focused,
+      model((m) => expect(m.editor).toEqual(EditorState.CreatingEnum({ position, draftName: "" }))),
+    );
+  });
+
+  test("Escape returns to Idle without touching the document or history", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.PressedNewKey()),
+      message(Message.PressedEscapeKey()),
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.Idle());
+        expect(m.history.present).toBe(baseModel.history.present);
+        expect(m.history.past).toHaveLength(0);
+        expect(m.saveStatus).toBe("Clean");
+      }),
+    );
+  });
+
+  test("clicking outside the chooser cancels it", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.PressedNewKey()),
+      message(Message.ClickedCancelEdit()),
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.Idle());
+        expect(m.history).toBe(baseModel.history);
+      }),
+    );
+  });
+
+  test("the New Document key behaves like the New model button, including during a draft", () => {
+    for (const editor of [
+      EditorState.Idle(),
+      EditorState.ChoosingNew({ position: { x: 0, y: 0 }, highlighted: "Enum" }),
+      EditorState.CreatingEntity({ position: { x: 0, y: 0 }, draftName: "Unsaved" }),
+    ]) {
+      const current = { ...baseModel, editor };
+      const viaKey = update(current, Message.PressedNewDocumentKey());
+      const viaButton = update(current, Message.ClickedNewDocument());
+      expect(viaKey.model).toEqual(viaButton.model);
+      expect(viaKey.commands).toEqual(viaButton.commands);
+      expect(viaKey.commands).toEqual([ForgetActiveFile()]);
+      expect(viaKey.model.editor).toEqual(EditorState.Idle());
+      expect(viaKey.model.history.present.entities).toHaveLength(0);
+      expect(viaKey.model.history.present.types).toHaveLength(0);
+      expect(viaKey.model.history.present.name).toBe("Untitled");
+    }
+  });
+});
+
+describe("key bindings", () => {
+  const dispatched = (mode: Parameters<typeof bindingsFor>[0], keys: string) =>
+    bindingsFor(mode)
+      .filter((binding) => binding.keys === keys)
+      .map((binding) => binding.mapEvent(new KeyboardEvent("keydown"))._tag);
+
+  test("c in Normal mode opens the chooser", () => {
+    expect(toKeyMode(EditorState.Idle())).toBe("Normal");
+    expect(toKeyMode(EditorState.EditingAssociation({ associationId: "a1" }))).toBe("Normal");
+    expect(dispatched("Normal", "C")).toEqual(["PressedNewKey"]);
+  });
+
+  test("Text mode has no creation binding, so c types normally", () => {
+    expect(toKeyMode(EditorState.CreatingEntity({ position: { x: 0, y: 0 }, draftName: "" }))).toBe(
+      "Text",
+    );
+    expect(dispatched("Text", "C")).toEqual([]);
+    expect(
+      bindingsFor("Text").some(
+        (binding) => binding.mapEvent(new KeyboardEvent("keydown"))._tag === "PressedNewKey",
+      ),
+    ).toBe(false);
+  });
+
+  test("Mod+N is New Document in every file-capable mode, including while typing", () => {
+    for (const mode of ["Normal", "Text", "Choosing"] as const) {
+      const binding = bindingsFor(mode).find((candidate) => candidate.keys === "Mod+N");
+      expect(binding?.whileTyping).toBe("Allow");
+      expect(binding?.mapEvent(new KeyboardEvent("keydown"))._tag).toBe("PressedNewDocumentKey");
+    }
+  });
+
+  test("the chooser keys", () => {
+    expect(
+      toKeyMode(EditorState.ChoosingNew({ position: { x: 0, y: 0 }, highlighted: "Entity" })),
+    ).toBe("Choosing");
+    expect(dispatched("Choosing", "ArrowDown")).toEqual(["MovedChooserHighlight"]);
+    expect(dispatched("Choosing", "ArrowUp")).toEqual(["MovedChooserHighlight"]);
+    expect(dispatched("Choosing", "1")).toEqual(["PickedNew"]);
+    expect(dispatched("Choosing", "2")).toEqual(["PickedNew"]);
+    expect(dispatched("Choosing", "Enter")).toEqual(["PressedEnterKey"]);
+    expect(dispatched("Choosing", "Escape")).toEqual(["PressedEscapeKey"]);
+    expect(dispatched("Choosing", "C")).toEqual([]);
+  });
+});
+
 describe("entities", () => {
   test("c, typing, and Enter create a selected entity", () => {
     story(
       update,
       given(baseModel),
-      message(Message.PressedCreateEntityKey()),
+      message(Message.PressedNewKey()),
+      message(Message.PressedEnterKey()),
       focused,
       model((m) => expect(m.editor._tag).toBe("CreatingEntity")),
       message(Message.UpdatedEntityDraftName({ name: "  Comment " })),
@@ -176,7 +367,8 @@ describe("entities", () => {
     story(
       update,
       given(baseModel),
-      message(Message.PressedCreateEntityKey()),
+      message(Message.PressedNewKey()),
+      message(Message.PickedNew({ kind: "Entity" })),
       focused,
       message(Message.UpdatedEntityDraftName({ name: "Comment" })),
       message(Message.PressedEscapeKey()),

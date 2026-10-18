@@ -40,6 +40,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
+- [New chooser](./new-chooser.md) covers `c`, Entity/Enum selection, cancellation, text input, and `Meta+n` for a new model.
 - [Create an entity](./create-entity.md) covers keyboard and toolbar creation, cancel, delete, and undo.
 - [Edit fields](./edit-fields.md) covers adding, editing, and cancelling fields on an entity, including typing a field by an enum and "New enum…".
 - [Enums](./enums.md) covers enum cards: create, rename, values, reorder, drag, delete, undo, and "used by" highlighting.

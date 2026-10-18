@@ -188,11 +188,12 @@ const commitEnumValueEdit = (
   );
 
 /** Completes whatever text edit is in progress (committing it), closes the
- *  association inspector, and returns to Idle. Pointer interactions are left
+ *  association inspector and the "New…" chooser, and returns to Idle. Pointer interactions are left
  *  alone because they complete on pointer release. */
 export const finishEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
     Idle: () => model,
+    ChoosingNew: () => toIdle(model),
     CreatingEntity: ({ position, draftName }) => commitCreateEntity(model, position, draftName),
     RenamingEntity: ({ entityId, draftName }) => commitRenameEntity(model, entityId, draftName),
     EditingAttribute: ({ entityId, attributeId, draft }) =>
@@ -211,6 +212,7 @@ export const finishEditing = (model: Model): Model =>
 export const cancelEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
     Idle: () => deselect(model),
+    ChoosingNew: () => toIdle(model),
     CreatingEntity: () => toIdle(model),
     RenamingEntity: () => toIdle(model),
     EditingAttribute: () => toIdle(model),

@@ -231,6 +231,11 @@ The editor UI strictly avoids boolean flags and is governed by an **Explicit Tag
 ```ts
 export type EditorState =
   | { readonly _tag: "Idle" }
+  | {
+      readonly _tag: "ChoosingNew";
+      readonly position: Point;
+      readonly highlighted: "Entity" | "Enum";
+    }
   | { readonly _tag: "CreatingEntity"; readonly position: Point }
   | { readonly _tag: "RenamingEntity"; readonly entityId: string }
   | { readonly _tag: "EditingAttribute"; readonly entityId: string; readonly attributeId: string }
@@ -255,14 +260,19 @@ export type EditorState =
 
 ### Keybinding & Mode Matrix
 
-| State                                                                                                           | Keybindings Active                                                                                                                                                                                          | Keystrokes        |
-| --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `Idle` (Normal Mode)                                                                                            | `c`: Create entity at center/cursor<br>`d`: Delete selected entity/enum/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & rename selected entity/enum<br>`Escape`: Deselect / clear selection | Canvas shortcuts  |
-| `CreatingEntity` / `RenamingEntity` / `EditingAttribute` / `CreatingEnum` / `RenamingEnum` / `EditingEnumValue` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                                   | Text input focus  |
-| `ConnectingAssociation`                                                                                         | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                                  | Active connection |
-| `DraggingNode` / `PanningCanvas`                                                                                | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                              | Canvas drag       |
+| State                                                                                                           | Keybindings Active                                                                                                                                                                                        | Keystrokes        |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `Idle` / `EditingAssociation` (Normal Mode)                                                                     | `c`: Open the Entity/Enum chooser<br>`d`: Delete selected entity/enum/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & rename selected entity/enum<br>`Escape`: Deselect / close inspector | Canvas shortcuts  |
+| `ChoosingNew` (Choosing Mode)                                                                                   | `ArrowDown` / `ArrowUp`: Move highlight, wrapping<br>`1`: Pick Entity<br>`2`: Pick Enum<br>`Enter`: Pick highlighted option<br>`Escape`: Cancel                                                           | New card chooser  |
+| `CreatingEntity` / `RenamingEntity` / `EditingAttribute` / `CreatingEnum` / `RenamingEnum` / `EditingEnumValue` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                                 | Text input focus  |
+| `ConnectingAssociation`                                                                                         | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                                | Active connection |
+| `DraggingNode` / `PanningCanvas`                                                                                | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                            | Canvas drag       |
 
-A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `CREATING`, `EDITING`, `CONNECTING`). `CreatingEnum` shows `CREATING`; `RenamingEnum` and `EditingEnumValue` show `EDITING`.
+File bindings are active in Normal, Text, and Choosing modes, including while typing: `Mod+N` creates a new document, `Mod+O` opens, `Mod+S` saves, and `Mod+Shift+S` saves as. `Mod` is Command on macOS and Control elsewhere. `Mod+N` uses the same action as the toolbar's `New model` button, including its existing unsaved-changes behavior; it is not a chooser shortcut.
+
+`c` opens a screen-centered listbox (`Create new`) with Entity highlighted first. The `ChoosingNew` state captures the new card's canvas position at the viewport center. Picking an option, by key or click, enters `CreatingEntity` or `CreatingEnum` at that position. Clicking outside or pressing Escape cancels without changing the document or history. `c` still types normally in text inputs. The toolbar's `+ Entity` and `+ Enum` buttons start creation directly; their titles advertise `(c)`, and `New model` advertises `⌘N`.
+
+A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `NEW`, `CREATING`, `EDITING`, `CONNECTING`). `ChoosingNew` shows `NEW`; `CreatingEnum` shows `CREATING`; `RenamingEnum` and `EditingEnumValue` show `EDITING`.
 
 Selection is a separate tagged union: `NoSelection`, `SelectedEntity { entityId }`, `SelectedEnum { typeId }`, `SelectedAssociation { associationId }`. Pressing a card's header selects it; `d`/`Delete`/`Backspace` deletes the selected entity, enum, or edge.
 

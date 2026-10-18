@@ -3,8 +3,9 @@ import { Option } from "effect";
 import * as Doc from "./domain/document";
 import { ZOOM_STEP } from "./domain/geometry";
 import { Message } from "./message";
-import { Selection, type Model } from "./model";
+import { EditorState, Selection, type Model } from "./model";
 import * as Canvas from "./update/canvas";
+import * as Chooser from "./update/chooser";
 import {
   cancelEditing,
   finishEditing,
@@ -32,21 +33,34 @@ export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     // Keyboard
 
-    PressedCreateEntityKey: () => Entities.startCreating(model),
+    PressedNewKey: () => ({ model: Chooser.open(model) }),
+    PressedNewDocumentKey: () => Session.newDocument(model),
     PressedDeleteKey: () => ({ model: Session.deleteSelection(model) }),
     PressedUndoKey: () => ({ model: Session.undo(model) }),
     PressedRedoKey: () => ({ model: Session.redo(model) }),
     PressedEditKey: () => Entities.editSelection(model),
     PressedEnterKey: () =>
-      model.editor._tag === "Idle"
-        ? Entities.editSelection(model)
-        : { model: finishEditing(model) },
+      EditorState.matchOrElse(
+        model.editor,
+        {
+          Idle: () => Entities.editSelection(model),
+          ChoosingNew: ({ highlighted }) => Chooser.pick(model, highlighted),
+        },
+        () => ({ model: finishEditing(model) }),
+      ),
     PressedEscapeKey: () => ({ model: cancelEditing(model) }),
     PressedSaveKey: () => Session.save(model),
     PressedSaveAsKey: () => Session.saveAs(model),
     PressedOpenKey: () => Session.open(model),
     PressedSpace: () => ({ model: { ...model, panKey: "Held" } }),
     ReleasedSpace: () => ({ model: { ...model, panKey: "Released" } }),
+
+    // New… chooser
+
+    MovedChooserHighlight: ({ direction }) => ({
+      model: Chooser.moveHighlight(model, direction),
+    }),
+    PickedNew: ({ kind }) => Chooser.pick(model, kind),
 
     // Pointer & canvas
 

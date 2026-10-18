@@ -11,13 +11,14 @@ import { windowTitle } from "./view";
 // KEYBINDING MODES
 // Each editor state activates one binding table, per the keybinding matrix.
 
-const KeyMode = Schema.Literals(["Normal", "Text", "Pointer"]);
+const KeyMode = Schema.Literals(["Normal", "Text", "Choosing", "Pointer"]);
 type KeyMode = typeof KeyMode.Type;
 
-const toKeyMode = (editor: EditorState): KeyMode =>
+export const toKeyMode = (editor: EditorState): KeyMode =>
   EditorState.match<KeyMode>(editor, {
     Idle: () => "Normal",
     EditingAssociation: () => "Normal",
+    ChoosingNew: () => "Choosing",
     CreatingEntity: () => "Text",
     RenamingEntity: () => "Text",
     EditingAttribute: () => "Text",
@@ -30,6 +31,7 @@ const toKeyMode = (editor: EditorState): KeyMode =>
   });
 
 const fileBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
+  { keys: "Mod+N", whileTyping: "Allow", mapEvent: () => Message.PressedNewDocumentKey() },
   { keys: "Mod+S", whileTyping: "Allow", mapEvent: () => Message.PressedSaveKey() },
   { keys: "Mod+Shift+S", whileTyping: "Allow", mapEvent: () => Message.PressedSaveAsKey() },
   { keys: "Mod+O", whileTyping: "Allow", mapEvent: () => Message.PressedOpenKey() },
@@ -42,7 +44,7 @@ const escapeBinding: Dom.KeyBinding<Message> = {
 };
 
 const normalBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
-  { keys: "C", mapEvent: () => Message.PressedCreateEntityKey() },
+  { keys: "C", mapEvent: () => Message.PressedNewKey() },
   { keys: "D", mapEvent: () => Message.PressedDeleteKey() },
   { keys: "Delete", mapEvent: () => Message.PressedDeleteKey() },
   { keys: "Backspace", mapEvent: () => Message.PressedDeleteKey() },
@@ -62,14 +64,26 @@ const textBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
   ...fileBindings,
 ];
 
+const choosingBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
+  { keys: "ArrowDown", mapEvent: () => Message.MovedChooserHighlight({ direction: "Down" }) },
+  { keys: "ArrowUp", mapEvent: () => Message.MovedChooserHighlight({ direction: "Up" }) },
+  { keys: "1", mapEvent: () => Message.PickedNew({ kind: "Entity" }) },
+  { keys: "2", mapEvent: () => Message.PickedNew({ kind: "Enum" }) },
+  { keys: "Enter", mapEvent: () => Message.PressedEnterKey() },
+  escapeBinding,
+  ...fileBindings,
+];
+
 const pointerBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [escapeBinding];
 
-const bindingsFor = (mode: KeyMode): ReadonlyArray<Dom.KeyBinding<Message>> => {
+export const bindingsFor = (mode: KeyMode): ReadonlyArray<Dom.KeyBinding<Message>> => {
   switch (mode) {
     case "Normal":
       return normalBindings;
     case "Text":
       return textBindings;
+    case "Choosing":
+      return choosingBindings;
     case "Pointer":
       return pointerBindings;
   }
