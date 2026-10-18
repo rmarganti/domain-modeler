@@ -11,7 +11,7 @@
 #
 # Environment overrides:
 #   RALPH_MODEL            default: claude-opus-5-5
-#   RALPH_EFFORT           default: high   (low|medium|high|xhigh|max)
+#   RALPH_EFFORT           default: medium (low|medium|high|xhigh|max)
 #   RALPH_PERMISSION_MODE  default: bypassPermissions (unattended; the agent
 #                          runs shell commands, browsers, and git without asking)
 #   RALPH_MAX_ITERATIONS   default: 10
@@ -29,7 +29,7 @@ prompt_file="$repo_root/scripts/ralph.prompt.md"
 log_dir="$repo_root/.ralph/logs"
 
 model="${RALPH_MODEL:-claude-opus-5-5}"
-effort="${RALPH_EFFORT:-high}"
+effort="${RALPH_EFFORT:-medium}"
 permission_mode="${RALPH_PERMISSION_MODE:-bypassPermissions}"
 max_iterations="${RALPH_MAX_ITERATIONS:-10}"
 
