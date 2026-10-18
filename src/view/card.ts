@@ -70,6 +70,7 @@ export const cardName = (
   h: HtmlBuilder<Message>,
   config: Readonly<{
     name: string;
+    isCurrent: boolean;
     maybeDescription: Option.Option<string>;
     maybeDraftName: Option.Option<string>;
     inputId: string;
@@ -82,6 +83,7 @@ export const cardName = (
     onSome: (draftName) =>
       h.input([
         h.Id(config.inputId),
+        ...(config.isCurrent ? [h.Attribute("aria-current", "true")] : []),
         h.Value(draftName),
         h.AriaLabel(config.inputLabel),
         h.Autocomplete("off"),
@@ -94,7 +96,10 @@ export const cardName = (
     onNone: () =>
       h.span(
         [
-          h.Class("min-w-0 flex-1 truncate text-sm font-semibold text-slate-900"),
+          h.Class(
+            `min-w-0 flex-1 truncate rounded text-sm font-semibold text-slate-900 ${config.isCurrent ? "bg-indigo-100 ring-2 ring-indigo-400" : ""}`,
+          ),
+          ...(config.isCurrent ? [h.Attribute("aria-current", "true")] : []),
           h.Title(Option.getOrElse(config.maybeDescription, () => "Double-click to rename")),
           h.OnDoubleClick(config.onDoubleClick),
         ],

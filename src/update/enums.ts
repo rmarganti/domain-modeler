@@ -3,7 +3,7 @@ import { Option, pipe } from "effect";
 import { ENUM_NAME_INPUT_ID, ENUM_VALUE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
 import type { Point } from "../domain/schema";
-import { EditorState, Selection, type EnumValueSave, type Model } from "../model";
+import { CardRow, EditorState, Selection, type EnumValueSave, type Model } from "../model";
 import { draftFromEnumValue, finishEditing } from "./editing";
 import {
   amendDocument,
@@ -37,7 +37,7 @@ export const startRenaming = (model: Model, typeId: string): UpdateReturn =>
       model: {
         ...finishEditing(model),
         editor: EditorState.RenamingEnum({ typeId, draftName: definition.name }),
-        selection: Selection.SelectedEnum({ typeId }),
+        selection: Selection.SelectedEnum({ typeId, row: CardRow.Title() }),
       },
       commands: [focus(ENUM_NAME_INPUT_ID)],
     }),
@@ -47,7 +47,10 @@ export const startRenaming = (model: Model, typeId: string): UpdateReturn =>
  *  The camera stays put. */
 export const select = (model: Model, typeId: string): Model =>
   Option.isSome(Doc.findEnum(present(model), typeId))
-    ? { ...toIdle(finishEditing(model)), selection: Selection.SelectedEnum({ typeId }) }
+    ? {
+        ...toIdle(finishEditing(model)),
+        selection: Selection.SelectedEnum({ typeId, row: CardRow.Title() }),
+      }
     : model;
 
 export const updateDraftName = (model: Model, name: string): UpdateReturn => ({
@@ -83,7 +86,7 @@ export const startEditingValue = (
             draft: draftFromEnumValue(value),
             save,
           }),
-          selection: Selection.SelectedEnum({ typeId }),
+          selection: Selection.SelectedEnum({ typeId, row: CardRow.Value({ valueId }) }),
         },
         commands: [focus(ENUM_VALUE_NAME_INPUT_ID)],
       }),

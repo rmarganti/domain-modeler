@@ -69,10 +69,17 @@ export const EditorState = defineTaggedUnion({
 });
 export type EditorState = typeof EditorState.Type;
 
+export const CardRow = defineTaggedUnion({
+  Title: {},
+  Attribute: { attributeId: Schema.String },
+  Value: { valueId: Schema.String },
+});
+export type CardRow = typeof CardRow.Type;
+
 export const Selection = defineTaggedUnion({
   NoSelection: {},
-  SelectedEntity: { entityId: Schema.String },
-  SelectedEnum: { typeId: Schema.String },
+  SelectedEntity: { entityId: Schema.String, row: CardRow },
+  SelectedEnum: { typeId: Schema.String, row: CardRow },
   SelectedAssociation: { associationId: Schema.String },
 });
 export type Selection = typeof Selection.Type;

@@ -23,6 +23,7 @@ export const Message = defineMessageUnion({
   PressedUndoKey: {},
   PressedRedoKey: {},
   PressedEditKey: {},
+  MovedCardRow: { motion: Schema.Literals(["Next", "Previous", "First", "Last"]) },
   PressedEnterKey: {},
   PressedEscapeKey: {},
   PressedSaveKey: {},
@@ -83,6 +84,7 @@ export const Message = defineMessageUnion({
 
   // Attributes
   ClickedAddAttribute: { entityId: Schema.String },
+  ClickedAttributeRow: { entityId: Schema.String, attributeId: Schema.String },
   ClickedEditAttribute: { entityId: Schema.String, attributeId: Schema.String },
   ClickedDeleteAttribute: { entityId: Schema.String, attributeId: Schema.String },
   ClickedMoveAttribute: {
@@ -104,6 +106,7 @@ export const Message = defineMessageUnion({
   UpdatedEnumDraftName: { name: Schema.String },
   ClickedDeleteEnum: { typeId: Schema.String },
   ClickedAddEnumValue: { typeId: Schema.String },
+  ClickedEnumValueRow: { typeId: Schema.String, valueId: Schema.String },
   ClickedEditEnumValue: { typeId: Schema.String, valueId: Schema.String },
   ClickedDeleteEnumValue: { typeId: Schema.String, valueId: Schema.String },
   ClickedMoveEnumValue: {

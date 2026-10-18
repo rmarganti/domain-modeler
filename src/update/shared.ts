@@ -7,7 +7,7 @@ import * as Geometry from "../domain/geometry";
 import * as History from "../domain/history";
 import type { DomainModelDocument, Point, ViewportLayout } from "../domain/schema";
 import type { Message } from "../message";
-import { EditorState, Selection, type Model } from "../model";
+import { CardRow, EditorState, Selection, type Model } from "../model";
 
 export type UpdateReturn = Update.Return<Model, Message>;
 
@@ -24,14 +24,14 @@ export const commitDocument = (
   f: (document: DomainModelDocument) => DomainModelDocument,
 ): Model => {
   const history = History.commit(model.history, f);
-  return history === model.history ? model : { ...model, history, saveStatus: "Dirty" };
+  return history === model.history ? model : reconcile({ ...model, history, saveStatus: "Dirty" });
 };
 
 /** Applies a transient change (pan, zoom, expansion) without a snapshot. */
 export const amendDocument = (
   model: Model,
   f: (document: DomainModelDocument) => DomainModelDocument,
-): Model => ({ ...model, history: History.amend(model.history, f) });
+): Model => reconcile({ ...model, history: History.amend(model.history, f) });
 
 export const setViewport = (model: Model, next: ViewportLayout): Model =>
   amendDocument(model, (document) => Doc.setViewport(document, next));
@@ -72,9 +72,33 @@ export const reconcile = (model: Model): Model => {
 
   const selection = Selection.match(model.selection, {
     NoSelection: () => model.selection,
-    SelectedEntity: ({ entityId }) =>
-      hasEntity(entityId) ? model.selection : Selection.NoSelection(),
-    SelectedEnum: ({ typeId }) => (hasEnum(typeId) ? model.selection : Selection.NoSelection()),
+    SelectedEntity: ({ entityId, row }) =>
+      Option.match(Doc.findEntity(document, entityId), {
+        onNone: () => Selection.NoSelection(),
+        onSome: (entity) =>
+          Selection.SelectedEntity({
+            entityId,
+            row:
+              row._tag === "Title" ||
+              (row._tag === "Attribute" &&
+                Option.isSome(Doc.findAttribute(entity, row.attributeId)))
+                ? row
+                : CardRow.Title(),
+          }),
+      }),
+    SelectedEnum: ({ typeId, row }) =>
+      Option.match(Doc.findEnum(document, typeId), {
+        onNone: () => Selection.NoSelection(),
+        onSome: (definition) =>
+          Selection.SelectedEnum({
+            typeId,
+            row:
+              row._tag === "Title" ||
+              (row._tag === "Value" && Option.isSome(Doc.findEnumValue(definition, row.valueId)))
+                ? row
+                : CardRow.Title(),
+          }),
+      }),
     SelectedAssociation: ({ associationId }) =>
       hasAssociation(associationId) ? model.selection : Selection.NoSelection(),
   });

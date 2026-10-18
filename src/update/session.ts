@@ -6,6 +6,7 @@ import * as History from "../domain/history";
 import type { DomainModelDocument } from "../domain/schema";
 import { EditorState, Selection, type Model, type Notice } from "../model";
 import { finishEditing } from "./editing";
+import * as Rows from "./rows";
 import { commitDocument, deselect, present, reconcile, toIdle, type UpdateReturn } from "./shared";
 
 // History, selection-wide actions, files, and the window.
@@ -24,8 +25,13 @@ export const redo = (model: Model): Model => restore(model, History.redo(model.h
 
 // SELECTION
 
-export const deleteSelection = (model: Model): Model =>
-  reconcile(
+export const deleteSelection = (model: Model): Model => {
+  if (
+    (model.selection._tag === "SelectedEntity" || model.selection._tag === "SelectedEnum") &&
+    model.selection.row._tag !== "Title"
+  )
+    return Rows.deleteCurrent(model);
+  return reconcile(
     deselect(
       toIdle(
         Selection.match(model.selection, {
@@ -40,6 +46,7 @@ export const deleteSelection = (model: Model): Model =>
       ),
     ),
   );
+};
 
 // FILES
 

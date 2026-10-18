@@ -148,6 +148,10 @@ export const canvasView = (
                   isSelected:
                     selection._tag === "SelectedEntity" && selection.entityId === entity.id,
                   diagnostics,
+                  maybeCurrentRow:
+                    selection._tag === "SelectedEntity" && selection.entityId === entity.id
+                      ? Option.some(selection.row)
+                      : Option.none(),
                   maybeEditingAttributeId,
                   maybeSelectedTypeId,
                 }),
@@ -162,6 +166,10 @@ export const canvasView = (
                   isSelected:
                     selection._tag === "SelectedEnum" && selection.typeId === definition.id,
                   diagnostics,
+                  maybeCurrentRow:
+                    selection._tag === "SelectedEnum" && selection.typeId === definition.id
+                      ? Option.some(selection.row)
+                      : Option.none(),
                   maybeEditingValueId,
                 }),
               ),

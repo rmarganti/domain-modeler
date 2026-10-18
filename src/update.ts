@@ -4,7 +4,7 @@ import { FocusInput } from "./command";
 import * as Doc from "./domain/document";
 import { ZOOM_STEP } from "./domain/geometry";
 import { Message } from "./message";
-import { EditorState, Selection, type Model } from "./model";
+import { CardRow, EditorState, Selection, type Model } from "./model";
 import * as Canvas from "./update/canvas";
 import * as Chooser from "./update/chooser";
 import {
@@ -16,6 +16,7 @@ import {
   updateEnumValueDraft,
 } from "./update/editing";
 import * as Entities from "./update/entities";
+import * as Rows from "./update/rows";
 import * as Enums from "./update/enums";
 import * as Associations from "./update/associations";
 import * as Session from "./update/session";
@@ -47,12 +48,13 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     PressedDeleteKey: () => ({ model: Session.deleteSelection(model) }),
     PressedUndoKey: () => ({ model: Session.undo(model) }),
     PressedRedoKey: () => ({ model: Session.redo(model) }),
-    PressedEditKey: () => Entities.editSelection(model),
+    PressedEditKey: () => Rows.edit(model),
+    MovedCardRow: ({ motion }) => ({ model: Rows.move(model, motion) }),
     PressedEnterKey: () =>
       EditorState.matchOrElse(
         model.editor,
         {
-          Idle: () => Entities.editSelection(model),
+          Idle: () => Rows.edit(model),
           ChoosingNew: ({ highlighted }) => Chooser.pick(model, highlighted),
         },
         () => ({ model: finishEditing(model) }),
@@ -114,13 +116,19 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedDeleteEntity: ({ entityId }) => ({
       model: Session.deleteSelection({
         ...model,
-        selection: Selection.SelectedEntity({ entityId }),
+        selection: Selection.SelectedEntity({ entityId, row: CardRow.Title() }),
       }),
     }),
 
     // Attributes
 
     ClickedAddAttribute: ({ entityId }) => Entities.addAttribute(model, entityId),
+    ClickedAttributeRow: ({ entityId, attributeId }) => ({
+      model: Rows.select(
+        model,
+        Selection.SelectedEntity({ entityId, row: CardRow.Attribute({ attributeId }) }),
+      ),
+    }),
     ClickedEditAttribute: ({ entityId, attributeId }) =>
       Entities.startEditingAttribute(finishEditing(model), entityId, attributeId),
     ClickedDeleteAttribute: ({ entityId, attributeId }) => ({
@@ -148,9 +156,18 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     DoubleClickedEnumName: ({ typeId }) => Enums.startRenaming(model, typeId),
     UpdatedEnumDraftName: ({ name }) => Enums.updateDraftName(model, name),
     ClickedDeleteEnum: ({ typeId }) => ({
-      model: Session.deleteSelection({ ...model, selection: Selection.SelectedEnum({ typeId }) }),
+      model: Session.deleteSelection({
+        ...model,
+        selection: Selection.SelectedEnum({ typeId, row: CardRow.Title() }),
+      }),
     }),
     ClickedAddEnumValue: ({ typeId }) => Enums.addValue(model, typeId),
+    ClickedEnumValueRow: ({ typeId, valueId }) => ({
+      model: Rows.select(
+        model,
+        Selection.SelectedEnum({ typeId, row: CardRow.Value({ valueId }) }),
+      ),
+    }),
     ClickedEditEnumValue: ({ typeId, valueId }) =>
       Enums.startEditingValue(finishEditing(model), typeId, valueId),
     ClickedDeleteEnumValue: ({ typeId, valueId }) => ({

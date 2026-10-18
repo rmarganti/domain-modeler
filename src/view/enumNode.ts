@@ -6,7 +6,7 @@ import * as Diagnostics from "../domain/diagnostics";
 import * as Geometry from "../domain/geometry";
 import type { EnumDefinition, EnumValue, NodeLayout, Point } from "../domain/schema";
 import { Message } from "../message";
-import type { EditorState, EnumValueDraft } from "../model";
+import type { CardRow, EditorState, EnumValueDraft } from "../model";
 import {
   cardFooter,
   cardFrame,
@@ -25,6 +25,7 @@ import { px, warningBadge } from "./shared";
 export type EnumNodeContext = Readonly<{
   editor: EditorState;
   isSelected: boolean;
+  maybeCurrentRow: Option.Option<CardRow>;
   diagnostics: ReadonlyArray<Diagnostics.Diagnostic>;
   maybeEditingValueId: Option.Option<string>;
 }>;
@@ -46,6 +47,7 @@ const headerView = (
     icon: enumIcon(h),
     name: cardName(h, {
       name: definition.name,
+      isCurrent: Option.exists(context.maybeCurrentRow, (row) => row._tag === "Title"),
       maybeDescription: Option.fromNullishOr(definition.description),
       maybeDraftName:
         context.editor._tag === "RenamingEnum" && context.editor.typeId === definition.id
@@ -89,15 +91,23 @@ const valueRow = (
   );
   const typeId = definition.id;
   const valueId = value.id;
+  const isCurrent = Option.exists(
+    context.maybeCurrentRow,
+    (row) => row._tag === "Value" && row.valueId === valueId,
+  );
   return h.keyed("li")(
     value.id,
     [
       h.Class(
         "group/row flex cursor-pointer items-center gap-2 border-t border-slate-100 px-3 text-xs hover:bg-violet-50/60",
       ),
-      h.Style({ height: px(Geometry.ATTRIBUTE_ROW_HEIGHT) }),
-      h.OnClick(Message.ClickedEditEnumValue({ typeId, valueId })),
-      h.Title(value.description ?? "Click to edit"),
+      ...(isCurrent ? [h.Attribute("aria-current", "true")] : []),
+      h.Style({
+        height: px(Geometry.ATTRIBUTE_ROW_HEIGHT),
+        ...(isCurrent ? { boxShadow: "inset 0 0 0 2px #818cf8", backgroundColor: "#e0e7ff" } : {}),
+      }),
+      h.OnClick(Message.ClickedEnumValueRow({ typeId, valueId })),
+      h.Title(value.description ?? "Click to select; Enter to edit"),
     ],
     [
       h.span([h.Class("shrink-0 font-mono text-slate-800")], [value.name]),
@@ -123,6 +133,7 @@ const valueEditor = (h: HtmlBuilder<Message>, valueId: string, draft: EnumValueD
   h.keyed("li")(
     valueId,
     [
+      h.Attribute("aria-current", "true"),
       h.Class("flex flex-col gap-1.5 border-y border-indigo-200 bg-indigo-50/70 px-3 py-2"),
       h.Style({ height: px(Geometry.ENUM_VALUE_EDITOR_HEIGHT) }),
     ],

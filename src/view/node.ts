@@ -18,7 +18,7 @@ import {
 } from "../domain/schema";
 import { MULTIPLICITIES, multiplicityEquals, multiplicityLabel } from "../domain/multiplicity";
 import { Message } from "../message";
-import type { EditorState, AttributeDraft } from "../model";
+import type { CardRow, EditorState, AttributeDraft } from "../model";
 import {
   cardFooter,
   cardFrame,
@@ -35,6 +35,7 @@ export type NodeContext = Readonly<{
   document: DomainModelDocument;
   editor: EditorState;
   isSelected: boolean;
+  maybeCurrentRow: Option.Option<CardRow>;
   diagnostics: ReadonlyArray<Diagnostics.Diagnostic>;
   maybeEditingAttributeId: Option.Option<string>;
   /** The selected enum card, whose fields' rows are highlighted. */
@@ -89,6 +90,7 @@ const headerView = (
     icon: h.span([h.Class("text-indigo-500"), h.AriaHidden(true)], ["▣"]),
     name: cardName(h, {
       name: entity.name,
+      isCurrent: Option.exists(context.maybeCurrentRow, (row) => row._tag === "Title"),
       maybeDescription: Option.fromNullishOr(entity.description),
       maybeDraftName:
         context.editor._tag === "RenamingEntity" && context.editor.entityId === entity.id
@@ -196,6 +198,10 @@ const attributeRow = (
   );
   const entityId = entity.id;
   const attributeId = attribute.id;
+  const isCurrent = Option.exists(
+    context.maybeCurrentRow,
+    (row) => row._tag === "Attribute" && row.attributeId === attributeId,
+  );
   const usesSelectedType = Option.exists(
     context.maybeSelectedTypeId,
     (typeId) => isTypeRef(attribute.type) && attribute.type.typeId === typeId,
@@ -207,9 +213,13 @@ const attributeRow = (
         `group/row flex cursor-pointer items-center gap-2 border-t border-slate-100 px-3 text-xs hover:bg-indigo-50/60 ${usesSelectedType ? "bg-fuchsia-50 ring-1 ring-inset ring-fuchsia-300" : ""}`,
       ),
       ...(usesSelectedType ? [h.DataAttribute("uses-selected-type", "")] : []),
-      h.Style({ height: px(Geometry.ATTRIBUTE_ROW_HEIGHT) }),
-      h.OnClick(Message.ClickedEditAttribute({ entityId, attributeId })),
-      h.Title(attribute.description ?? "Click to edit"),
+      ...(isCurrent ? [h.Attribute("aria-current", "true")] : []),
+      h.Style({
+        height: px(Geometry.ATTRIBUTE_ROW_HEIGHT),
+        ...(isCurrent ? { boxShadow: "inset 0 0 0 2px #818cf8", backgroundColor: "#e0e7ff" } : {}),
+      }),
+      h.OnClick(Message.ClickedAttributeRow({ entityId, attributeId })),
+      h.Title(attribute.description ?? "Click to select; Enter to edit"),
     ],
     [
       h.span([h.Class("min-w-0 truncate font-mono text-slate-800")], [attribute.name]),
@@ -355,6 +365,7 @@ const attributeEditor = (
   h.keyed("li")(
     attributeId,
     [
+      h.Attribute("aria-current", "true"),
       h.Class("flex flex-col gap-1.5 border-y border-indigo-200 bg-indigo-50/70 px-3 py-2"),
       h.Style({ height: px(Geometry.ATTRIBUTE_EDITOR_HEIGHT) }),
     ],

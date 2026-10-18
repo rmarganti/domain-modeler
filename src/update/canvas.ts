@@ -3,7 +3,7 @@ import { Option } from "effect";
 import * as Doc from "../domain/document";
 import * as Geometry from "../domain/geometry";
 import type { Point } from "../domain/schema";
-import { EditorState, Selection, type Model } from "../model";
+import { CardRow, EditorState, Selection, type Model } from "../model";
 import { finishEditing } from "./editing";
 import { connect } from "./associations";
 import {
@@ -80,10 +80,15 @@ const pressCardHeader = (
   });
 
 export const pressNodeHeader = (model: Model, entityId: string, press: Press): UpdateReturn =>
-  pressCardHeader(model, entityId, Selection.SelectedEntity({ entityId }), press);
+  pressCardHeader(
+    model,
+    entityId,
+    Selection.SelectedEntity({ entityId, row: CardRow.Title() }),
+    press,
+  );
 
 export const pressEnumHeader = (model: Model, typeId: string, press: Press): UpdateReturn =>
-  pressCardHeader(model, typeId, Selection.SelectedEnum({ typeId }), press);
+  pressCardHeader(model, typeId, Selection.SelectedEnum({ typeId, row: CardRow.Title() }), press);
 
 export const pressPort = (model: Model, entityId: string, press: Press): UpdateReturn =>
   routePress(model, press, () => {

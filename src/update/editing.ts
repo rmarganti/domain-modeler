@@ -3,6 +3,7 @@ import { Option, pipe } from "effect";
 import * as Doc from "../domain/document";
 import type { AttributeDefinition, EnumValue, Multiplicity, Point } from "../domain/schema";
 import {
+  CardRow,
   EditorState,
   Selection,
   type Model,
@@ -101,7 +102,7 @@ const commitCreateEntity = (model: Model, position: Point, draftName: string): M
   return {
     ...commitDocument(model, (document) => Doc.addEntity(document, entityId, name, position)),
     editor: EditorState.Idle(),
-    selection: Selection.SelectedEntity({ entityId }),
+    selection: Selection.SelectedEntity({ entityId, row: CardRow.Title() }),
   };
 };
 
@@ -143,7 +144,7 @@ const commitCreateEnum = (model: Model, position: Point, draftName: string): Mod
   return {
     ...commitDocument(model, (document) => Doc.addEnum(document, typeId, name, position)),
     editor: EditorState.Idle(),
-    selection: Selection.SelectedEnum({ typeId }),
+    selection: Selection.SelectedEnum({ typeId, row: CardRow.Title() }),
   };
 };
 

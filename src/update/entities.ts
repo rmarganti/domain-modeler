@@ -4,7 +4,7 @@ import { ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
 import type { Point } from "../domain/schema";
 import { enumNameForAttribute } from "../domain/naming";
-import { EditorState, Selection, type Model } from "../model";
+import { CardRow, EditorState, Selection, type Model } from "../model";
 import { attributeFromDraft, draftFromAttribute, finishEditing } from "./editing";
 import * as Enums from "./enums";
 import {
@@ -38,30 +38,10 @@ export const startRenaming = (model: Model, entityId: string): UpdateReturn =>
       model: {
         ...finishEditing(model),
         editor: EditorState.RenamingEntity({ entityId, draftName: entity.name }),
-        selection: Selection.SelectedEntity({ entityId }),
+        selection: Selection.SelectedEntity({ entityId, row: CardRow.Title() }),
       },
       commands: [focus(ENTITY_NAME_INPUT_ID)],
     }),
-  });
-
-/** Opens the selection for editing: expands and renames an entity or enum,
- *  or opens the inspector for an association. */
-export const editSelection = (model: Model): UpdateReturn =>
-  Selection.match(model.selection, {
-    NoSelection: () => ({ model }),
-    SelectedAssociation: ({ associationId }) => ({
-      model: { ...model, editor: EditorState.EditingAssociation({ associationId }) },
-    }),
-    SelectedEntity: ({ entityId }) =>
-      startRenaming(
-        amendDocument(model, (document) => Doc.setExpanded(document, entityId, true)),
-        entityId,
-      ),
-    SelectedEnum: ({ typeId }) =>
-      Enums.startRenaming(
-        amendDocument(model, (document) => Doc.setExpanded(document, typeId, true)),
-        typeId,
-      ),
   });
 
 export const updateDraftName = (model: Model, name: string): UpdateReturn => ({
@@ -95,7 +75,10 @@ export const startEditingAttribute = (
             attributeId,
             draft: draftFromAttribute(attribute),
           }),
-          selection: Selection.SelectedEntity({ entityId }),
+          selection: Selection.SelectedEntity({
+            entityId,
+            row: CardRow.Attribute({ attributeId }),
+          }),
         },
         commands: [focus(ATTRIBUTE_NAME_INPUT_ID)],
       }),

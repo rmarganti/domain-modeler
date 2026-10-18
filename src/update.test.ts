@@ -8,7 +8,7 @@ import * as History from "./domain/history";
 import * as Geometry from "./domain/geometry";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
-import { EditorState, Selection, type Model } from "./model";
+import { CardRow, EditorState, Selection, type Model } from "./model";
 import { bindingsFor, toKeyMode } from "./subscription";
 import { update } from "./update";
 
@@ -53,7 +53,9 @@ describe("node dragging", () => {
         expect(m.editor).toEqual(EditorState.Idle());
         expect(m.history.past).toHaveLength(1);
         expect(m.history.present.layout.nodes["e3"]?.position).toEqual({ x: 1080, y: 240 });
-        expect(m.selection).toEqual(Selection.SelectedEntity({ entityId: "e3" }));
+        expect(m.selection).toEqual(
+          Selection.SelectedEntity({ entityId: "e3", row: CardRow.Title() }),
+        );
         expect(m.saveStatus).toBe("Dirty");
       }),
     );
@@ -147,7 +149,10 @@ describe("canvas", () => {
   test("pressing empty canvas deselects", () => {
     story(
       update,
-      given({ ...baseModel, selection: Selection.SelectedEntity({ entityId: "e1" }) }),
+      given({
+        ...baseModel,
+        selection: Selection.SelectedEntity({ entityId: "e1", row: CardRow.Title() }),
+      }),
       message(Message.PressedCanvas(press)),
       model((m) => expect(m.selection).toEqual(Selection.NoSelection())),
     );
@@ -201,8 +206,8 @@ describe("zoom shortcuts", () => {
   });
 
   test.each([
-    Selection.SelectedEntity({ entityId: "e2" }),
-    Selection.SelectedEnum({ typeId: "t1" }),
+    Selection.SelectedEntity({ entityId: "e2", row: CardRow.Title() }),
+    Selection.SelectedEnum({ typeId: "t1", row: CardRow.Title() }),
     Selection.SelectedAssociation({ associationId: "r1" }),
   ])("zoom to $_tag centers the selected cards with shared padding", (selection) => {
     const initial = { ...baseModel, selection };
@@ -241,7 +246,7 @@ describe("zoom shortcuts", () => {
       {
         ...baseModel,
         screen: { width: 4000, height: 3000 },
-        selection: Selection.SelectedEnum({ typeId: "t1" }),
+        selection: Selection.SelectedEnum({ typeId: "t1", row: CardRow.Title() }),
       },
       Message.PressedZoomToSelectionKey(),
     ).model;
@@ -250,8 +255,8 @@ describe("zoom shortcuts", () => {
 
   test.each([
     Selection.NoSelection(),
-    Selection.SelectedEntity({ entityId: "missing" }),
-    Selection.SelectedEnum({ typeId: "missing" }),
+    Selection.SelectedEntity({ entityId: "missing", row: CardRow.Title() }),
+    Selection.SelectedEnum({ typeId: "missing", row: CardRow.Title() }),
     Selection.SelectedAssociation({ associationId: "missing" }),
   ])("no selectable cards leaves the entire model unchanged", (selection) => {
     const initial = { ...baseModel, selection };
@@ -466,7 +471,10 @@ describe("key bindings", () => {
 });
 
 describe("keyboard shortcuts overlay", () => {
-  const selected: Model = { ...baseModel, selection: Selection.SelectedEntity({ entityId: "e1" }) };
+  const selected: Model = {
+    ...baseModel,
+    selection: Selection.SelectedEntity({ entityId: "e1", row: CardRow.Title() }),
+  };
 
   test("question mark opens Help; Escape closes without changing selection, document or history", () => {
     story(
@@ -562,7 +570,9 @@ describe("entities", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(m.selection).toEqual(Selection.SelectedEntity({ entityId: "e4" }));
+        expect(m.selection).toEqual(
+          Selection.SelectedEntity({ entityId: "e4", row: CardRow.Title() }),
+        );
         const created = Option.getOrThrow(Doc.findEntity(m.history.present, "e4"));
         expect(created.name).toBe("Comment");
         expect(m.history.present.layout.nodes["e4"]).toBeDefined();
@@ -589,7 +599,10 @@ describe("entities", () => {
   test("Enter on a selected entity expands it and starts renaming", () => {
     story(
       update,
-      given({ ...baseModel, selection: Selection.SelectedEntity({ entityId: "e3" }) }),
+      given({
+        ...baseModel,
+        selection: Selection.SelectedEntity({ entityId: "e3", row: CardRow.Title() }),
+      }),
       message(Message.PressedEnterKey()),
       focused,
       model((m) => {
@@ -622,7 +635,10 @@ describe("entities", () => {
   test("delete removes the entity with its edges, and undo restores both", () => {
     story(
       update,
-      given({ ...baseModel, selection: Selection.SelectedEntity({ entityId: "e2" }) }),
+      given({
+        ...baseModel,
+        selection: Selection.SelectedEntity({ entityId: "e2", row: CardRow.Title() }),
+      }),
       message(Message.PressedDeleteKey()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(2);
@@ -830,7 +846,7 @@ describe("enums", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2" }));
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2", row: CardRow.Title() }));
         expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
         expect(m.history.present.layout.nodes["t2"]).toBeDefined();
       }),
@@ -877,7 +893,10 @@ describe("enums", () => {
   test("Enter on a selected enum expands it and starts renaming", () => {
     story(
       update,
-      given({ ...baseModel, selection: Selection.SelectedEnum({ typeId: "t1" }) }),
+      given({
+        ...baseModel,
+        selection: Selection.SelectedEnum({ typeId: "t1", row: CardRow.Title() }),
+      }),
       message(Message.PressedEnterKey()),
       focused,
       model((m) => {
@@ -977,7 +996,10 @@ describe("enums", () => {
   test("d deletes the selected enum and its node; undo and redo", () => {
     story(
       update,
-      given({ ...baseModel, selection: Selection.SelectedEnum({ typeId: "t1" }) }),
+      given({
+        ...baseModel,
+        selection: Selection.SelectedEnum({ typeId: "t1", row: CardRow.Title() }),
+      }),
       message(Message.PressedDeleteKey()),
       model((m) => {
         expect(m.history.present.types).toHaveLength(0);
@@ -1010,7 +1032,7 @@ describe("enums", () => {
       message(Message.PressedEnumHeader({ typeId: "t1", ...press, clientX: 150, clientY: 540 })),
       model((m) => {
         expect(m.editor._tag).toBe("DraggingNode");
-        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t1" }));
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t1", row: CardRow.Title() }));
       }),
       message(Message.MovedPointer({ clientX: 250, clientY: 600 })),
       message(
@@ -1074,7 +1096,9 @@ describe("enum-typed fields", () => {
             save: "Amend",
           }),
         );
-        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2" }));
+        expect(m.selection).toEqual(
+          Selection.SelectedEnum({ typeId: "t2", row: CardRow.Value({ valueId: "v4" }) }),
+        );
         expect(post(m).attributes.at(-1)).toMatchObject({
           id: "p11",
           name: "status",
@@ -1150,7 +1174,7 @@ describe("enum-typed fields", () => {
       given(baseModel),
       message(Message.ClickedGoToEnum({ typeId: "t1" })),
       model((m) => {
-        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t1" }));
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t1", row: CardRow.Title() }));
         expect(m.history.present.layout.viewport).toEqual(
           baseModel.history.present.layout.viewport,
         );
