@@ -16,6 +16,7 @@ export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
 export const Message = defineMessageUnion({
   // Keyboard
   PressedNewKey: {},
+  PressedFindCardKey: {},
   PressedShortcutsKey: {},
   PressedZoomToSelectionKey: {},
   PressedNewDocumentKey: {},
@@ -37,6 +38,12 @@ export const Message = defineMessageUnion({
   // New… chooser
   MovedChooserHighlight: { direction: MoveDirection },
   PickedNew: { kind: NewKind },
+
+  // Card picker
+  UpdatedCardQuery: { query: Schema.String },
+  MovedCardHighlight: { direction: MoveDirection },
+  PickedCard: { nodeId: Schema.String },
+  CompletedRevealCardOption: {},
 
   // Pointer & canvas
   PressedCanvas: PointerFields,

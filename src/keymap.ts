@@ -3,7 +3,14 @@ import type { Dom } from "foldkit";
 
 import { Message } from "./message";
 
-export const KeyMode = Schema.Literals(["Normal", "Text", "Choosing", "Pointer", "Help"]);
+export const KeyMode = Schema.Literals([
+  "Normal",
+  "Text",
+  "Choosing",
+  "Picking",
+  "Pointer",
+  "Help",
+]);
 export type KeyMode = typeof KeyMode.Type;
 export type KeyPlatform = "Apple" | "Other";
 
@@ -17,6 +24,7 @@ export const KEY_CONTEXTS: ReadonlyArray<Readonly<{ mode: KeyMode; label: string
   { mode: "Normal", label: "Canvas" },
   { mode: "Text", label: "Editing text" },
   { mode: "Choosing", label: "New… chooser" },
+  { mode: "Picking", label: "Card picker" },
   { mode: "Pointer", label: "Dragging / connecting" },
   { mode: "Help", label: "Keyboard shortcuts" },
 ];
@@ -101,6 +109,41 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.PressedRedoKey(),
+  },
+  {
+    id: "findCard",
+    keys: ["Mod+K"],
+    description: "Find card",
+    group: "Navigate",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedFindCardKey(),
+  },
+  {
+    id: "pickNext",
+    keys: ["ArrowDown", "Control+N"],
+    description: "Next card (wrap)",
+    group: "Navigate",
+    modes: ["Picking"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.MovedCardHighlight({ direction: "Down" }),
+  },
+  {
+    id: "pickPrevious",
+    keys: ["ArrowUp", "Control+P"],
+    description: "Previous card (wrap)",
+    group: "Navigate",
+    modes: ["Picking"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.MovedCardHighlight({ direction: "Up" }),
+  },
+  {
+    id: "pickCard",
+    keys: ["Enter"],
+    description: "Focus highlighted card",
+    group: "Navigate",
+    modes: ["Picking"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedEnterKey(),
   },
   {
     id: "nextRow",
@@ -236,7 +279,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     keys: ["Escape"],
     description: "Cancel / deselect / close",
     group: "Navigate",
-    modes: ["Normal", "Text", "Choosing", "Pointer", "Help"],
+    modes: ["Normal", "Text", "Choosing", "Picking", "Pointer", "Help"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedEscapeKey(),
   },

@@ -65,7 +65,12 @@ export const statusPill = (editor: EditorState): StatusPill =>
     Idle: () => ({
       label: "NORMAL",
       className: "bg-slate-800 text-white",
-      hint: `${shortcutFor("create")} create · ${shortcutFor("edit")} edit · ${shortcutFor("undo")} undo · ${shortcutFor("shortcuts")} shortcuts`,
+      hint: `${shortcutFor("findCard")} find · ${shortcutFor("create")} create · ${shortcutFor("edit")} edit · ${shortcutFor("undo")} undo · ${shortcutFor("shortcuts")} shortcuts`,
+    }),
+    PickingCard: () => ({
+      label: "FIND",
+      className: "bg-indigo-600 text-white",
+      hint: `${shortcutFor("pickNext")} / ${shortcutFor("pickPrevious")} choose · ${shortcutFor("pickCard")} focus · ${shortcutFor("escape")} cancel`,
     }),
     ViewingShortcuts: () => ({
       label: "HELP",

@@ -7,6 +7,7 @@ import { canvasView } from "./canvas";
 import { chooserView } from "./chooser";
 import { hudView, noticeView, toolbarView } from "./chrome";
 import { shortcutsView } from "./shortcuts";
+import { pickerView } from "./picker";
 
 export const windowTitle = (model: Model): string =>
   `${model.saveStatus === "Dirty" ? "• " : ""}${model.history.present.name} — Domain Modeler`;
@@ -22,7 +23,11 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
       [h.Class("fixed inset-0 overflow-hidden font-sans text-slate-900 antialiased")],
       [
         h.div(
-          [h.Inert(model.editor._tag === "ViewingShortcuts")],
+          [
+            h.Inert(
+              model.editor._tag === "ViewingShortcuts" || model.editor._tag === "PickingCard",
+            ),
+          ],
           [
             canvasView(model, diagnostics, h),
             hudView(model, h),
@@ -32,6 +37,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
           ],
         ),
         ...shortcutsView(model, h),
+        ...pickerView(model, h),
       ],
     ),
   };

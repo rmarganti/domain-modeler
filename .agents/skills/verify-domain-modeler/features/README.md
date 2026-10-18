@@ -40,6 +40,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
+- [Card picker](./card-picker.md) covers Mod+K fuzzy entity/enum search, ranking/highlights, keyboard/mouse picking, centering without resize/zoom, and cancellation.
 - [Row cursor](./row-cursor.md) covers title/field/value selection, j/k and gg/G motion, row-aware edit/delete, o/O insertion, J/K reorder, and undo/redo safety.
 - [Zoom and fit](./zoom.md) covers keyboard/HUD zoom, fit-all, fit-selection, text-mode behavior, and history preservation.
 - [Keyboard shortcuts](./shortcuts.md) covers the `?` overlay, context/group listing, toolbar titles, cancellation, and selection/history preservation.

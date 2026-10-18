@@ -19,6 +19,7 @@ export const toKeyMode = (editor: EditorState): KeyMode =>
     Idle: () => "Normal",
     EditingAssociation: () => "Normal",
     ChoosingNew: () => "Choosing",
+    PickingCard: () => "Picking",
     ViewingShortcuts: () => "Help",
     CreatingEntity: () => "Text",
     RenamingEntity: () => "Text",

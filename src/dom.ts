@@ -2,6 +2,7 @@
 // Subscriptions that need to find elements in the rendered DOM.
 
 export const CANVAS_ID = "canvas";
+export const CARD_QUERY_INPUT_ID = "card-query-input";
 export const ENTITY_NAME_INPUT_ID = "entity-name-input";
 export const ATTRIBUTE_NAME_INPUT_ID = "attribute-name-input";
 export const ENUM_NAME_INPUT_ID = "enum-name-input";

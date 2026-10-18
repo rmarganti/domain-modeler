@@ -106,6 +106,7 @@ export const reconcile = (model: Model): Model => {
   const isEditorValid = EditorState.match(model.editor, {
     Idle: () => true,
     ChoosingNew: () => true,
+    PickingCard: () => true,
     ViewingShortcuts: () => true,
     CreatingEntity: () => true,
     RenamingEntity: ({ entityId }) => hasEntity(entityId),

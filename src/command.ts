@@ -106,6 +106,14 @@ export const ConfirmCloseWindow = Command.define("ConfirmCloseWindow", {
 
 // FOCUS
 
+export const RevealCardOption = Command.define("RevealCardOption", {
+  messages: [Message.CompletedRevealCardOption],
+  execute: Dom.scrollIntoView('#card-options [aria-selected="true"]', { block: "nearest" }).pipe(
+    Effect.ignore,
+    Effect.as(Message.CompletedRevealCardOption()),
+  ),
+});
+
 /** Focuses an input once the render has committed, then selects its text so
  *  typing replaces it. */
 export const FocusInput = Command.define("FocusInput", {

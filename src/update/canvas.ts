@@ -210,6 +210,43 @@ export const zoomBy = (model: Model, factor: number): Model =>
     ),
   );
 
+/**
+ * Select a card's title and center its persisted bounds without zooming or resizing.
+ */
+export const focusCard = (model: Model, nodeId: string): Model => {
+  const document = present(model);
+  const entity = Doc.findEntity(document, nodeId);
+  const definition = Doc.findEnum(document, nodeId);
+  const layout = Doc.findNode(document, nodeId);
+  if (Option.isNone(layout)) {
+    return model;
+  }
+  const rect = Option.isSome(entity)
+    ? Geometry.nodeRect(entity.value, layout.value, Option.none())
+    : Option.isSome(definition)
+      ? Geometry.enumRect(definition.value, layout.value, Option.none())
+      : undefined;
+  if (rect === undefined) {
+    return model;
+  }
+  const zoom = viewport(model).zoom;
+  return setViewport(
+    {
+      ...model,
+      selection: Option.isSome(entity)
+        ? Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() })
+        : Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() }),
+    },
+    {
+      zoom,
+      pan: {
+        x: model.screen.width / 2 - (rect.x + rect.width / 2) * zoom,
+        y: model.screen.height / 2 - (rect.y + rect.height / 2) * zoom,
+      },
+    },
+  );
+};
+
 export const resetView = (model: Model): Model =>
   setViewport(model, Geometry.resetViewport(viewport(model), model.screen));
 

@@ -7,6 +7,7 @@ import { Message } from "./message";
 import { CardRow, EditorState, Selection, type Model } from "./model";
 import * as Canvas from "./update/canvas";
 import * as Chooser from "./update/chooser";
+import * as Picker from "./update/picker";
 import {
   cancelEditing,
   finishEditing,
@@ -41,6 +42,11 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     // Keyboard
 
     PressedNewKey: () => ({ model: Chooser.open(model) }),
+    PressedFindCardKey: () => Picker.open(model),
+    UpdatedCardQuery: ({ query }) => Picker.changeQuery(model, query),
+    MovedCardHighlight: ({ direction }) => Picker.moveHighlight(model, direction),
+    PickedCard: ({ nodeId }) => ({ model: Picker.pick(model, nodeId) }),
+    CompletedRevealCardOption: () => ({ model }),
     PressedZoomToSelectionKey: () => ({ model: Canvas.zoomToSelection(model) }),
     PressedShortcutsKey: () =>
       model.editor._tag === "ViewingShortcuts" ? { model: toIdle(model) } : showShortcuts(model),
@@ -58,6 +64,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         {
           Idle: () => Rows.edit(model),
           ChoosingNew: ({ highlighted }) => Chooser.pick(model, highlighted),
+          PickingCard: () => ({ model: Picker.pickHighlighted(model) }),
         },
         () => ({ model: finishEditing(model) }),
       ),
