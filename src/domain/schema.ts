@@ -34,19 +34,30 @@ export const EntityDefinition = Schema.Struct({
 });
 export type EntityDefinition = typeof EntityDefinition.Type;
 
-export const Cardinality = Schema.Literals(["1:1", "1:N", "N:M"]);
-export type Cardinality = typeof Cardinality.Type;
+export const Multiplicity = Schema.Struct({
+  min: Schema.Literals([0, 1]),
+  max: Schema.Literals(["one", "many"]),
+});
+export type Multiplicity = typeof Multiplicity.Type;
 
-export const CARDINALITIES: ReadonlyArray<Cardinality> = Cardinality.literals;
+export const AssociationEnd = Schema.Struct({
+  entityId: Schema.String,
+  role: Schema.optional(Schema.String),
+  multiplicity: Multiplicity,
+});
+export type AssociationEnd = typeof AssociationEnd.Type;
 
-export const RelationshipDefinition = Schema.Struct({
+/** Which of an association's two ends: `0` is the end it was drawn from. */
+export const EndIndex = Schema.Literals([0, 1]);
+export type EndIndex = typeof EndIndex.Type;
+
+export const AssociationDefinition = Schema.Struct({
   id: Schema.String,
   name: Schema.optional(Schema.String),
-  sourceEntityId: Schema.String,
-  targetEntityId: Schema.String,
-  cardinality: Cardinality,
+  description: Schema.optional(Schema.String),
+  ends: Schema.Tuple([AssociationEnd, AssociationEnd]),
 });
-export type RelationshipDefinition = typeof RelationshipDefinition.Type;
+export type AssociationDefinition = typeof AssociationDefinition.Type;
 
 // LAYOUT
 
@@ -80,7 +91,7 @@ export const DomainModelDocument = Schema.Struct({
   version: Schema.Literal("1.0.0"),
   name: Schema.String,
   entities: Schema.Array(EntityDefinition),
-  relationships: Schema.Array(RelationshipDefinition),
+  associations: Schema.Array(AssociationDefinition),
   layout: DomainLayout,
 });
 export type DomainModelDocument = typeof DomainModelDocument.Type;

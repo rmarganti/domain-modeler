@@ -6,7 +6,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 - Launch with `.agents/skills/verify-domain-modeler/scripts/verify.sh launch` (web mode unless the feature says otherwise).
 - `.agents/skills/verify-domain-modeler/scripts/verify.sh doctor` reports `doctor: OK`.
-- The canvas shows the `Blog` sample: entities `User`, `Post`, `Tag`; edges `Relationship writes 1:N` and `Relationship tagged N:M`; `Undo` and `Redo` disabled.
+- The canvas shows the `Blog` sample: entities `User`, `Post`, `Tag`; edges `Relationship writes 1:0..*` and `Relationship tagged 0..*:0..*`; `Undo` and `Redo` disabled.
 - `ab …` in every recipe means `.agents/skills/verify-domain-modeler/scripts/verify.sh ab …`, which aims `agent-browser` at the latest run's session.
 - Never drive an instance this run did not launch (in particular nothing on port 1420).
 

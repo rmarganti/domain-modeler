@@ -113,7 +113,7 @@ const commitPropertyEdit = (
   );
 
 /** Completes whatever text edit is in progress (committing it), closes the
- *  relationship inspector, and returns to Idle. Pointer interactions are left
+ *  association inspector, and returns to Idle. Pointer interactions are left
  *  alone because they complete on pointer release. */
 export const finishEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
@@ -122,8 +122,8 @@ export const finishEditing = (model: Model): Model =>
     RenamingEntity: ({ entityId, draftName }) => commitRenameEntity(model, entityId, draftName),
     EditingProperty: ({ entityId, propertyId, draft }) =>
       commitPropertyEdit(model, entityId, propertyId, draft),
-    EditingRelationship: () => toIdle(model),
-    ConnectingRelationship: () => toIdle(model),
+    EditingAssociation: () => toIdle(model),
+    ConnectingAssociation: () => toIdle(model),
     DraggingNode: () => model,
     PanningCanvas: () => model,
   });
@@ -135,8 +135,8 @@ export const cancelEditing = (model: Model): Model =>
     CreatingEntity: () => toIdle(model),
     RenamingEntity: () => toIdle(model),
     EditingProperty: () => toIdle(model),
-    ConnectingRelationship: () => toIdle(model),
-    EditingRelationship: () => deselect(toIdle(model)),
+    ConnectingAssociation: () => toIdle(model),
+    EditingAssociation: () => deselect(toIdle(model)),
     DraggingNode: () => toIdle(model),
     PanningCanvas: ({ startPan }) =>
       toIdle(setViewport(model, { ...viewport(model), pan: startPan })),

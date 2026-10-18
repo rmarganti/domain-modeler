@@ -17,11 +17,11 @@ type KeyMode = typeof KeyMode.Type;
 const toKeyMode = (editor: EditorState): KeyMode =>
   EditorState.match<KeyMode>(editor, {
     Idle: () => "Normal",
-    EditingRelationship: () => "Normal",
+    EditingAssociation: () => "Normal",
     CreatingEntity: () => "Text",
     RenamingEntity: () => "Text",
     EditingProperty: () => "Text",
-    ConnectingRelationship: () => "Pointer",
+    ConnectingAssociation: () => "Pointer",
     DraggingNode: () => "Pointer",
     PanningCanvas: () => "Pointer",
   });
@@ -77,7 +77,7 @@ const bindingsFor = (mode: KeyMode): ReadonlyArray<Dom.KeyBinding<Message>> => {
 const isTrackingPointer = (editor: EditorState): boolean =>
   editor._tag === "DraggingNode" ||
   editor._tag === "PanningCanvas" ||
-  editor._tag === "ConnectingRelationship";
+  editor._tag === "ConnectingAssociation";
 
 const entityIdUnder = (target: EventTarget | null): Option.Option<string> =>
   target instanceof Element

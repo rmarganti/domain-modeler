@@ -48,12 +48,12 @@ export const startRenaming = (model: Model, entityId: string): UpdateReturn =>
   });
 
 /** Opens the selection for editing: expands and renames an entity, or opens
- *  the inspector for a relationship. */
+ *  the inspector for an association. */
 export const editSelection = (model: Model): UpdateReturn =>
   Selection.match(model.selection, {
     NoSelection: () => ({ model }),
-    SelectedRelationship: ({ relationshipId }) => ({
-      model: { ...model, editor: EditorState.EditingRelationship({ relationshipId }) },
+    SelectedAssociation: ({ associationId }) => ({
+      model: { ...model, editor: EditorState.EditingAssociation({ associationId }) },
     }),
     SelectedEntity: ({ entityId }) =>
       startRenaming(

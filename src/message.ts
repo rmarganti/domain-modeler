@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
-import { Cardinality, DomainModelDocument, PropertyType } from "./domain/schema";
+import { DomainModelDocument, EndIndex, Multiplicity, PropertyType } from "./domain/schema";
 
 const PointerFields = {
   button: Schema.Number,
@@ -86,12 +86,17 @@ export const Message = defineMessageUnion({
   ClickedSaveProperty: {},
   ClickedCancelEdit: {},
 
-  // Relationships
-  ClickedEdge: { relationshipId: Schema.String },
-  SelectedCardinality: { relationshipId: Schema.String, cardinality: Cardinality },
-  ClickedReverseRelationship: { relationshipId: Schema.String },
-  ChangedRelationshipName: { relationshipId: Schema.String, name: Schema.String },
-  ClickedDeleteRelationship: { relationshipId: Schema.String },
+  // Associations
+  ClickedEdge: { associationId: Schema.String },
+  ChangedAssociationName: { associationId: Schema.String, name: Schema.String },
+  ChangedAssociationDescription: { associationId: Schema.String, description: Schema.String },
+  SelectedEndMultiplicity: {
+    associationId: Schema.String,
+    endIndex: EndIndex,
+    multiplicity: Multiplicity,
+  },
+  ChangedEndRole: { associationId: Schema.String, endIndex: EndIndex, role: Schema.String },
+  ClickedDeleteAssociation: { associationId: Schema.String },
   ClickedCloseInspector: {},
 
   // Files

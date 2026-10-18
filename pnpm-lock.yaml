@@ -181,6 +181,9 @@ importers:
       foldkit:
         specifier: 0.168.0
         version: 0.168.0(@effect/platform-browser@4.0.0(effect@4.0.0))(effect@4.0.0)
+      pluralize:
+        specifier: 8.0.0
+        version: 8.0.0
     devDependencies:
       '@foldkit/vite-plugin':
         specifier: ^0.27.1
@@ -191,6 +194,9 @@ importers:
       '@tauri-apps/cli':
         specifier: ^2.12.3
         version: 2.12.3
+      '@types/pluralize':
+        specifier: 0.0.33
+        version: 0.0.33
       happy-dom:
         specifier: ^21.0.3
         version: 21.0.3
@@ -830,6 +836,9 @@ packages:
   '@types/node@26.6.5':
     resolution: {integrity: sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==}
 
+  '@types/pluralize@0.0.33':
+    resolution: {integrity: sha512-JOqsl+ZoCpP4e8TDke9W79FDcSgPAR0l6pixx2JHkhnRjvShyYiAYw2LVsnA7K08Y6DeOnaU6ujmENO4os/cYg==}
+
   '@types/whatwg-mimetype@3.0.2':
     resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
 
@@ -1244,6 +1253,10 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  pluralize@8.0.0:
+    resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
+    engines: {node: '>=4'}
 
   postcss@8.5.30:
     resolution: {integrity: sha512-zkd+e9S1AQHhmaBKye9zlFHWjOwVgqXl1q3ECYy8561K7qxR2cREf/STLskulBFd78k6AOFeA+ff1TtEzk9bAA==}
@@ -1791,6 +1804,8 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
+  '@types/pluralize@0.0.33': {}
+
   '@types/whatwg-mimetype@3.0.2': {}
 
   '@types/ws@8.18.2':
@@ -2090,6 +2105,8 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  pluralize@8.0.0: {}
 
   postcss@8.5.30:
     dependencies:

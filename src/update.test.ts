@@ -227,13 +227,13 @@ describe("entities", () => {
       message(Message.PressedDeleteKey()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(2);
-        expect(m.history.present.relationships).toHaveLength(0);
+        expect(m.history.present.associations).toHaveLength(0);
         expect(m.selection).toEqual(Selection.NoSelection());
       }),
       message(Message.PressedUndoKey()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(3);
-        expect(m.history.present.relationships).toHaveLength(2);
+        expect(m.history.present.associations).toHaveLength(2);
       }),
       message(Message.PressedRedoKey()),
       model((m) => expect(m.history.present.entities).toHaveLength(2)),
@@ -289,13 +289,13 @@ describe("properties", () => {
   });
 });
 
-describe("relationships", () => {
+describe("associations", () => {
   test("dropping a port drag on another entity creates an edge and opens the inspector", () => {
     story(
       update,
       given(baseModel),
       message(Message.PressedPort({ entityId: "e3", ...press, clientX: 1180, clientY: 162 })),
-      model((m) => expect(m.editor._tag).toBe("ConnectingRelationship")),
+      model((m) => expect(m.editor._tag).toBe("ConnectingAssociation")),
       message(Message.MovedPointer({ clientX: 300, clientY: 160 })),
       message(
         Message.ReleasedPointer({
@@ -305,29 +305,58 @@ describe("relationships", () => {
         }),
       ),
       model((m) => {
-        expect(m.editor).toEqual(EditorState.EditingRelationship({ relationshipId: "r3" }));
-        expect(Option.getOrThrow(Doc.findRelationship(m.history.present, "r3"))).toEqual({
+        expect(m.editor).toEqual(EditorState.EditingAssociation({ associationId: "r3" }));
+        expect(Option.getOrThrow(Doc.findAssociation(m.history.present, "r3"))).toEqual({
           id: "r3",
-          sourceEntityId: "e3",
-          targetEntityId: "e1",
-          cardinality: "1:N",
+          ends: [
+            { entityId: "e3", multiplicity: { min: 1, max: "one" } },
+            { entityId: "e1", multiplicity: { min: 0, max: "many" } },
+          ],
         });
         // The saved file links the two entities and nothing else: no field keys.
         const json = Schema.encodeSync(DomainModelDocumentJsonString)(m.history.present);
-        const saved = JSON.parse(json).relationships.at(-1);
-        expect(Object.keys(saved).sort()).toEqual([
-          "cardinality",
-          "id",
-          "sourceEntityId",
-          "targetEntityId",
-        ]);
+        const saved = JSON.parse(json).associations.at(-1);
+        expect(Object.keys(saved).sort()).toEqual(["ends", "id"]);
       }),
-      message(Message.SelectedCardinality({ relationshipId: "r3", cardinality: "1:1" })),
       message(Message.PressedDeleteKey()),
       model((m) => {
-        expect(m.history.present.relationships).toHaveLength(2);
+        expect(m.history.present.associations).toHaveLength(2);
         expect(m.editor).toEqual(EditorState.Idle());
       }),
+    );
+  });
+
+  test("choosing a multiplicity and typing a role are undoable edits", () => {
+    const inspected = {
+      ...baseModel,
+      editor: EditorState.EditingAssociation({ associationId: "r1" }),
+      selection: Selection.SelectedAssociation({ associationId: "r1" }),
+    };
+    const r1Ends = (m: Model) =>
+      Option.getOrThrow(Doc.findAssociation(m.history.present, "r1")).ends;
+    story(
+      update,
+      given(inspected),
+      message(
+        Message.SelectedEndMultiplicity({
+          associationId: "r1",
+          endIndex: 0,
+          multiplicity: { min: 0, max: "one" },
+        }),
+      ),
+      message(Message.ChangedEndRole({ associationId: "r1", endIndex: 1, role: "articles" })),
+      model((m) => {
+        expect(r1Ends(m)[0].multiplicity).toEqual({ min: 0, max: "one" });
+        expect(r1Ends(m)[1].role).toBe("articles");
+        expect(m.history.past).toHaveLength(2);
+      }),
+      message(Message.PressedEscapeKey()),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(r1Ends(m)[1].role).toBeUndefined()),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(r1Ends(m)[0].multiplicity).toEqual({ min: 1, max: "one" })),
+      message(Message.PressedRedoKey()),
+      model((m) => expect(r1Ends(m)[0].multiplicity).toEqual({ min: 0, max: "one" })),
     );
   });
 
@@ -340,7 +369,7 @@ describe("relationships", () => {
         Message.ReleasedPointer({ clientX: 500, clientY: 700, maybeTargetEntityId: Option.none() }),
       ),
       model((m) => {
-        expect(m.history.present.relationships).toHaveLength(2);
+        expect(m.history.present.associations).toHaveLength(2);
         expect(m.editor).toEqual(EditorState.Idle());
       }),
     );
@@ -354,7 +383,7 @@ describe("relationships", () => {
       message(
         Message.ReleasedPointer({ clientX: 2, clientY: 2, maybeTargetEntityId: Option.some("e3") }),
       ),
-      model((m) => expect(m.history.present.relationships).toHaveLength(2)),
+      model((m) => expect(m.history.present.associations).toHaveLength(2)),
     );
   });
 });

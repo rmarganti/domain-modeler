@@ -47,20 +47,42 @@ export const EntityDefinition = Schema.Struct({
 });
 export type EntityDefinition = typeof EntityDefinition.Type;
 
-export const Cardinality = Schema.Literals(["1:1", "1:N", "N:M"]);
-export type Cardinality = typeof Cardinality.Type;
-
-export const RelationshipDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.optional(Schema.String),
-  sourceEntityId: Schema.String,
-  targetEntityId: Schema.String,
-  cardinality: Cardinality,
+export const Multiplicity = Schema.Struct({
+  min: Schema.Literals([0, 1]),
+  max: Schema.Literals(["one", "many"]),
 });
-export type RelationshipDefinition = typeof RelationshipDefinition.Type;
+export type Multiplicity = typeof Multiplicity.Type;
+
+export const AssociationEnd = Schema.Struct({
+  entityId: Schema.String,
+  role: Schema.optional(Schema.String),
+  multiplicity: Multiplicity,
+});
+export type AssociationEnd = typeof AssociationEnd.Type;
+
+export const EndIndex = Schema.Literals([0, 1]);
+export type EndIndex = typeof EndIndex.Type;
+
+export const AssociationDefinition = Schema.Struct({
+  id: Schema.String,
+  name: Schema.optional(Schema.String), // verb label, display only
+  description: Schema.optional(Schema.String),
+  ends: Schema.Tuple([AssociationEnd, AssociationEnd]),
+});
+export type AssociationDefinition = typeof AssociationDefinition.Type;
 ```
 
-Entity identity is implicit: every entity is distinguishable without an ID property, so there is no primary key flag. A relationship connects two entities and nothing else; it never references individual properties. Foreign keys are a concern of future exporters, which can derive them from the relationship.
+Entity identity is implicit: every entity is distinguishable without an ID property, so there is no primary key flag. An association connects two entities and nothing else; it never references individual properties. Foreign keys and join tables are a concern of future exporters, which can derive them from the association's ends.
+
+The code and the file format say "association"; everything the user sees says "Relationship".
+
+### 2.2 Associations
+
+An association has two ends and no direction: both ends are always navigable, and `name` is only a verb label for display ("User _writes_ Post"). `ends[0]` is the entity the user dragged from.
+
+- **Multiplicity** uses the UML reading: the multiplicity on `ends[i]` answers "how many of `ends[i]`'s entity per one of the other entity". `User 1 ── 0..* Post` means a User has zero or more Posts and a Post has exactly one User. The four allowed values are listed, in order, by `MULTIPLICITIES` in `src/domain/multiplicity.ts`: `1` = `{1, one}`, `0..1` = `{0, one}`, `0..*` = `{0, many}`, `1..*` = `{1, many}`. Attributes reuse the same list.
+- **Roles**: the role on `ends[i]` is the name the other entity uses to reach `ends[i]`'s entity (the role on the Post end of `writes` is `user.posts`). A missing or blank role gets a default, derived on demand and never stored: the entity name in camelCase, pluralized with the `pluralize` package when `max` is `"many"` (`Line Item` at `0..*` → `lineItems`). `src/domain/naming.ts` owns this and is the only module that imports `pluralize`.
+- New associations start as `ends[0]` at `1` and `ends[1]` at `0..*`.
 
 ---
 
@@ -99,7 +121,7 @@ export const DomainModelDocument = Schema.Struct({
   version: Schema.Literal("1.0.0"),
   name: Schema.String,
   entities: Schema.Array(EntityDefinition),
-  relationships: Schema.Array(RelationshipDefinition),
+  associations: Schema.Array(AssociationDefinition),
   layout: DomainLayout,
 });
 export type DomainModelDocument = typeof DomainModelDocument.Type;
@@ -111,7 +133,7 @@ A domain validation pass ensures that:
 
 - Every entity ID has a corresponding entry in `layout.nodes` (missing entries are assigned smart auto-staggered positions).
 - No orphan entries exist in `layout.nodes` for deleted entities.
-- Relationship source and target IDs exist in `entities`.
+- Both association end entity IDs exist in `entities`.
 
 ---
 
@@ -133,7 +155,7 @@ A domain validation pass ensures that:
 ### 4.3 Port Drag-and-Drop Connection
 
 - Every card has exactly two ports, on the left and right of its header, whether collapsed or expanded. Field rows have no ports.
-- Dragging from an entity port pulls a live dynamic connector line from the header. Releasing onto another entity creates a relationship edge and opens the inspector to configure its name and cardinality.
+- Dragging from an entity port pulls a live dynamic connector line from the header. Releasing onto another entity creates a relationship edge (`1 ── 0..*`, from the dragged entity to the drop target) and opens the inspector to configure it.
 - Edges always anchor at the card header.
 
 ### 4.4 Pluggable Edge Routing
@@ -152,13 +174,14 @@ export interface EdgeRouter {
 }
 ```
 
-- **Default implementation**: Smooth cubic Bézier curves with direction markers and interactive midpoint cardinality tags (`1 ── N`).
+- **Default implementation**: Smooth cubic Bézier curves with end markers and interactive midpoint multiplicity tags reading `<ends[0]> ── <ends[1]>` (for example `1 ── 0..*`).
 - Swappable in the future for orthogonal / Manhattan routing without touching UI components.
 
 ### 4.5 Relationship Edge Inspection
 
 - Clicking an edge highlights the curve and displays a floating inspector pill at its midpoint.
-- The pill allows changing cardinality (`1:1`, `1:N`, `N:M`), renaming, reversing direction, or deleting the edge (`Delete` / `Backspace`).
+- The pill edits the verb label (`Relationship name`) and a description, and has one section per end, headed with that end's entity name: a role textbox whose faded placeholder is the derived default role, and a multiplicity radiogroup (`1`, `0..1`, `0..*`, `1..*`). For a self association the end labels carry `(end 1)` / `(end 2)`.
+- `Delete` / `Backspace` or the trash button deletes the edge. There is no reverse button: without direction, reversing means nothing.
 
 ---
 
@@ -173,11 +196,11 @@ export type EditorState =
   | { readonly _tag: "RenamingEntity"; readonly entityId: string }
   | { readonly _tag: "EditingProperty"; readonly entityId: string; readonly propertyId: string }
   | {
-      readonly _tag: "ConnectingRelationship";
-      readonly sourceEntityId: string;
+      readonly _tag: "ConnectingAssociation";
+      readonly fromEntityId: string;
       readonly currentPos: Point;
     }
-  | { readonly _tag: "EditingRelationship"; readonly relationshipId: string }
+  | { readonly _tag: "EditingAssociation"; readonly associationId: string }
   | { readonly _tag: "DraggingNode"; readonly entityId: string; readonly offset: Point }
   | { readonly _tag: "PanningCanvas"; readonly startPan: Point; readonly startMouse: Point };
 ```
@@ -188,7 +211,7 @@ export type EditorState =
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | `Idle` (Normal Mode)                 | `c`: Create entity at center/cursor<br>`d`: Delete selected entity/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & edit selected entity<br>`Escape`: Deselect / clear selection | Canvas shortcuts  |
 | `RenamingEntity` / `EditingProperty` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                       | Text input focus  |
-| `ConnectingRelationship`             | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                      | Active connection |
+| `ConnectingAssociation`              | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                      | Active connection |
 | `DraggingNode` / `PanningCanvas`     | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                  | Canvas drag       |
 
 A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `CREATING`, `EDITING`, `CONNECTING`).
@@ -234,7 +257,8 @@ Live schema validation runs in the background on every model update and reports 
 
 - **Duplicate Entity Names**: Highlighted with warning badges on affected cards.
 - **Duplicate Property Names**: Flagged within the entity property list.
-- **Dangling References**: Edges whose source or target entity no longer exists are flagged with warning badges.
+- **Dangling References** (`DanglingEntityReference`): an edge whose end entity no longer exists is flagged with a warning badge ("Entity “…” at end 1 does not exist").
+- **Role Clashes** (`RoleClash`): for each entity, its property names and the effective role of the far end of every association touching it (both roles for a self association) must be unique, case-insensitively. Every association end whose role collides is flagged on its edge ("Role “posts” clashes on User"); giving the end an explicit role clears it.
 
 ---
 

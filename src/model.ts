@@ -26,12 +26,12 @@ export const EditorState = defineTaggedUnion({
     propertyId: Schema.String,
     draft: PropertyDraft,
   },
-  ConnectingRelationship: {
-    sourceEntityId: Schema.String,
+  ConnectingAssociation: {
+    fromEntityId: Schema.String,
     startPos: Point,
     currentPos: Point,
   },
-  EditingRelationship: { relationshipId: Schema.String },
+  EditingAssociation: { associationId: Schema.String },
   DraggingNode: {
     entityId: Schema.String,
     offset: Point,
@@ -45,7 +45,7 @@ export type EditorState = typeof EditorState.Type;
 export const Selection = defineTaggedUnion({
   NoSelection: {},
   SelectedEntity: { entityId: Schema.String },
-  SelectedRelationship: { relationshipId: Schema.String },
+  SelectedAssociation: { associationId: Schema.String },
 });
 export type Selection = typeof Selection.Type;
 

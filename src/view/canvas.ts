@@ -26,7 +26,7 @@ const cursorFor = (model: Model): string => {
   switch (model.editor._tag) {
     case "PanningCanvas":
       return "cursor-grabbing";
-    case "ConnectingRelationship":
+    case "ConnectingAssociation":
       return "cursor-crosshair";
     case "DraggingNode":
       return "cursor-grabbing";
@@ -62,19 +62,18 @@ export const canvasView = (
     editor._tag === "EditingProperty" ? Option.some(editor.propertyId) : Option.none<string>();
 
   const edges = Array.getSomes(
-    Array.map(document.relationships, (relationship) =>
-      edgeGeometry(document, relationship, editor, router),
+    Array.map(document.associations, (association) =>
+      edgeGeometry(document, association, editor, router),
     ),
   );
-  const isEdgeSelected = (relationshipId: string) =>
-    selection._tag === "SelectedRelationship" && selection.relationshipId === relationshipId;
-  const edgeWarnings = (relationshipId: string) =>
-    Array.map(Diagnostics.forRelationship(diagnostics, relationshipId), Diagnostics.describe);
+  const isEdgeSelected = (associationId: string) =>
+    selection._tag === "SelectedAssociation" && selection.associationId === associationId;
+  const edgeWarnings = (associationId: string) =>
+    Array.map(Diagnostics.forAssociation(diagnostics, associationId), Diagnostics.describe);
 
   const maybeInspected = Array.findFirst(
     edges,
-    (edge) =>
-      editor._tag === "EditingRelationship" && editor.relationshipId === edge.relationship.id,
+    (edge) => editor._tag === "EditingAssociation" && editor.associationId === edge.association.id,
   );
 
   const { pan, zoom } = document.layout.viewport;
@@ -106,8 +105,8 @@ export const canvasView = (
                 edgePath(
                   h,
                   edge,
-                  isEdgeSelected(edge.relationship.id),
-                  edgeWarnings(edge.relationship.id).length > 0,
+                  isEdgeSelected(edge.association.id),
+                  edgeWarnings(edge.association.id).length > 0,
                 ),
               ),
               ...connectorPreview(h, document, editor, router),
@@ -129,8 +128,8 @@ export const canvasView = (
             edgeLabel(
               h,
               edge,
-              isEdgeSelected(edge.relationship.id),
-              edgeWarnings(edge.relationship.id),
+              isEdgeSelected(edge.association.id),
+              edgeWarnings(edge.association.id),
             ),
           ),
           ...Array.getSomes(

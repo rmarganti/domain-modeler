@@ -9,14 +9,16 @@ import {
   type Rect,
 } from "./geometry";
 import type {
-  Cardinality,
+  AssociationDefinition,
+  AssociationEnd,
   DomainLayout,
   DomainModelDocument,
+  EndIndex,
   EntityDefinition,
+  Multiplicity,
   NodeLayout,
   Point,
   PropertyDefinition,
-  RelationshipDefinition,
   ViewportLayout,
 } from "./schema";
 
@@ -28,7 +30,7 @@ export const emptyDocument = (name: string): DomainModelDocument => ({
   version: "1.0.0",
   name,
   entities: [],
-  relationships: [],
+  associations: [],
   layout: { nodes: {}, viewport: DEFAULT_VIEWPORT },
 });
 
@@ -44,7 +46,7 @@ const allIds = (document: DomainModelDocument): ReadonlyArray<string> => [
   ...Array.flatMap(document.entities, (entity) =>
     Array.map(entity.properties, (property) => property.id),
   ),
-  ...Array.map(document.relationships, (relationship) => relationship.id),
+  ...Array.map(document.associations, (association) => association.id),
 ];
 
 export const nextId = (document: DomainModelDocument, prefix: IdPrefix): string => {
@@ -72,11 +74,11 @@ export const findProperty = (
 ): Option.Option<PropertyDefinition> =>
   Array.findFirst(entity.properties, (property) => property.id === propertyId);
 
-export const findRelationship = (
+export const findAssociation = (
   document: DomainModelDocument,
-  relationshipId: string,
-): Option.Option<RelationshipDefinition> =>
-  Array.findFirst(document.relationships, (relationship) => relationship.id === relationshipId);
+  associationId: string,
+): Option.Option<AssociationDefinition> =>
+  Array.findFirst(document.associations, (association) => association.id === associationId);
 
 export const findNode = (
   document: DomainModelDocument,
@@ -157,17 +159,16 @@ export const renameEntity = (
   name: string,
 ): DomainModelDocument => mapEntity(document, entityId, (entity) => ({ ...entity, name }));
 
-/** Removes an entity, its layout node, and every relationship touching it. */
+/** Removes an entity, its layout node, and every association touching it. */
 export const deleteEntity = (
   document: DomainModelDocument,
   entityId: string,
 ): DomainModelDocument => ({
   ...document,
   entities: Array.filter(document.entities, (entity) => entity.id !== entityId),
-  relationships: Array.filter(
-    document.relationships,
-    (relationship) =>
-      relationship.sourceEntityId !== entityId && relationship.targetEntityId !== entityId,
+  associations: Array.filter(
+    document.associations,
+    (association) => !Array.some(association.ends, (end) => end.entityId === entityId),
   ),
   layout: {
     ...document.layout,
@@ -248,92 +249,112 @@ export const moveProperty = (
     ),
   );
 
-// RELATIONSHIPS
+// ASSOCIATIONS
 
-export const DEFAULT_CARDINALITY: Cardinality = "1:N";
-
-/** A relationship as first drawn, with the default cardinality. */
-export const newRelationship = (
-  relationshipId: string,
-  sourceEntityId: string,
-  targetEntityId: string,
-): RelationshipDefinition => ({
-  id: relationshipId,
-  sourceEntityId,
-  targetEntityId,
-  cardinality: DEFAULT_CARDINALITY,
+/** An association as first drawn: one `from` per many `to`s. */
+export const newAssociation = (
+  associationId: string,
+  fromEntityId: string,
+  toEntityId: string,
+): AssociationDefinition => ({
+  id: associationId,
+  ends: [
+    { entityId: fromEntityId, multiplicity: { min: 1, max: "one" } },
+    { entityId: toEntityId, multiplicity: { min: 0, max: "many" } },
+  ],
 });
 
-export const addRelationship = (
+export const addAssociation = (
   document: DomainModelDocument,
-  relationship: RelationshipDefinition,
+  association: AssociationDefinition,
 ): DomainModelDocument => ({
   ...document,
-  relationships: [...document.relationships, relationship],
+  associations: [...document.associations, association],
 });
 
-export const replaceRelationship = (
+export const replaceAssociation = (
   document: DomainModelDocument,
-  relationship: RelationshipDefinition,
+  association: AssociationDefinition,
 ): DomainModelDocument => ({
   ...document,
-  relationships: Array.map(document.relationships, (existing) =>
-    existing.id === relationship.id ? relationship : existing,
+  associations: Array.map(document.associations, (existing) =>
+    existing.id === association.id ? association : existing,
   ),
 });
 
-const mapRelationship = (
+const mapAssociation = (
   document: DomainModelDocument,
-  relationshipId: string,
-  f: (relationship: RelationshipDefinition) => RelationshipDefinition,
+  associationId: string,
+  f: (association: AssociationDefinition) => AssociationDefinition,
 ): DomainModelDocument => ({
   ...document,
-  relationships: Array.map(document.relationships, (relationship) =>
-    relationship.id === relationshipId ? f(relationship) : relationship,
+  associations: Array.map(document.associations, (association) =>
+    association.id === associationId ? f(association) : association,
   ),
 });
 
-export const setCardinality = (
+const mapEnd = (
   document: DomainModelDocument,
-  relationshipId: string,
-  cardinality: Cardinality,
+  associationId: string,
+  endIndex: EndIndex,
+  f: (end: AssociationEnd) => AssociationEnd,
 ): DomainModelDocument =>
-  mapRelationship(document, relationshipId, (relationship) => ({
-    ...relationship,
-    cardinality,
-  }));
+  mapAssociation(document, associationId, (association) => {
+    const [first, second] = association.ends;
+    return {
+      ...association,
+      ends: endIndex === 0 ? [f(first), second] : [first, f(second)],
+    };
+  });
 
-/** Swaps source and target. */
-export const reverseRelationship = (
+export const setEndMultiplicity = (
   document: DomainModelDocument,
-  relationshipId: string,
+  associationId: string,
+  endIndex: EndIndex,
+  multiplicity: Multiplicity,
 ): DomainModelDocument =>
-  mapRelationship(document, relationshipId, (relationship) => ({
-    ...relationship,
-    sourceEntityId: relationship.targetEntityId,
-    targetEntityId: relationship.sourceEntityId,
-  }));
+  mapEnd(document, associationId, endIndex, (end) => ({ ...end, multiplicity }));
 
-export type RelationshipEnd = "Source" | "Target";
-
-export const renameRelationship = (
+/** Sets an end's role; a blank role removes it so the default applies. */
+export const setEndRole = (
   document: DomainModelDocument,
-  relationshipId: string,
+  associationId: string,
+  endIndex: EndIndex,
+  role: string,
+): DomainModelDocument =>
+  mapEnd(document, associationId, endIndex, (end) => {
+    const { role: _previous, ...rest } = end;
+    return role.trim() === "" ? rest : { ...rest, role: role.trim() };
+  });
+
+export const renameAssociation = (
+  document: DomainModelDocument,
+  associationId: string,
   name: string,
 ): DomainModelDocument =>
-  mapRelationship(document, relationshipId, (relationship) => {
-    const { name: _previous, ...rest } = relationship;
+  mapAssociation(document, associationId, (association) => {
+    const { name: _previous, ...rest } = association;
     return name.trim() === "" ? rest : { ...rest, name: name.trim() };
   });
 
-export const deleteRelationship = (
+export const setAssociationDescription = (
   document: DomainModelDocument,
-  relationshipId: string,
+  associationId: string,
+  description: string,
+): DomainModelDocument =>
+  mapAssociation(document, associationId, (association) => {
+    const { description: _previous, ...rest } = association;
+    return description.trim() === "" ? rest : { ...rest, description: description.trim() };
+  });
+
+export const deleteAssociation = (
+  document: DomainModelDocument,
+  associationId: string,
 ): DomainModelDocument => ({
   ...document,
-  relationships: Array.filter(
-    document.relationships,
-    (relationship) => relationship.id !== relationshipId,
+  associations: Array.filter(
+    document.associations,
+    (association) => association.id !== associationId,
   ),
 });
 
@@ -473,15 +494,23 @@ export const sampleDocument: DomainModelDocument = {
       ],
     },
   ],
-  relationships: [
+  associations: [
     {
       id: "r1",
       name: "writes",
-      sourceEntityId: "e1",
-      targetEntityId: "e2",
-      cardinality: "1:N",
+      ends: [
+        { entityId: "e1", multiplicity: { min: 1, max: "one" } },
+        { entityId: "e2", multiplicity: { min: 0, max: "many" } },
+      ],
     },
-    { id: "r2", name: "tagged", sourceEntityId: "e2", targetEntityId: "e3", cardinality: "N:M" },
+    {
+      id: "r2",
+      name: "tagged",
+      ends: [
+        { entityId: "e2", multiplicity: { min: 0, max: "many" } },
+        { entityId: "e3", multiplicity: { min: 0, max: "many" } },
+      ],
+    },
   ],
   layout: {
     nodes: {

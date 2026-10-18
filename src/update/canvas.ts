@@ -5,7 +5,7 @@ import * as Geometry from "../domain/geometry";
 import type { Point } from "../domain/schema";
 import { EditorState, Selection, type Model } from "../model";
 import { finishEditing } from "./editing";
-import { connect } from "./relationships";
+import { connect } from "./associations";
 import {
   commitDocument,
   deselect,
@@ -80,8 +80,8 @@ export const pressPort = (model: Model, entityId: string, press: Press): UpdateR
     return {
       model: {
         ...ready,
-        editor: EditorState.ConnectingRelationship({
-          sourceEntityId: entityId,
+        editor: EditorState.ConnectingAssociation({
+          fromEntityId: entityId,
           startPos: pointer,
           currentPos: pointer,
         }),
@@ -116,7 +116,7 @@ export const movePointer = (model: Model, clientX: number, clientY: number): Upd
           },
         }),
       }),
-      ConnectingRelationship: (state) => ({
+      ConnectingAssociation: (state) => ({
         model: { ...model, editor: { ...state, currentPos: toWorld(model, clientX, clientY) } },
       }),
     },
@@ -147,10 +147,10 @@ export const releasePointer = (
         model: releaseDrag(model, entityId, origin, position),
       }),
       PanningCanvas: () => ({ model: toIdle(model) }),
-      ConnectingRelationship: ({ sourceEntityId, startPos }) => ({
+      ConnectingAssociation: ({ fromEntityId, startPos }) => ({
         model: connect(
           model,
-          sourceEntityId,
+          fromEntityId,
           startPos,
           toWorld(model, clientX, clientY),
           maybeTargetEntityId,

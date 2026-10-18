@@ -12,7 +12,7 @@ import {
   updatePropertyDraft,
 } from "./update/editing";
 import * as Entities from "./update/entities";
-import * as Relationships from "./update/relationships";
+import * as Associations from "./update/associations";
 import * as Session from "./update/session";
 import {
   commitDocument,
@@ -110,26 +110,33 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedSaveProperty: () => ({ model: finishEditing(model) }),
     ClickedCancelEdit: () => ({ model: cancelEditing(model) }),
 
-    // Relationships
+    // Associations
 
-    ClickedEdge: ({ relationshipId }) => ({ model: Relationships.inspect(model, relationshipId) }),
-    SelectedCardinality: ({ relationshipId, cardinality }) => ({
+    ClickedEdge: ({ associationId }) => ({ model: Associations.inspect(model, associationId) }),
+    ChangedAssociationName: ({ associationId, name }) => ({
       model: commitDocument(model, (document) =>
-        Doc.setCardinality(document, relationshipId, cardinality),
+        Doc.renameAssociation(document, associationId, name),
       ),
     }),
-    ClickedReverseRelationship: ({ relationshipId }) => ({
-      model: commitDocument(model, (document) => Doc.reverseRelationship(document, relationshipId)),
-    }),
-    ChangedRelationshipName: ({ relationshipId, name }) => ({
+    ChangedAssociationDescription: ({ associationId, description }) => ({
       model: commitDocument(model, (document) =>
-        Doc.renameRelationship(document, relationshipId, name),
+        Doc.setAssociationDescription(document, associationId, description),
       ),
     }),
-    ClickedDeleteRelationship: ({ relationshipId }) => ({
+    SelectedEndMultiplicity: ({ associationId, endIndex, multiplicity }) => ({
+      model: commitDocument(model, (document) =>
+        Doc.setEndMultiplicity(document, associationId, endIndex, multiplicity),
+      ),
+    }),
+    ChangedEndRole: ({ associationId, endIndex, role }) => ({
+      model: commitDocument(model, (document) =>
+        Doc.setEndRole(document, associationId, endIndex, role),
+      ),
+    }),
+    ClickedDeleteAssociation: ({ associationId }) => ({
       model: Session.deleteSelection({
         ...model,
-        selection: Selection.SelectedRelationship({ relationshipId }),
+        selection: Selection.SelectedAssociation({ associationId }),
       }),
     }),
     ClickedCloseInspector: () => ({ model: deselect(toIdle(model)) }),

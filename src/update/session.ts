@@ -32,8 +32,8 @@ export const deleteSelection = (model: Model): Model =>
           NoSelection: () => model,
           SelectedEntity: ({ entityId }) =>
             commitDocument(model, (document) => Doc.deleteEntity(document, entityId)),
-          SelectedRelationship: ({ relationshipId }) =>
-            commitDocument(model, (document) => Doc.deleteRelationship(document, relationshipId)),
+          SelectedAssociation: ({ associationId }) =>
+            commitDocument(model, (document) => Doc.deleteAssociation(document, associationId)),
         }),
       ),
     ),

@@ -5,14 +5,15 @@ import * as Diagnostics from "../domain/diagnostics";
 import * as Doc from "../domain/document";
 import type { EdgeRouter } from "../domain/edgeRouter";
 import * as Geometry from "../domain/geometry";
-import {
-  CARDINALITIES,
-  type Cardinality,
-  type DomainModelDocument,
-  type EntityDefinition,
-  type NodeLayout,
-  type Point,
-  type RelationshipDefinition,
+import { MULTIPLICITIES, multiplicityEquals, multiplicityLabel } from "../domain/multiplicity";
+import { defaultRole } from "../domain/naming";
+import type {
+  AssociationDefinition,
+  DomainModelDocument,
+  EndIndex,
+  EntityDefinition,
+  NodeLayout,
+  Point,
 } from "../domain/schema";
 import { Message } from "../message";
 import type { EditorState } from "../model";
@@ -21,7 +22,7 @@ import { canvasItem, iconButton, px, warningBadge } from "./shared";
 // GEOMETRY
 
 export type EdgeGeometry = Readonly<{
-  relationship: RelationshipDefinition;
+  association: AssociationDefinition;
   source: Point;
   target: Point;
   sourceSide: Geometry.Side;
@@ -56,14 +57,16 @@ const maybeEditingPropertyId = (editor: EditorState): Option.Option<string> =>
 /** Edge endpoints, path, and midpoint, or none when either end is dangling. */
 export const edgeGeometry = (
   document: DomainModelDocument,
-  relationship: RelationshipDefinition,
+  association: AssociationDefinition,
   editor: EditorState,
   router: EdgeRouter,
-): Option.Option<EdgeGeometry> =>
-  Option.map(
+): Option.Option<EdgeGeometry> => {
+  const [from, to] = association.ends;
+  const isSelfReference = from.entityId === to.entityId;
+  return Option.map(
     Option.all([
-      placeEntity(document, relationship.sourceEntityId, editor),
-      placeEntity(document, relationship.targetEntityId, editor),
+      placeEntity(document, from.entityId, editor),
+      placeEntity(document, to.entityId, editor),
     ]),
     ([source, target]) => {
       const editing = maybeEditingPropertyId(editor);
@@ -72,9 +75,8 @@ export const edgeGeometry = (
       const { sourceSide, targetSide } = Geometry.chooseSides(
         sourceRect,
         targetRect,
-        relationship.sourceEntityId === relationship.targetEntityId,
+        isSelfReference,
       );
-      const isSelfReference = relationship.sourceEntityId === relationship.targetEntityId;
       const sourceOffset = Geometry.HEADER_ANCHOR_OFFSET;
       // NOTE: a self reference would start and end on the same point; drop
       // the return leg lower so the loop reads.
@@ -84,7 +86,7 @@ export const edgeGeometry = (
       const sourcePoint = Geometry.anchorPoint(sourceRect, sourceOffset, sourceSide);
       const targetPoint = Geometry.anchorPoint(targetRect, targetOffset, targetSide);
       return {
-        relationship,
+        association,
         source: sourcePoint,
         target: targetPoint,
         sourceSide,
@@ -94,6 +96,7 @@ export const edgeGeometry = (
       };
     },
   );
+};
 
 // SVG LAYER
 
@@ -133,9 +136,9 @@ export const edgePath = (
     : hasWarnings
       ? ["#d97706", "arrow-warning"]
       : ["#94a3b8", "arrow"];
-  const relationshipId = geometry.relationship.id;
+  const associationId = geometry.association.id;
   return h.keyed("g")(
-    relationshipId,
+    associationId,
     [],
     [
       h.path(
@@ -147,7 +150,7 @@ export const edgePath = (
           h.StrokeWidth("14"),
           h.PointerEvents("stroke"),
           h.Cursor("pointer"),
-          h.OnClick(Message.ClickedEdge({ relationshipId })),
+          h.OnClick(Message.ClickedEdge({ associationId })),
         ],
         [],
       ),
@@ -173,11 +176,11 @@ export const connectorPreview = (
   editor: EditorState,
   router: EdgeRouter,
 ): ReadonlyArray<Html> => {
-  if (editor._tag !== "ConnectingRelationship") {
+  if (editor._tag !== "ConnectingAssociation") {
     return [];
   }
   return pipe(
-    placeEntity(document, editor.sourceEntityId, editor),
+    placeEntity(document, editor.fromEntityId, editor),
     Option.match({
       onNone: () => [],
       onSome: ({ entity, layout }) => {
@@ -209,20 +212,14 @@ export const connectorPreview = (
 
 // MIDPOINT TAGS
 
-const cardinalityEnds = (cardinality: Cardinality): readonly [string, string] => {
-  switch (cardinality) {
-    case "1:1":
-      return ["1", "1"];
-    case "1:N":
-      return ["1", "N"];
-    case "N:M":
-      return ["N", "M"];
-  }
-};
+const endLabels = (association: AssociationDefinition): readonly [string, string] => [
+  multiplicityLabel(association.ends[0].multiplicity),
+  multiplicityLabel(association.ends[1].multiplicity),
+];
 
-export const cardinalityTag = (cardinality: Cardinality): string => {
-  const [from, to] = cardinalityEnds(cardinality);
-  return `${from} ── ${to}`;
+export const multiplicityTag = (association: AssociationDefinition): string => {
+  const [label0, label1] = endLabels(association);
+  return `${label0} ── ${label1}`;
 };
 
 export const edgeLabel = (
@@ -231,16 +228,17 @@ export const edgeLabel = (
   isSelected: boolean,
   warnings: ReadonlyArray<string>,
 ): Html => {
-  const relationship = geometry.relationship;
+  const association = geometry.association;
+  const [label0, label1] = endLabels(association);
   return h.keyed("button")(
-    relationship.id,
+    association.id,
     [
       canvasItem(h),
       h.Type("button"),
       h.AriaLabel(
-        `Relationship ${relationship.name ?? ""} ${relationship.cardinality}`.replace(/\s+/g, " "),
+        `Relationship ${association.name ?? ""} ${label0}:${label1}`.replace(/\s+/g, " "),
       ),
-      h.OnClick(Message.ClickedEdge({ relationshipId: relationship.id })),
+      h.OnClick(Message.ClickedEdge({ associationId: association.id })),
       h.Class(
         `absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[11px] shadow-sm transition ${
           isSelected
@@ -253,10 +251,10 @@ export const edgeLabel = (
       h.Style({ left: px(geometry.midpoint.x), top: px(geometry.midpoint.y) }),
     ],
     [
-      ...(relationship.name !== undefined
-        ? [h.span([h.Class("font-sans font-medium")], [relationship.name])]
+      ...(association.name !== undefined
+        ? [h.span([h.Class("font-sans font-medium")], [association.name])]
         : []),
-      h.span([], [cardinalityTag(relationship.cardinality)]),
+      h.span([], [multiplicityTag(association)]),
       ...(warnings.length > 0 && !isSelected
         ? [h.span([h.Title(warnings.join("\n"))], ["⚠"])]
         : []),
@@ -266,21 +264,81 @@ export const edgeLabel = (
 
 // INSPECTOR
 
+const INPUT_CLASS =
+  "rounded-md border border-slate-300 px-2 py-1 text-xs outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+
+const entityName = (document: DomainModelDocument, entityId: string): string =>
+  Option.match(Doc.findEntity(document, entityId), {
+    onNone: () => "?",
+    onSome: (entity) => entity.name,
+  });
+
+/** One end's role and multiplicity. A self association names both ends after
+ *  the same entity, so their labels carry the end number to stay unique. */
+const endSection = (
+  h: HtmlBuilder<Message>,
+  document: DomainModelDocument,
+  association: AssociationDefinition,
+  endIndex: EndIndex,
+): Html => {
+  const associationId = association.id;
+  const end = association.ends[endIndex];
+  const name = entityName(document, end.entityId);
+  const isSelfReference = association.ends[0].entityId === association.ends[1].entityId;
+  const at = isSelfReference ? `at ${name} (end ${endIndex + 1})` : `at ${name}`;
+  return h.section(
+    [h.Class("flex flex-col gap-1")],
+    [
+      h.h3([h.Class("truncate text-[11px] font-semibold text-slate-600")], [name]),
+      h.input([
+        h.Value(end.role ?? ""),
+        h.AriaLabel(`Role ${at}`),
+        h.Placeholder(defaultRole(name, end.multiplicity)),
+        h.Autocomplete("off"),
+        h.OnChange((role) => Message.ChangedEndRole({ associationId, endIndex, role })),
+        h.Class(`${INPUT_CLASS} font-mono`),
+      ]),
+      h.div(
+        [
+          h.Role("radiogroup"),
+          h.AriaLabel(`Multiplicity ${at}`),
+          h.Class("grid grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1"),
+        ],
+        Array.map(MULTIPLICITIES, ({ multiplicity, label }) => {
+          const isChecked = multiplicityEquals(multiplicity, end.multiplicity);
+          return h.button(
+            [
+              h.Type("button"),
+              h.Role("radio"),
+              h.AriaChecked(isChecked),
+              h.OnClick(Message.SelectedEndMultiplicity({ associationId, endIndex, multiplicity })),
+              h.Class(
+                `rounded-md py-1 font-mono text-xs transition ${
+                  isChecked
+                    ? "bg-white font-semibold text-indigo-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`,
+              ),
+            ],
+            [label],
+          );
+        }),
+      ),
+    ],
+  );
+};
+
 export const inspectorView = (
   h: HtmlBuilder<Message>,
   document: DomainModelDocument,
   geometry: EdgeGeometry,
   diagnostics: ReadonlyArray<Diagnostics.Diagnostic>,
 ): Html => {
-  const relationship = geometry.relationship;
-  const relationshipId = relationship.id;
+  const association = geometry.association;
+  const associationId = association.id;
   const screen = Geometry.worldToScreen(document.layout.viewport, geometry.midpoint);
-  const sourceEntity = Doc.findEntity(document, relationship.sourceEntityId);
-  const targetEntity = Doc.findEntity(document, relationship.targetEntityId);
-  const entityName = (maybeEntity: Option.Option<EntityDefinition>) =>
-    Option.match(maybeEntity, { onNone: () => "?", onSome: (entity) => entity.name });
   const warnings = Array.map(
-    Diagnostics.forRelationship(diagnostics, relationshipId),
+    Diagnostics.forAssociation(diagnostics, associationId),
     Diagnostics.describe,
   );
 
@@ -300,57 +358,41 @@ export const inspectorView = (
         [
           h.span(
             [h.Class("min-w-0 flex-1 truncate text-xs font-semibold text-slate-700")],
-            [`${entityName(sourceEntity)} → ${entityName(targetEntity)}`],
+            [
+              `${entityName(document, association.ends[0].entityId)} ── ${entityName(document, association.ends[1].entityId)}`,
+            ],
           ),
           ...(warnings.length > 0 ? [warningBadge(h, warnings)] : []),
-          iconButton(h, {
-            label: "Reverse direction",
-            icon: "⇄",
-            onClick: Message.ClickedReverseRelationship({ relationshipId }),
-          }),
           iconButton(h, {
             label: "Delete relationship",
             icon: "🗑",
             className: "h-6 w-6 text-xs hover:!bg-rose-50 hover:!text-rose-600",
-            onClick: Message.ClickedDeleteRelationship({ relationshipId }),
+            onClick: Message.ClickedDeleteAssociation({ associationId }),
           }),
           iconButton(h, { label: "Close", icon: "✕", onClick: Message.ClickedCloseInspector() }),
         ],
       ),
       h.input([
-        h.Value(relationship.name ?? ""),
+        h.Value(association.name ?? ""),
         h.AriaLabel("Relationship name"),
         h.Placeholder("Relationship name (optional)"),
         h.Autocomplete("off"),
-        h.OnChange((name) => Message.ChangedRelationshipName({ relationshipId, name })),
-        h.Class(
-          "rounded-md border border-slate-300 px-2 py-1 text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100",
+        h.OnChange((name) => Message.ChangedAssociationName({ associationId, name })),
+        h.Class(INPUT_CLASS),
+      ]),
+      h.textarea([
+        h.Value(association.description ?? ""),
+        h.AriaLabel("Relationship description"),
+        h.Placeholder("Description (optional)"),
+        h.Rows(2),
+        h.OnChange((description) =>
+          Message.ChangedAssociationDescription({ associationId, description }),
         ),
+        h.Class(`${INPUT_CLASS} resize-none`),
       ]),
       h.div(
-        [
-          h.Role("radiogroup"),
-          h.AriaLabel("Cardinality"),
-          h.Class("grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1"),
-        ],
-        Array.map(CARDINALITIES, (cardinality) =>
-          h.button(
-            [
-              h.Type("button"),
-              h.Role("radio"),
-              h.AriaChecked(cardinality === relationship.cardinality),
-              h.OnClick(Message.SelectedCardinality({ relationshipId, cardinality })),
-              h.Class(
-                `rounded-md py-1 font-mono text-xs transition ${
-                  cardinality === relationship.cardinality
-                    ? "bg-white font-semibold text-indigo-700 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`,
-              ),
-            ],
-            [cardinality],
-          ),
-        ),
+        [h.Class("flex flex-col gap-2")],
+        [endSection(h, document, association, 0), endSection(h, document, association, 1)],
       ),
       ...(warnings.length > 0
         ? [

@@ -57,15 +57,15 @@ export const deselect = (model: Model): Model => ({
 export const reconcile = (model: Model): Model => {
   const document = present(model);
   const hasEntity = (entityId: string) => Option.isSome(Doc.findEntity(document, entityId));
-  const hasRelationship = (relationshipId: string) =>
-    Option.isSome(Doc.findRelationship(document, relationshipId));
+  const hasAssociation = (associationId: string) =>
+    Option.isSome(Doc.findAssociation(document, associationId));
 
   const selection = Selection.match(model.selection, {
     NoSelection: () => model.selection,
     SelectedEntity: ({ entityId }) =>
       hasEntity(entityId) ? model.selection : Selection.NoSelection(),
-    SelectedRelationship: ({ relationshipId }) =>
-      hasRelationship(relationshipId) ? model.selection : Selection.NoSelection(),
+    SelectedAssociation: ({ associationId }) =>
+      hasAssociation(associationId) ? model.selection : Selection.NoSelection(),
   });
 
   const isEditorValid = EditorState.match(model.editor, {
@@ -78,8 +78,8 @@ export const reconcile = (model: Model): Model => {
         Option.flatMap((entity) => Doc.findProperty(entity, propertyId)),
         Option.isSome,
       ),
-    ConnectingRelationship: ({ sourceEntityId }) => hasEntity(sourceEntityId),
-    EditingRelationship: ({ relationshipId }) => hasRelationship(relationshipId),
+    ConnectingAssociation: ({ fromEntityId }) => hasEntity(fromEntityId),
+    EditingAssociation: ({ associationId }) => hasAssociation(associationId),
     DraggingNode: ({ entityId }) => hasEntity(entityId),
     PanningCanvas: () => true,
   });

@@ -1,7 +1,7 @@
 import type { Side } from "./geometry";
 import type { Point } from "./schema";
 
-/** Abstract routing for relationship edges. UI components depend only on this
+/** Abstract routing for association edges. UI components depend only on this
  *  interface, so an orthogonal / Manhattan router can replace the Bézier one
  *  without touching them. */
 export interface EdgeRouter {

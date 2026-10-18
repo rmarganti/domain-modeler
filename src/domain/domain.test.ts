@@ -6,7 +6,12 @@ import * as Doc from "./document";
 import { bezierRouter } from "./edgeRouter";
 import * as Geometry from "./geometry";
 import * as History from "./history";
-import { DomainModelDocumentJsonString, type DomainModelDocument } from "./schema";
+import { defaultRole } from "./naming";
+import {
+  DomainModelDocumentJsonString,
+  type AssociationDefinition,
+  type DomainModelDocument,
+} from "./schema";
 
 const sample = Doc.sampleDocument;
 
@@ -36,20 +41,20 @@ describe("document", () => {
     expect(synced.layout.nodes["e3"]?.position).toEqual({ x: 600, y: 80 });
   });
 
-  test("deleteEntity cascades to its relationships and layout node", () => {
+  test("deleteEntity cascades to its associations and layout node", () => {
     const next = Doc.deleteEntity(sample, "e2");
     expect(next.entities.map((entity) => entity.id)).toEqual(["e1", "e3"]);
-    expect(next.relationships).toEqual([]);
+    expect(next.associations).toEqual([]);
     expect(next.layout.nodes["e2"]).toBeUndefined();
   });
 
-  test("deleteProperty removes the field and leaves relationships alone", () => {
+  test("deleteProperty removes the field and leaves associations alone", () => {
     const next = Doc.deleteProperty(sample, "e1", "p3");
     expect(Option.getOrThrow(Doc.findEntity(next, "e1")).properties.map((p) => p.id)).toEqual([
       "p2",
       "p4",
     ]);
-    expect(next.relationships).toEqual(sample.relationships);
+    expect(next.associations).toEqual(sample.associations);
   });
 
   test("moveProperty swaps with its neighbor and ignores out of range moves", () => {
@@ -62,17 +67,40 @@ describe("document", () => {
     expect(Doc.moveProperty(sample, "e1", "p2", "Up")).toEqual(sample);
   });
 
-  test("reverseRelationship swaps the entity IDs", () => {
-    const reversed = Option.getOrThrow(
-      Doc.findRelationship(Doc.reverseRelationship(sample, "r1"), "r1"),
-    );
-    expect(reversed).toEqual({
-      id: "r1",
-      name: "writes",
-      sourceEntityId: "e2",
-      targetEntityId: "e1",
-      cardinality: "1:N",
+  test("newAssociation defaults to one from per many tos", () => {
+    expect(Doc.newAssociation("r9", "e1", "e3").ends).toEqual([
+      { entityId: "e1", multiplicity: { min: 1, max: "one" } },
+      { entityId: "e3", multiplicity: { min: 0, max: "many" } },
+    ]);
+  });
+
+  test("setEndMultiplicity changes only the chosen end", () => {
+    const next = Doc.setEndMultiplicity(sample, "r1", 0, { min: 0, max: "one" });
+    expect(Option.getOrThrow(Doc.findAssociation(next, "r1")).ends).toEqual([
+      { entityId: "e1", multiplicity: { min: 0, max: "one" } },
+      { entityId: "e2", multiplicity: { min: 0, max: "many" } },
+    ]);
+  });
+
+  test("setEndRole trims the role and a blank role removes the key", () => {
+    const named = Doc.setEndRole(sample, "r1", 1, "  articles ");
+    expect(Option.getOrThrow(Doc.findAssociation(named, "r1")).ends[1]).toEqual({
+      entityId: "e2",
+      role: "articles",
+      multiplicity: { min: 0, max: "many" },
     });
+    const cleared = Doc.setEndRole(named, "r1", 1, "  ");
+    expect(Object.keys(Option.getOrThrow(Doc.findAssociation(cleared, "r1")).ends[1])).toEqual([
+      "entityId",
+      "multiplicity",
+    ]);
+  });
+
+  test("setAssociationDescription stores text and a blank one removes the key", () => {
+    const described = Doc.setAssociationDescription(sample, "r1", "Authorship");
+    expect(Option.getOrThrow(Doc.findAssociation(described, "r1")).description).toBe("Authorship");
+    const cleared = Doc.setAssociationDescription(described, "r1", "");
+    expect("description" in Option.getOrThrow(Doc.findAssociation(cleared, "r1"))).toBe(false);
   });
 
   test("addEntity avoids overlapping existing nodes", () => {
@@ -145,6 +173,20 @@ describe("history", () => {
   });
 });
 
+describe("naming", () => {
+  const one = { min: 1, max: "one" } as const;
+  const many = { min: 0, max: "many" } as const;
+
+  test("defaultRole camel-cases the entity name and pluralizes for many", () => {
+    expect(defaultRole("Person", many)).toBe("people");
+    expect(defaultRole("Category", many)).toBe("categories");
+    expect(defaultRole("Status", many)).toBe("statuses");
+    expect(defaultRole("Line Item", one)).toBe("lineItem");
+    expect(defaultRole("Line Item", many)).toBe("lineItems");
+    expect(defaultRole("User", one)).toBe("user");
+  });
+});
+
 describe("diagnostics", () => {
   test("the sample document is clean", () => {
     expect(Diagnostics.diagnose(sample)).toEqual([]);
@@ -166,17 +208,117 @@ describe("diagnostics", () => {
   test("flags dangling entity references", () => {
     const document: DomainModelDocument = {
       ...sample,
-      relationships: [
-        { id: "r9", sourceEntityId: "e1", targetEntityId: "missing", cardinality: "1:1" },
+      associations: [
+        {
+          id: "r9",
+          ends: [
+            { entityId: "e1", multiplicity: { min: 1, max: "one" } },
+            { entityId: "missing", multiplicity: { min: 1, max: "one" } },
+          ],
+        },
       ],
     };
-    expect(Diagnostics.diagnose(document)).toEqual([
+    const diagnostics = Diagnostics.diagnose(document);
+    expect(diagnostics).toEqual([
       Diagnostics.Diagnostic.DanglingEntityReference({
-        relationshipId: "r9",
-        end: "Target",
+        associationId: "r9",
+        endIndex: 1,
         entityId: "missing",
       }),
     ]);
+    expect(diagnostics.map(Diagnostics.describe)).toEqual([
+      "Entity “missing” at end 2 does not exist",
+    ]);
+  });
+
+  describe("role clashes", () => {
+    // Each order has one address; an address serves many orders.
+    const orderAddress = (id: string): AssociationDefinition => ({
+      id,
+      ends: [
+        { entityId: "e1", multiplicity: { min: 0, max: "many" } },
+        { entityId: "e2", multiplicity: { min: 1, max: "one" } },
+      ],
+    });
+    const shop: DomainModelDocument = {
+      ...Doc.emptyDocument("Shop"),
+      entities: [
+        { id: "e1", name: "Order", properties: [] },
+        { id: "e2", name: "Address", properties: [] },
+      ],
+      associations: [orderAddress("r1"), orderAddress("r2")],
+    };
+    const clashes = (document: DomainModelDocument) =>
+      Diagnostics.diagnose(document).filter((diagnostic) => diagnostic._tag === "RoleClash");
+    const clashesOn = (document: DomainModelDocument, entityId: string) =>
+      clashes(document).filter((clash) => clash.entityId === entityId);
+
+    test("two unnamed associations to the same entity clash on it", () => {
+      expect(clashesOn(shop, "e1")).toEqual([
+        Diagnostics.Diagnostic.RoleClash({
+          associationId: "r1",
+          endIndex: 1,
+          entityId: "e1",
+          entityName: "Order",
+          name: "address",
+        }),
+        Diagnostics.Diagnostic.RoleClash({
+          associationId: "r2",
+          endIndex: 1,
+          entityId: "e1",
+          entityName: "Order",
+          name: "address",
+        }),
+      ]);
+      expect(Diagnostics.describe(clashesOn(shop, "e1")[0]!)).toBe(
+        "Role “address” clashes on Order",
+      );
+      expect(
+        Diagnostics.forAssociation(Diagnostics.diagnose(shop), "r2").map((d) => d._tag),
+      ).toEqual(["RoleClash", "RoleClash"]);
+    });
+
+    test("explicit roles resolve the clash", () => {
+      const named = Doc.setEndRole(
+        Doc.setEndRole(shop, "r1", 1, "billingAddress"),
+        "r2",
+        1,
+        "shippingAddress",
+      );
+      expect(clashesOn(named, "e1")).toEqual([]);
+      // Address still reaches both as `orders` until those ends get roles too.
+      expect(clashesOn(named, "e2").map((clash) => clash.name)).toEqual(["orders", "orders"]);
+    });
+
+    test("a role clashes with a property of the same name", () => {
+      const document = Doc.addProperty(sample, "e1", Doc.newProperty("p99", "Posts"));
+      expect(clashes(document)).toEqual([
+        Diagnostics.Diagnostic.RoleClash({
+          associationId: "r1",
+          endIndex: 1,
+          entityId: "e1",
+          entityName: "User",
+          name: "posts",
+        }),
+      ]);
+    });
+
+    test("a self association gives the entity both roles", () => {
+      const document: DomainModelDocument = {
+        ...shop,
+        associations: [
+          {
+            id: "r1",
+            ends: [
+              { entityId: "e1", multiplicity: { min: 0, max: "many" } },
+              { entityId: "e1", multiplicity: { min: 0, max: "many" } },
+            ],
+          },
+        ],
+      };
+      expect(clashes(document).map((clash) => clash.endIndex)).toEqual([0, 1]);
+      expect(clashes(Doc.setEndRole(document, "r1", 0, "parents"))).toEqual([]);
+    });
   });
 });
 
