@@ -20,7 +20,6 @@ export const PropertyDefinition = Schema.Struct({
   name: Schema.String,
   type: PropertyType,
   literalOptions: Schema.optional(Schema.Array(Schema.String)),
-  isId: Schema.Boolean,
   isOptional: Schema.Boolean,
   isNullable: Schema.Boolean,
   description: Schema.optional(Schema.String),
@@ -45,8 +44,6 @@ export const RelationshipDefinition = Schema.Struct({
   name: Schema.optional(Schema.String),
   sourceEntityId: Schema.String,
   targetEntityId: Schema.String,
-  sourcePropertyId: Schema.optional(Schema.String),
-  targetPropertyId: Schema.optional(Schema.String),
   cardinality: Cardinality,
 });
 export type RelationshipDefinition = typeof RelationshipDefinition.Type;

@@ -23,7 +23,6 @@ export const draftFromProperty = (property: PropertyDefinition): PropertyDraft =
   name: property.name,
   type: property.type,
   literalOptions: (property.literalOptions ?? []).join(", "),
-  isId: property.isId,
   isOptional: property.isOptional,
   isNullable: property.isNullable,
 });
@@ -46,7 +45,6 @@ export const propertyFromDraft = (
     ...rest,
     name: name === "" ? property.name : name,
     type: draft.type,
-    isId: draft.isId,
     isOptional: draft.isOptional,
     isNullable: draft.isNullable,
     ...(draft.type === "Literal"

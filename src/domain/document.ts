@@ -181,7 +181,6 @@ export const newProperty = (propertyId: string, name: string): PropertyDefinitio
   id: propertyId,
   name,
   type: "String",
-  isId: false,
   isOptional: false,
   isNullable: false,
 });
@@ -208,39 +207,15 @@ export const replaceProperty = (
     ),
   }));
 
-const withoutPropertyReference = (
-  relationship: RelationshipDefinition,
-  propertyId: string,
-): RelationshipDefinition => {
-  const { sourcePropertyId, targetPropertyId, ...rest } = relationship;
-  return {
-    ...rest,
-    ...(sourcePropertyId !== undefined && sourcePropertyId !== propertyId
-      ? { sourcePropertyId }
-      : {}),
-    ...(targetPropertyId !== undefined && targetPropertyId !== propertyId
-      ? { targetPropertyId }
-      : {}),
-  };
-};
-
-/** Removes a property and clears any foreign key bindings that pointed at it. */
 export const deleteProperty = (
   document: DomainModelDocument,
   entityId: string,
   propertyId: string,
-): DomainModelDocument => {
-  const withoutProperty = mapEntity(document, entityId, (entity) => ({
+): DomainModelDocument =>
+  mapEntity(document, entityId, (entity) => ({
     ...entity,
     properties: Array.filter(entity.properties, (property) => property.id !== propertyId),
   }));
-  return {
-    ...withoutProperty,
-    relationships: Array.map(withoutProperty.relationships, (relationship) =>
-      withoutPropertyReference(relationship, propertyId),
-    ),
-  };
-};
 
 export type MoveDirection = "Up" | "Down";
 
@@ -277,22 +252,16 @@ export const moveProperty = (
 
 export const DEFAULT_CARDINALITY: Cardinality = "1:N";
 
-/** A relationship as first drawn: default cardinality, optionally bound to the
- *  source property it was dragged from. */
+/** A relationship as first drawn, with the default cardinality. */
 export const newRelationship = (
   relationshipId: string,
   sourceEntityId: string,
   targetEntityId: string,
-  maybeSourcePropertyId: Option.Option<string>,
 ): RelationshipDefinition => ({
   id: relationshipId,
   sourceEntityId,
   targetEntityId,
   cardinality: DEFAULT_CARDINALITY,
-  ...Option.match(maybeSourcePropertyId, {
-    onNone: () => ({}),
-    onSome: (sourcePropertyId) => ({ sourcePropertyId }),
-  }),
 });
 
 export const addRelationship = (
@@ -334,38 +303,18 @@ export const setCardinality = (
     cardinality,
   }));
 
-/** Swaps source and target, along with their property bindings. */
+/** Swaps source and target. */
 export const reverseRelationship = (
   document: DomainModelDocument,
   relationshipId: string,
 ): DomainModelDocument =>
-  mapRelationship(document, relationshipId, (relationship) => {
-    const { sourcePropertyId, targetPropertyId, ...rest } = relationship;
-    return {
-      ...rest,
-      sourceEntityId: relationship.targetEntityId,
-      targetEntityId: relationship.sourceEntityId,
-      ...(targetPropertyId !== undefined ? { sourcePropertyId: targetPropertyId } : {}),
-      ...(sourcePropertyId !== undefined ? { targetPropertyId: sourcePropertyId } : {}),
-    };
-  });
+  mapRelationship(document, relationshipId, (relationship) => ({
+    ...relationship,
+    sourceEntityId: relationship.targetEntityId,
+    targetEntityId: relationship.sourceEntityId,
+  }));
 
 export type RelationshipEnd = "Source" | "Target";
-
-export const bindRelationshipProperty = (
-  document: DomainModelDocument,
-  relationshipId: string,
-  end: RelationshipEnd,
-  maybePropertyId: Option.Option<string>,
-): DomainModelDocument =>
-  mapRelationship(document, relationshipId, (relationship) => {
-    const key = end === "Source" ? "sourcePropertyId" : "targetPropertyId";
-    const { [key]: _previous, ...rest } = relationship;
-    return Option.match(maybePropertyId, {
-      onNone: () => rest,
-      onSome: (propertyId) => ({ ...rest, [key]: propertyId }),
-    });
-  });
 
 export const renameRelationship = (
   document: DomainModelDocument,
@@ -466,12 +415,10 @@ export const sampleDocument: DomainModelDocument = {
       name: "User",
       description: "A registered author or reader.",
       properties: [
-        { id: "p1", name: "id", type: "UUID", isId: true, isOptional: false, isNullable: false },
         {
           id: "p2",
           name: "email",
           type: "String",
-          isId: false,
           isOptional: false,
           isNullable: false,
         },
@@ -479,7 +426,6 @@ export const sampleDocument: DomainModelDocument = {
           id: "p3",
           name: "displayName",
           type: "String",
-          isId: false,
           isOptional: true,
           isNullable: false,
         },
@@ -488,7 +434,6 @@ export const sampleDocument: DomainModelDocument = {
           name: "role",
           type: "Literal",
           literalOptions: ["reader", "author", "admin"],
-          isId: false,
           isOptional: false,
           isNullable: false,
         },
@@ -498,20 +443,10 @@ export const sampleDocument: DomainModelDocument = {
       id: "e2",
       name: "Post",
       properties: [
-        { id: "p5", name: "id", type: "UUID", isId: true, isOptional: false, isNullable: false },
-        {
-          id: "p6",
-          name: "authorId",
-          type: "UUID",
-          isId: false,
-          isOptional: false,
-          isNullable: false,
-        },
         {
           id: "p7",
           name: "title",
           type: "String",
-          isId: false,
           isOptional: false,
           isNullable: false,
         },
@@ -519,7 +454,6 @@ export const sampleDocument: DomainModelDocument = {
           id: "p8",
           name: "publishedAt",
           type: "Date",
-          isId: false,
           isOptional: false,
           isNullable: true,
         },
@@ -529,12 +463,10 @@ export const sampleDocument: DomainModelDocument = {
       id: "e3",
       name: "Tag",
       properties: [
-        { id: "p9", name: "id", type: "UUID", isId: true, isOptional: false, isNullable: false },
         {
           id: "p10",
           name: "label",
           type: "String",
-          isId: false,
           isOptional: false,
           isNullable: false,
         },
@@ -547,8 +479,6 @@ export const sampleDocument: DomainModelDocument = {
       name: "writes",
       sourceEntityId: "e1",
       targetEntityId: "e2",
-      sourcePropertyId: "p1",
-      targetPropertyId: "p6",
       cardinality: "1:N",
     },
     { id: "r2", name: "tagged", sourceEntityId: "e2", targetEntityId: "e3", cardinality: "N:M" },

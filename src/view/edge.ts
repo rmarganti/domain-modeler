@@ -75,26 +75,14 @@ export const edgeGeometry = (
         relationship.sourceEntityId === relationship.targetEntityId,
       );
       const isSelfReference = relationship.sourceEntityId === relationship.targetEntityId;
-      const sourceOffset = Geometry.propertyAnchorOffset(
-        source.entity,
-        source.layout,
-        Option.fromNullishOr(relationship.sourcePropertyId),
-        editing,
-      );
-      const targetOffset = Geometry.propertyAnchorOffset(
-        target.entity,
-        target.layout,
-        Option.fromNullishOr(relationship.targetPropertyId),
-        editing,
-      );
-      // NOTE: a self reference with no distinct key bindings would start and
-      // end on the same point; drop the return leg lower so the loop reads.
-      const adjustedTargetOffset =
-        isSelfReference && targetOffset === sourceOffset
-          ? Math.min(sourceOffset + 24, targetRect.height - 8)
-          : targetOffset;
+      const sourceOffset = Geometry.HEADER_ANCHOR_OFFSET;
+      // NOTE: a self reference would start and end on the same point; drop
+      // the return leg lower so the loop reads.
+      const targetOffset = isSelfReference
+        ? Math.min(sourceOffset + 24, targetRect.height - 8)
+        : Geometry.HEADER_ANCHOR_OFFSET;
       const sourcePoint = Geometry.anchorPoint(sourceRect, sourceOffset, sourceSide);
-      const targetPoint = Geometry.anchorPoint(targetRect, adjustedTargetOffset, targetSide);
+      const targetPoint = Geometry.anchorPoint(targetRect, targetOffset, targetSide);
       return {
         relationship,
         source: sourcePoint,
@@ -196,13 +184,7 @@ export const connectorPreview = (
         const rect = Geometry.nodeRect(entity, layout, Option.none());
         const side: Geometry.Side =
           editor.currentPos.x >= rect.x + rect.width / 2 ? "right" : "left";
-        const offset = Geometry.propertyAnchorOffset(
-          entity,
-          layout,
-          editor.maybeSourcePropertyId,
-          Option.none(),
-        );
-        const start = Geometry.anchorPoint(rect, offset, side);
+        const start = Geometry.anchorPoint(rect, Geometry.HEADER_ANCHOR_OFFSET, side);
         const end = editor.currentPos;
         const endSide: Geometry.Side = side === "right" ? "left" : "right";
         return [
@@ -283,55 +265,6 @@ export const edgeLabel = (
 };
 
 // INSPECTOR
-
-const keySelect = (
-  h: HtmlBuilder<Message>,
-  label: string,
-  relationship: RelationshipDefinition,
-  end: "Source" | "Target",
-  maybeEntity: Option.Option<EntityDefinition>,
-): Html => {
-  const selectedId =
-    end === "Source" ? relationship.sourcePropertyId : relationship.targetPropertyId;
-  const properties = Option.match(maybeEntity, {
-    onNone: () => [],
-    onSome: (entity) => entity.properties,
-  });
-  return h.label(
-    [
-      h.Class(
-        "flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500",
-      ),
-    ],
-    [
-      label,
-      h.select(
-        [
-          h.AriaLabel(`${label} field`),
-          h.OnChange((value) =>
-            Message.SelectedRelationshipProperty({
-              relationshipId: relationship.id,
-              end,
-              maybePropertyId: value === "" ? Option.none() : Option.some(value),
-            }),
-          ),
-          h.Class(
-            "rounded-md border border-slate-300 bg-white px-1.5 py-1 font-mono text-xs normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400",
-          ),
-        ],
-        [
-          h.option([h.Value(""), h.Selected(selectedId === undefined)], ["— entity —"]),
-          ...Array.map(properties, (property) =>
-            h.option(
-              [h.Value(property.id), h.Selected(property.id === selectedId)],
-              [`${property.name} : ${property.type}`],
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-};
 
 export const inspectorView = (
   h: HtmlBuilder<Message>,
@@ -418,13 +351,6 @@ export const inspectorView = (
             [cardinality],
           ),
         ),
-      ),
-      h.div(
-        [h.Class("flex gap-2")],
-        [
-          keySelect(h, `${entityName(sourceEntity)} key`, relationship, "Source", sourceEntity),
-          keySelect(h, `${entityName(targetEntity)} key`, relationship, "Target", targetEntity),
-        ],
       ),
       ...(warnings.length > 0
         ? [

@@ -20,12 +20,12 @@ A user adds a field to an entity, names it, picks its type and flags, and commit
 Preconditions:
 
 - Baseline `Blog` sample; mode `Mode: NORMAL`.
-- `Post` is expanded (it is in the sample) with fields `id`, `authorId`, `title`, `publishedAt`.
+- `Post` is expanded (it is in the sample) with fields `title`, `publishedAt`.
 
-- **Add a field.** Click `+ Add field` on `Post`. Run `ab snapshot -i -s '[aria-label="Entity Post"]'`, then `ab click @<ref of "+ Add field">`. Mode becomes `Mode: EDITING` and textbox `Field name` appears with a default name like `field5`.
+- **Add a field.** Click `+ Add field` on `Post`. Run `ab snapshot -i -s '[aria-label="Entity Post"]'`, then `ab click @<ref of "+ Add field">`. Mode becomes `Mode: EDITING` and textbox `Field name` appears with a default name like `field3`. The editor's checkboxes are `Nullable` and `Optional`.
 - **Name and type it.** Run `ab fill '[aria-label="Field name"]' "body"` and `ab select '[aria-label="Field type"]' String`.
 - **Commit.** Press Enter. Run `ab press Enter`. Mode returns to `Mode: NORMAL`.
-- **Proof.** Run `ab mouse move 5 5`, then `ab get text '[aria-label="Entity Post"]' > .verify/latest/evidence/field-add/post.txt` and `ab screenshot .verify/latest/evidence/field-add/post.png`. The text contains `body` followed by `String`, and the field count badge reads `5`.
+- **Proof.** Run `ab mouse move 5 5`, then `ab get text '[aria-label="Entity Post"]' > .verify/latest/evidence/field-add/post.txt` and `ab screenshot .verify/latest/evidence/field-add/post.png`. The text contains `body` followed by `String`, and the field count badge reads `3`.
 - **Second view.** Collapse and re-expand. Run `ab click '[aria-label="Entity Post"] [aria-label="Collapse"]'` and `ab click '[aria-label="Entity Post"] [aria-label="Expand"]'`. `body String` is still listed.
 - **Cancel.** Add another field, type `scratch`, press `Escape`. Run the add step, `ab fill '[aria-label="Field name"]' "scratch"`, `ab press Escape`. The card text does not contain `scratch`.
 

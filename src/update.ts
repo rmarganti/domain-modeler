@@ -49,8 +49,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     PressedCanvas: (press) => Canvas.pressCanvas(model, press),
     PressedNodeHeader: ({ entityId, ...press }) => Canvas.pressNodeHeader(model, entityId, press),
-    PressedPort: ({ entityId, maybePropertyId, ...press }) =>
-      Canvas.pressPort(model, entityId, maybePropertyId, press),
+    PressedPort: ({ entityId, ...press }) => Canvas.pressPort(model, entityId, press),
     MovedPointer: ({ clientX, clientY }) => Canvas.movePointer(model, clientX, clientY),
     ReleasedPointer: ({ clientX, clientY, maybeTargetEntityId }) =>
       Canvas.releasePointer(model, clientX, clientY, maybeTargetEntityId),
@@ -121,11 +120,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     }),
     ClickedReverseRelationship: ({ relationshipId }) => ({
       model: commitDocument(model, (document) => Doc.reverseRelationship(document, relationshipId)),
-    }),
-    SelectedRelationshipProperty: ({ relationshipId, end, maybePropertyId }) => ({
-      model: commitDocument(model, (document) =>
-        Doc.bindRelationshipProperty(document, relationshipId, end, maybePropertyId),
-      ),
     }),
     ChangedRelationshipName: ({ relationshipId, name }) => ({
       model: commitDocument(model, (document) =>

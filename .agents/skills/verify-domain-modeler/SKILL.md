@@ -38,20 +38,20 @@ Read-only. Checks the process is up, this run owns the port, the server answers,
 
 Use `ab` (`agent-browser skills get core` for the command reference). Handles, in order of preference:
 
-| Target                 | Handle                                                                                                                                                                                    |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Editor mode            | `ab get attr '[aria-label^="Mode:"]' aria-label` → `Mode: NORMAL`, `CREATING`, `EDITING`, `CONNECTING`, `MOVING`, `PANNING`                                                               |
-| Canvas                 | `[aria-label="Domain model canvas"]` (role `application`)                                                                                                                                 |
-| Entity card            | `[aria-label="Entity <Name>"]`, also `[data-entity-id="<id>"]`                                                                                                                            |
-| Entity buttons         | inside a card: `Expand` / `Collapse`, `Delete <Name>`; `+ Add field` has no aria-label (see below)                                                                                        |
-| Field rows             | `li` inside a card; editor inputs `[aria-label="Field name"]`, `[aria-label="Field type"]` (select), checkboxes `Primary key`, `Nullable`, `Optional`; row buttons `Move up`, `Move down` |
-| New entity input       | `[aria-label="New entity name"]`                                                                                                                                                          |
-| Ports                  | `[aria-label="Entity <Name>"] [data-port]`                                                                                                                                                |
-| Edges                  | buttons `Relationship <name> <cardinality>`, e.g. `Relationship writes 1:N`                                                                                                               |
-| Relationship inspector | dialog `Relationship inspector`, textbox `Relationship name`, radiogroup `Cardinality` with radios `1:1`, `1:N`, `N:M`                                                                    |
-| Toolbar                | `New model`, `Open`, `Save`, `Save as`, textbox `Model name`, `Undo`, `Redo`, `+ Entity` (title `Create entity (c)`)                                                                      |
-| View HUD               | toolbar `View controls`: `Zoom out`, `Zoom in`, `Reset view to 100%`, `Fit to screen`                                                                                                     |
-| Notices                | `[role="alert"]` (errors), `[role="status"]`, dismiss with `[aria-label="Dismiss"]`                                                                                                       |
+| Target                 | Handle                                                                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Editor mode            | `ab get attr '[aria-label^="Mode:"]' aria-label` → `Mode: NORMAL`, `CREATING`, `EDITING`, `CONNECTING`, `MOVING`, `PANNING`                                                |
+| Canvas                 | `[aria-label="Domain model canvas"]` (role `application`)                                                                                                                  |
+| Entity card            | `[aria-label="Entity <Name>"]`, also `[data-entity-id="<id>"]`                                                                                                             |
+| Entity buttons         | inside a card: `Expand` / `Collapse`, `Delete <Name>`; `+ Add field` has no aria-label (see below)                                                                         |
+| Field rows             | `li` inside a card; editor inputs `[aria-label="Field name"]`, `[aria-label="Field type"]` (select), checkboxes `Nullable`, `Optional`; row buttons `Move up`, `Move down` |
+| New entity input       | `[aria-label="New entity name"]`                                                                                                                                           |
+| Ports                  | `[aria-label="Entity <Name>"] [data-port]`: exactly two per card (left and right of the header), collapsed or expanded                                                     |
+| Edges                  | buttons `Relationship <name> <cardinality>`, e.g. `Relationship writes 1:N`                                                                                                |
+| Relationship inspector | dialog `Relationship inspector`, textbox `Relationship name`, radiogroup `Cardinality` with radios `1:1`, `1:N`, `N:M`                                                     |
+| Toolbar                | `New model`, `Open`, `Save`, `Save as`, textbox `Model name`, `Undo`, `Redo`, `+ Entity` (title `Create entity (c)`)                                                       |
+| View HUD               | toolbar `View controls`: `Zoom out`, `Zoom in`, `Reset view to 100%`, `Fit to screen`                                                                                      |
+| Notices                | `[role="alert"]` (errors), `[role="status"]`, dismiss with `[aria-label="Dismiss"]`                                                                                        |
 
 Buttons without an aria-label, or ones repeated across cards, are clicked by scoped ref: `ab snapshot -i -s '[aria-label="Entity Comment"]'`, then `ab click @eN`. A global `ab find text "+ Add field" click` hits the first card on the page, not the one you mean.
 

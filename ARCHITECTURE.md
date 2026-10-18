@@ -33,7 +33,6 @@ export const PropertyDefinition = Schema.Struct({
   name: Schema.String,
   type: PropertyType,
   literalOptions: Schema.optional(Schema.Array(Schema.String)),
-  isId: Schema.Boolean,
   isOptional: Schema.Boolean,
   isNullable: Schema.Boolean,
   description: Schema.optional(Schema.String),
@@ -56,12 +55,12 @@ export const RelationshipDefinition = Schema.Struct({
   name: Schema.optional(Schema.String),
   sourceEntityId: Schema.String,
   targetEntityId: Schema.String,
-  sourcePropertyId: Schema.optional(Schema.String),
-  targetPropertyId: Schema.optional(Schema.String),
   cardinality: Cardinality,
 });
 export type RelationshipDefinition = typeof RelationshipDefinition.Type;
 ```
+
+Entity identity is implicit: every entity is distinguishable without an ID property, so there is no primary key flag. A relationship connects two entities and nothing else; it never references individual properties. Foreign keys are a concern of future exporters, which can derive them from the relationship.
 
 ---
 
@@ -113,7 +112,6 @@ A domain validation pass ensures that:
 - Every entity ID has a corresponding entry in `layout.nodes` (missing entries are assigned smart auto-staggered positions).
 - No orphan entries exist in `layout.nodes` for deleted entities.
 - Relationship source and target IDs exist in `entities`.
-- Property references within relationships point to valid fields on the respective entities.
 
 ---
 
@@ -130,12 +128,13 @@ A domain validation pass ensures that:
 ### 4.2 Entity Nodes & Inline Expansion
 
 - **Collapsed (Default)**: Compact badge displaying entity name, field count badge, and handle ports.
-- **Expanded (On-Click)**: Smoothly expands in-place into an entity card detailing all properties, types, constraints (`PK`, `NULL`, `OPT`), and inline actions to add, edit, reorder, or delete fields.
+- **Expanded (On-Click)**: Smoothly expands in-place into an entity card detailing all properties, types, constraints (`NULL`, `OPT`), and inline actions to add, edit, reorder, or delete fields.
 
 ### 4.3 Port Drag-and-Drop Connection
 
-- Handles/ports appear on node boundaries (and specific ID/key fields).
-- Dragging from an entity port pulls a live dynamic connector line. Releasing onto another entity creates a relationship edge and opens the inspector to configure cardinality and field bindings.
+- Every card has exactly two ports, on the left and right of its header, whether collapsed or expanded. Field rows have no ports.
+- Dragging from an entity port pulls a live dynamic connector line from the header. Releasing onto another entity creates a relationship edge and opens the inspector to configure its name and cardinality.
+- Edges always anchor at the card header.
 
 ### 4.4 Pluggable Edge Routing
 
@@ -159,7 +158,7 @@ export interface EdgeRouter {
 ### 4.5 Relationship Edge Inspection
 
 - Clicking an edge highlights the curve and displays a floating inspector pill at its midpoint.
-- The pill allows changing cardinality (`1:1`, `1:N`, `N:M`), reversing direction, configuring foreign keys, or deleting the edge (`Delete` / `Backspace`).
+- The pill allows changing cardinality (`1:1`, `1:N`, `N:M`), renaming, reversing direction, or deleting the edge (`Delete` / `Backspace`).
 
 ---
 
@@ -235,8 +234,7 @@ Live schema validation runs in the background on every model update and reports 
 
 - **Duplicate Entity Names**: Highlighted with warning badges on affected cards.
 - **Duplicate Property Names**: Flagged within the entity property list.
-- **Dangling References**: Broken foreign key bindings or orphaned edges flagged with warning badges.
-- **Type Mismatches**: Warning displayed on relationship pills when foreign keys have divergent types.
+- **Dangling References**: Edges whose source or target entity no longer exists are flagged with warning badges.
 
 ---
 

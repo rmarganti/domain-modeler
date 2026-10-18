@@ -1,4 +1,4 @@
-import { Array, Number, Option, Order, pipe } from "effect";
+import { Array, Number, Option, Order } from "effect";
 
 import type {
   DomainModelDocument,
@@ -75,51 +75,9 @@ export const nodeRect = (
   height: nodeHeight(entity, layout, maybeEditingPropertyId),
 });
 
-/** Vertical offset (from the node's top) of the anchor for a property row. The
- *  anchor falls back to the header when the node is collapsed or the property
- *  no longer exists. */
-export const propertyAnchorOffset = (
-  entity: EntityDefinition,
-  layout: NodeLayout,
-  maybePropertyId: Option.Option<string>,
-  maybeEditingPropertyId: Option.Option<string>,
-): number => {
-  const headerCenter = NODE_HEADER_HEIGHT / 2;
-  if (!layout.isExpanded) {
-    return headerCenter;
-  }
-  return pipe(
-    maybePropertyId,
-    Option.flatMap((propertyId) =>
-      Array.findFirstIndex(entity.properties, (property) => property.id === propertyId),
-    ),
-    Option.match({
-      onNone: () => headerCenter,
-      onSome: (index) => {
-        const editorIndex = pipe(
-          maybeEditingPropertyId,
-          Option.flatMap((editingId) =>
-            Array.findFirstIndex(entity.properties, (property) => property.id === editingId),
-          ),
-        );
-        const editorShift = Option.exists(editorIndex, (editingIndex) => editingIndex < index)
-          ? PROPERTY_EDITOR_HEIGHT - PROPERTY_ROW_HEIGHT
-          : 0;
-        const isEditingThisRow = Option.exists(
-          editorIndex,
-          (editingIndex) => editingIndex === index,
-        );
-        const rowHeight = isEditingThisRow ? PROPERTY_EDITOR_HEIGHT : PROPERTY_ROW_HEIGHT;
-        return (
-          NODE_HEADER_HEIGHT +
-          index * PROPERTY_ROW_HEIGHT +
-          editorShift +
-          (isEditingThisRow ? PROPERTY_ROW_HEIGHT / 2 : rowHeight / 2)
-        );
-      },
-    }),
-  );
-};
+/** Vertical offset (from the node's top) of every edge and port anchor: the
+ *  middle of the header, whether the node is collapsed or expanded. */
+export const HEADER_ANCHOR_OFFSET = NODE_HEADER_HEIGHT / 2;
 
 export type Side = "left" | "right";
 

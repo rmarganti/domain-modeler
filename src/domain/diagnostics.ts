@@ -1,6 +1,6 @@
 import { Array, Data, Option, Record, pipe } from "effect";
 
-import { findEntity, findProperty, type RelationshipEnd } from "./document";
+import { findEntity, type RelationshipEnd } from "./document";
 import type { DomainModelDocument, EntityDefinition, RelationshipDefinition } from "./schema";
 
 // Diagnostics are derived from the document on every render and never stored
@@ -17,16 +17,6 @@ export type Diagnostic = Data.TaggedEnum<{
     readonly relationshipId: string;
     readonly end: RelationshipEnd;
     readonly entityId: string;
-  };
-  DanglingPropertyReference: {
-    readonly relationshipId: string;
-    readonly end: RelationshipEnd;
-    readonly propertyId: string;
-  };
-  TypeMismatch: {
-    readonly relationshipId: string;
-    readonly sourceType: string;
-    readonly targetType: string;
   };
 }>;
 export const Diagnostic = Data.taggedEnum<Diagnostic>();
@@ -65,81 +55,26 @@ const duplicatePropertyNames = (entity: EntityDefinition): ReadonlyArray<Diagnos
 const relationshipDiagnostics = (
   document: DomainModelDocument,
   relationship: RelationshipDefinition,
-): ReadonlyArray<Diagnostic> => {
-  const maybeSource = findEntity(document, relationship.sourceEntityId);
-  const maybeTarget = findEntity(document, relationship.targetEntityId);
-
-  const danglingEntities = [
-    ...(Option.isNone(maybeSource)
-      ? [
-          Diagnostic.DanglingEntityReference({
-            relationshipId: relationship.id,
-            end: "Source",
-            entityId: relationship.sourceEntityId,
-          }),
-        ]
-      : []),
-    ...(Option.isNone(maybeTarget)
-      ? [
-          Diagnostic.DanglingEntityReference({
-            relationshipId: relationship.id,
-            end: "Target",
-            entityId: relationship.targetEntityId,
-          }),
-        ]
-      : []),
-  ];
-
-  const checkProperty = (
-    maybeEntity: Option.Option<EntityDefinition>,
-    maybePropertyId: string | undefined,
-    end: RelationshipEnd,
-  ): ReadonlyArray<Diagnostic> =>
-    Option.isSome(maybeEntity) &&
-    maybePropertyId !== undefined &&
-    Option.isNone(findProperty(maybeEntity.value, maybePropertyId))
-      ? [
-          Diagnostic.DanglingPropertyReference({
-            relationshipId: relationship.id,
-            end,
-            propertyId: maybePropertyId,
-          }),
-        ]
-      : [];
-
-  const maybeSourceProperty = Option.flatMap(maybeSource, (source) =>
-    Option.flatMap(Option.fromNullishOr(relationship.sourcePropertyId), (id) =>
-      findProperty(source, id),
-    ),
-  );
-  const maybeTargetProperty = Option.flatMap(maybeTarget, (target) =>
-    Option.flatMap(Option.fromNullishOr(relationship.targetPropertyId), (id) =>
-      findProperty(target, id),
-    ),
-  );
-
-  const typeMismatch = pipe(
-    Option.all([maybeSourceProperty, maybeTargetProperty]),
-    Option.filter(([source, target]) => source.type !== target.type),
-    Option.match({
-      onNone: () => [],
-      onSome: ([source, target]) => [
-        Diagnostic.TypeMismatch({
+): ReadonlyArray<Diagnostic> => [
+  ...(Option.isNone(findEntity(document, relationship.sourceEntityId))
+    ? [
+        Diagnostic.DanglingEntityReference({
           relationshipId: relationship.id,
-          sourceType: source.type,
-          targetType: target.type,
+          end: "Source",
+          entityId: relationship.sourceEntityId,
         }),
-      ],
-    }),
-  );
-
-  return [
-    ...danglingEntities,
-    ...checkProperty(maybeSource, relationship.sourcePropertyId, "Source"),
-    ...checkProperty(maybeTarget, relationship.targetPropertyId, "Target"),
-    ...typeMismatch,
-  ];
-};
+      ]
+    : []),
+  ...(Option.isNone(findEntity(document, relationship.targetEntityId))
+    ? [
+        Diagnostic.DanglingEntityReference({
+          relationshipId: relationship.id,
+          end: "Target",
+          entityId: relationship.targetEntityId,
+        }),
+      ]
+    : []),
+];
 
 /** Live, non-blocking validation of a document. */
 export const diagnose = (document: DomainModelDocument): ReadonlyArray<Diagnostic> => [
@@ -180,10 +115,7 @@ export const forRelationship = (
   Array.filter(
     diagnostics,
     (diagnostic) =>
-      (diagnostic._tag === "DanglingEntityReference" ||
-        diagnostic._tag === "DanglingPropertyReference" ||
-        diagnostic._tag === "TypeMismatch") &&
-      diagnostic.relationshipId === relationshipId,
+      diagnostic._tag === "DanglingEntityReference" && diagnostic.relationshipId === relationshipId,
   );
 
 export const describe = (diagnostic: Diagnostic): string =>
@@ -191,7 +123,4 @@ export const describe = (diagnostic: Diagnostic): string =>
     DuplicateEntityName: ({ name }) => `Duplicate entity name “${name}”`,
     DuplicatePropertyName: ({ name }) => `Duplicate property name “${name}”`,
     DanglingEntityReference: ({ end, entityId }) => `${end} entity “${entityId}” does not exist`,
-    DanglingPropertyReference: ({ end, propertyId }) =>
-      `${end} key “${propertyId}” no longer exists`,
-    TypeMismatch: ({ sourceType, targetType }) => `Key types differ: ${sourceType} → ${targetType}`,
   });

@@ -11,7 +11,7 @@ import {
   type Point,
   type PropertyDefinition,
 } from "../domain/schema";
-import { Message } from "../message";
+import { Message, type DraftFlag } from "../message";
 import type { EditorState, PropertyDraft } from "../model";
 import { canvasItem, iconButton, onPress, px, warningBadge } from "./shared";
 
@@ -36,13 +36,7 @@ const TYPE_COLORS: Record<PropertyDefinition["type"], string> = {
 
 // PORTS
 
-const port = (
-  h: HtmlBuilder<Message>,
-  entityId: string,
-  maybePropertyId: Option.Option<string>,
-  side: Geometry.Side,
-  offsetY: number,
-): Html =>
+const port = (h: HtmlBuilder<Message>, entityId: string, side: Geometry.Side): Html =>
   h.div(
     [
       h.DataAttribute("port", ""),
@@ -53,12 +47,12 @@ const port = (
       h.Style({
         width: px(Geometry.PORT_RADIUS * 2),
         height: px(Geometry.PORT_RADIUS * 2),
-        top: px(offsetY - Geometry.PORT_RADIUS),
+        top: px(Geometry.HEADER_ANCHOR_OFFSET - Geometry.PORT_RADIUS),
         [side]: px(-Geometry.PORT_RADIUS),
         touchAction: "none",
       }),
       onPress(h, Option.none(), ({ button, clientX, clientY }) =>
-        Message.PressedPort({ entityId, maybePropertyId, button, clientX, clientY }),
+        Message.PressedPort({ entityId, button, clientX, clientY }),
       ),
     ],
     [],
@@ -140,7 +134,6 @@ const constraintBadges = (
   h: HtmlBuilder<Message>,
   property: PropertyDefinition,
 ): ReadonlyArray<Html> => [
-  ...(property.isId ? [badge(h, "PK", "Identifier", "bg-amber-100 text-amber-800")] : []),
   ...(property.isNullable ? [badge(h, "NULL", "Nullable", "bg-slate-100 text-slate-600")] : []),
   ...(property.isOptional ? [badge(h, "OPT", "Optional", "bg-slate-100 text-slate-600")] : []),
 ];
@@ -175,11 +168,7 @@ const propertyRow = (
     ],
     [
       h.span(
-        [
-          h.Class(
-            `min-w-0 truncate font-mono ${property.isId ? "font-semibold text-slate-900" : "text-slate-800"}`,
-          ),
-        ],
+        [h.Class("min-w-0 truncate font-mono text-slate-800")],
         [`${property.name}${property.isOptional ? "?" : ""}`],
       ),
       ...(Array.isReadonlyArrayNonEmpty(warnings) ? [warningBadge(h, warnings)] : []),
@@ -232,7 +221,7 @@ const flagToggle = (
   h: HtmlBuilder<Message>,
   label: string,
   isChecked: boolean,
-  flag: "isId" | "isOptional" | "isNullable",
+  flag: DraftFlag,
 ): Html =>
   h.label(
     [h.Class("flex cursor-pointer items-center gap-1 text-[11px] text-slate-700")],
@@ -294,7 +283,6 @@ const propertyEditor = (h: HtmlBuilder<Message>, propertyId: string, draft: Prop
       h.div(
         [h.Class("flex gap-3")],
         [
-          flagToggle(h, "Primary key", draft.isId, "isId"),
           flagToggle(h, "Nullable", draft.isNullable, "isNullable"),
           flagToggle(h, "Optional", draft.isOptional, "isOptional"),
         ],
@@ -391,10 +379,6 @@ export const nodeView = (
       ? "ring-2 ring-amber-300"
       : "ring-1 ring-slate-200";
 
-  const idPropertyPorts = layout.isExpanded
-    ? Array.filter(entity.properties, (property) => property.isId)
-    : [];
-
   return h.keyed("div")(
     entity.id,
     [
@@ -433,22 +417,8 @@ export const nodeView = (
             : []),
         ],
       ),
-      port(h, entity.id, Option.none(), "left", Geometry.NODE_HEADER_HEIGHT / 2),
-      port(h, entity.id, Option.none(), "right", Geometry.NODE_HEADER_HEIGHT / 2),
-      ...Array.map(idPropertyPorts, (property) =>
-        port(
-          h,
-          entity.id,
-          Option.some(property.id),
-          "right",
-          Geometry.propertyAnchorOffset(
-            entity,
-            layout,
-            Option.some(property.id),
-            context.maybeEditingPropertyId,
-          ),
-        ),
-      ),
+      port(h, entity.id, "left"),
+      port(h, entity.id, "right"),
     ],
   );
 };

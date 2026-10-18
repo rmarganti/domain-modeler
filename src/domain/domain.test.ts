@@ -43,33 +43,35 @@ describe("document", () => {
     expect(next.layout.nodes["e2"]).toBeUndefined();
   });
 
-  test("deleteProperty clears foreign key bindings that pointed at it", () => {
-    const next = Doc.deleteProperty(sample, "e1", "p1");
-    const writes = Option.getOrThrow(Doc.findRelationship(next, "r1"));
-    expect(writes.sourcePropertyId).toBeUndefined();
-    expect(writes.targetPropertyId).toBe("p6");
+  test("deleteProperty removes the field and leaves relationships alone", () => {
+    const next = Doc.deleteProperty(sample, "e1", "p3");
+    expect(Option.getOrThrow(Doc.findEntity(next, "e1")).properties.map((p) => p.id)).toEqual([
+      "p2",
+      "p4",
+    ]);
+    expect(next.relationships).toEqual(sample.relationships);
   });
 
   test("moveProperty swaps with its neighbor and ignores out of range moves", () => {
-    const moved = Doc.moveProperty(sample, "e1", "p2", "Up");
+    const moved = Doc.moveProperty(sample, "e1", "p3", "Up");
     expect(Option.getOrThrow(Doc.findEntity(moved, "e1")).properties.map((p) => p.id)).toEqual([
-      "p2",
-      "p1",
       "p3",
+      "p2",
       "p4",
     ]);
-    expect(Doc.moveProperty(sample, "e1", "p1", "Up")).toEqual(sample);
+    expect(Doc.moveProperty(sample, "e1", "p2", "Up")).toEqual(sample);
   });
 
-  test("reverseRelationship swaps ends along with their keys", () => {
+  test("reverseRelationship swaps the entity IDs", () => {
     const reversed = Option.getOrThrow(
       Doc.findRelationship(Doc.reverseRelationship(sample, "r1"), "r1"),
     );
-    expect(reversed).toMatchObject({
+    expect(reversed).toEqual({
+      id: "r1",
+      name: "writes",
       sourceEntityId: "e2",
       targetEntityId: "e1",
-      sourcePropertyId: "p6",
-      targetPropertyId: "p1",
+      cardinality: "1:N",
     });
   });
 
@@ -151,7 +153,7 @@ describe("diagnostics", () => {
   test("flags duplicate entity and property names case-insensitively", () => {
     const document = Doc.renameEntity(
       Doc.replaceProperty(sample, "e1", {
-        ...Doc.newProperty("p2", "ID"),
+        ...Doc.newProperty("p3", "EMAIL"),
       }),
       "e3",
       "post",
@@ -161,18 +163,11 @@ describe("diagnostics", () => {
     expect(tags.filter((tag) => tag === "DuplicatePropertyName")).toHaveLength(2);
   });
 
-  test("flags dangling entity and property references", () => {
+  test("flags dangling entity references", () => {
     const document: DomainModelDocument = {
       ...sample,
       relationships: [
         { id: "r9", sourceEntityId: "e1", targetEntityId: "missing", cardinality: "1:1" },
-        {
-          id: "r10",
-          sourceEntityId: "e1",
-          targetEntityId: "e2",
-          sourcePropertyId: "nope",
-          cardinality: "1:N",
-        },
       ],
     };
     expect(Diagnostics.diagnose(document)).toEqual([
@@ -180,22 +175,6 @@ describe("diagnostics", () => {
         relationshipId: "r9",
         end: "Target",
         entityId: "missing",
-      }),
-      Diagnostics.Diagnostic.DanglingPropertyReference({
-        relationshipId: "r10",
-        end: "Source",
-        propertyId: "nope",
-      }),
-    ]);
-  });
-
-  test("flags foreign keys with divergent types", () => {
-    const document = Doc.bindRelationshipProperty(sample, "r1", "Target", Option.some("p7"));
-    expect(Diagnostics.diagnose(document)).toEqual([
-      Diagnostics.Diagnostic.TypeMismatch({
-        relationshipId: "r1",
-        sourceType: "UUID",
-        targetType: "String",
       }),
     ]);
   });
@@ -232,29 +211,6 @@ describe("geometry", () => {
       { width: 1000, height: 800 },
     );
     expect(fitted).toEqual({ zoom: 1, pan: { x: 450, y: 350 } });
-  });
-
-  test("property anchors follow row order and the open editor", () => {
-    const user = Option.getOrThrow(Doc.findEntity(sample, "e1"));
-    const expanded = { position: { x: 0, y: 0 }, isExpanded: true };
-    const rowCenter = (index: number) =>
-      Geometry.NODE_HEADER_HEIGHT +
-      index * Geometry.PROPERTY_ROW_HEIGHT +
-      Geometry.PROPERTY_ROW_HEIGHT / 2;
-    expect(Geometry.propertyAnchorOffset(user, expanded, Option.some("p3"), Option.none())).toBe(
-      rowCenter(2),
-    );
-    expect(
-      Geometry.propertyAnchorOffset(user, expanded, Option.some("p3"), Option.some("p1")),
-    ).toBe(rowCenter(2) + Geometry.PROPERTY_EDITOR_HEIGHT - Geometry.PROPERTY_ROW_HEIGHT);
-    expect(
-      Geometry.propertyAnchorOffset(
-        user,
-        { ...expanded, isExpanded: false },
-        Option.some("p3"),
-        Option.none(),
-      ),
-    ).toBe(Geometry.NODE_HEADER_HEIGHT / 2);
   });
 
   test("the Bézier router's midpoint lies on the curve between facing ports", () => {

@@ -10,8 +10,7 @@ const PointerFields = {
 };
 
 export const MoveDirection = Schema.Literals(["Up", "Down"]);
-export const RelationshipEnd = Schema.Literals(["Source", "Target"]);
-export const DraftFlag = Schema.Literals(["isId", "isOptional", "isNullable"]);
+export const DraftFlag = Schema.Literals(["isOptional", "isNullable"]);
 export type DraftFlag = typeof DraftFlag.Type;
 export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
 
@@ -33,11 +32,7 @@ export const Message = defineMessageUnion({
   // Pointer & canvas
   PressedCanvas: PointerFields,
   PressedNodeHeader: { entityId: Schema.String, ...PointerFields },
-  PressedPort: {
-    entityId: Schema.String,
-    maybePropertyId: Schema.Option(Schema.String),
-    ...PointerFields,
-  },
+  PressedPort: { entityId: Schema.String, ...PointerFields },
   MovedPointer: { clientX: Schema.Number, clientY: Schema.Number },
   ReleasedPointer: {
     clientX: Schema.Number,
@@ -95,11 +90,6 @@ export const Message = defineMessageUnion({
   ClickedEdge: { relationshipId: Schema.String },
   SelectedCardinality: { relationshipId: Schema.String, cardinality: Cardinality },
   ClickedReverseRelationship: { relationshipId: Schema.String },
-  SelectedRelationshipProperty: {
-    relationshipId: Schema.String,
-    end: RelationshipEnd,
-    maybePropertyId: Schema.Option(Schema.String),
-  },
   ChangedRelationshipName: { relationshipId: Schema.String, name: Schema.String },
   ClickedDeleteRelationship: { relationshipId: Schema.String },
   ClickedCloseInspector: {},

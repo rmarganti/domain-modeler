@@ -12,7 +12,6 @@ export const PropertyDraft = Schema.Struct({
   name: Schema.String,
   type: PropertyType,
   literalOptions: Schema.String,
-  isId: Schema.Boolean,
   isOptional: Schema.Boolean,
   isNullable: Schema.Boolean,
 });
@@ -29,7 +28,6 @@ export const EditorState = defineTaggedUnion({
   },
   ConnectingRelationship: {
     sourceEntityId: Schema.String,
-    maybeSourcePropertyId: Schema.Option(Schema.String),
     startPos: Point,
     currentPos: Point,
   },

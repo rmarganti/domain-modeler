@@ -22,7 +22,6 @@ export const inspect = (model: Model, relationshipId: string): Model => ({
 export const connect = (
   model: Model,
   sourceEntityId: string,
-  maybeSourcePropertyId: Option.Option<string>,
   startPos: Point,
   endPos: Point,
   maybeTargetEntityId: Option.Option<string>,
@@ -42,12 +41,7 @@ export const connect = (
         ...commitDocument(model, (document) =>
           Doc.addRelationship(
             document,
-            Doc.newRelationship(
-              relationshipId,
-              sourceEntityId,
-              targetEntityId,
-              maybeSourcePropertyId,
-            ),
+            Doc.newRelationship(relationshipId, sourceEntityId, targetEntityId),
           ),
         ),
         editor: EditorState.EditingRelationship({ relationshipId }),

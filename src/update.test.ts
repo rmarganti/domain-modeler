@@ -1,10 +1,11 @@
-import { Option } from "effect";
+import { Option, Schema } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 
 import { ConfirmCloseWindow, FocusInput, ForgetActiveFile, OpenFile, SaveFile } from "./command";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
+import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
 import { EditorState, Selection, type Model } from "./model";
 import { update } from "./update";
@@ -263,7 +264,6 @@ describe("properties", () => {
           name: "kind",
           type: "Literal",
           literalOptions: ["a", "b"],
-          isId: false,
           isOptional: false,
           isNullable: true,
         });
@@ -294,15 +294,7 @@ describe("relationships", () => {
     story(
       update,
       given(baseModel),
-      message(
-        Message.PressedPort({
-          entityId: "e3",
-          maybePropertyId: Option.some("p9"),
-          ...press,
-          clientX: 1180,
-          clientY: 162,
-        }),
-      ),
+      message(Message.PressedPort({ entityId: "e3", ...press, clientX: 1180, clientY: 162 })),
       model((m) => expect(m.editor._tag).toBe("ConnectingRelationship")),
       message(Message.MovedPointer({ clientX: 300, clientY: 160 })),
       message(
@@ -318,9 +310,17 @@ describe("relationships", () => {
           id: "r3",
           sourceEntityId: "e3",
           targetEntityId: "e1",
-          sourcePropertyId: "p9",
           cardinality: "1:N",
         });
+        // The saved file links the two entities and nothing else: no field keys.
+        const json = Schema.encodeSync(DomainModelDocumentJsonString)(m.history.present);
+        const saved = JSON.parse(json).relationships.at(-1);
+        expect(Object.keys(saved).sort()).toEqual([
+          "cardinality",
+          "id",
+          "sourceEntityId",
+          "targetEntityId",
+        ]);
       }),
       message(Message.SelectedCardinality({ relationshipId: "r3", cardinality: "1:1" })),
       message(Message.PressedDeleteKey()),
@@ -335,7 +335,7 @@ describe("relationships", () => {
     story(
       update,
       given(baseModel),
-      message(Message.PressedPort({ entityId: "e3", maybePropertyId: Option.none(), ...press })),
+      message(Message.PressedPort({ entityId: "e3", ...press })),
       message(
         Message.ReleasedPointer({ clientX: 500, clientY: 700, maybeTargetEntityId: Option.none() }),
       ),
@@ -350,7 +350,7 @@ describe("relationships", () => {
     story(
       update,
       given(baseModel),
-      message(Message.PressedPort({ entityId: "e3", maybePropertyId: Option.none(), ...press })),
+      message(Message.PressedPort({ entityId: "e3", ...press })),
       message(
         Message.ReleasedPointer({ clientX: 2, clientY: 2, maybeTargetEntityId: Option.some("e3") }),
       ),

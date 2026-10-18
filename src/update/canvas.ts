@@ -73,12 +73,7 @@ export const pressNodeHeader = (model: Model, entityId: string, press: Press): U
     });
   });
 
-export const pressPort = (
-  model: Model,
-  entityId: string,
-  maybePropertyId: Option.Option<string>,
-  press: Press,
-): UpdateReturn =>
+export const pressPort = (model: Model, entityId: string, press: Press): UpdateReturn =>
   routePress(model, press, () => {
     const ready = finishEditing(model);
     const pointer = toWorld(ready, press.clientX, press.clientY);
@@ -87,7 +82,6 @@ export const pressPort = (
         ...ready,
         editor: EditorState.ConnectingRelationship({
           sourceEntityId: entityId,
-          maybeSourcePropertyId: maybePropertyId,
           startPos: pointer,
           currentPos: pointer,
         }),
@@ -153,11 +147,10 @@ export const releasePointer = (
         model: releaseDrag(model, entityId, origin, position),
       }),
       PanningCanvas: () => ({ model: toIdle(model) }),
-      ConnectingRelationship: ({ sourceEntityId, maybeSourcePropertyId, startPos }) => ({
+      ConnectingRelationship: ({ sourceEntityId, startPos }) => ({
         model: connect(
           model,
           sourceEntityId,
-          maybeSourcePropertyId,
           startPos,
           toWorld(model, clientX, clientY),
           maybeTargetEntityId,
