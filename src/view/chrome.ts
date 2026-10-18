@@ -80,6 +80,21 @@ export const statusPill = (editor: EditorState): StatusPill =>
       className: "bg-indigo-600 text-white",
       hint: "Enter commit · Esc cancel",
     }),
+    CreatingEnum: () => ({
+      label: "CREATING",
+      className: "bg-emerald-600 text-white",
+      hint: "Enter create · Esc cancel",
+    }),
+    RenamingEnum: () => ({
+      label: "EDITING",
+      className: "bg-indigo-600 text-white",
+      hint: "Enter commit · Esc cancel",
+    }),
+    EditingEnumValue: () => ({
+      label: "EDITING",
+      className: "bg-indigo-600 text-white",
+      hint: "Enter commit · Esc cancel",
+    }),
     EditingAssociation: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
@@ -225,6 +240,18 @@ export const toolbarView = (
           ),
         ],
         ["+ Entity"],
+      ),
+      h.button(
+        [
+          h.Type("button"),
+          h.AriaLabel("Create enum"),
+          h.Title("Create enum"),
+          h.OnClick(Message.ClickedAddEnum()),
+          h.Class(
+            "rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-violet-700",
+          ),
+        ],
+        ["+ Enum"],
       ),
       h.div(
         [h.Class("ml-auto flex min-w-0 items-center gap-3")],

@@ -30,6 +30,7 @@ export const Message = defineMessageUnion({
   // Pointer & canvas
   PressedCanvas: PointerFields,
   PressedNodeHeader: { entityId: Schema.String, ...PointerFields },
+  PressedEnumHeader: { typeId: Schema.String, ...PointerFields },
   PressedPort: { entityId: Schema.String, ...PointerFields },
   MovedPointer: { clientX: Schema.Number, clientY: Schema.Number },
   ReleasedPointer: {
@@ -60,10 +61,13 @@ export const Message = defineMessageUnion({
   ClickedUndo: {},
   ClickedRedo: {},
   ClickedAddEntity: {},
+  ClickedAddEnum: {},
   ChangedDocumentName: { name: Schema.String },
 
+  // Cards
+  ClickedToggleExpand: { nodeId: Schema.String },
+
   // Entities
-  ClickedToggleExpand: { entityId: Schema.String },
   DoubleClickedEntityName: { entityId: Schema.String },
   UpdatedEntityDraftName: { name: Schema.String },
   ClickedDeleteEntity: { entityId: Schema.String },
@@ -84,6 +88,22 @@ export const Message = defineMessageUnion({
   UpdatedAttributeDraftLiteralOptions: { text: Schema.String },
   ClickedSaveAttribute: {},
   ClickedCancelEdit: {},
+
+  // Enums
+  DoubleClickedEnumName: { typeId: Schema.String },
+  UpdatedEnumDraftName: { name: Schema.String },
+  ClickedDeleteEnum: { typeId: Schema.String },
+  ClickedAddEnumValue: { typeId: Schema.String },
+  ClickedEditEnumValue: { typeId: Schema.String, valueId: Schema.String },
+  ClickedDeleteEnumValue: { typeId: Schema.String, valueId: Schema.String },
+  ClickedMoveEnumValue: {
+    typeId: Schema.String,
+    valueId: Schema.String,
+    direction: MoveDirection,
+  },
+  UpdatedEnumValueDraftName: { name: Schema.String },
+  UpdatedEnumValueDraftDescription: { description: Schema.String },
+  ClickedSaveEnumValue: {},
 
   // Associations
   ClickedEdge: { associationId: Schema.String },

@@ -20,7 +20,10 @@ describe("document", () => {
     expect(Doc.nextId(sample, "e")).toBe("e4");
     expect(Doc.nextId(sample, "p")).toBe("p11");
     expect(Doc.nextId(sample, "r")).toBe("r3");
+    expect(Doc.nextId(sample, "t")).toBe("t2");
+    expect(Doc.nextId(sample, "v")).toBe("v4");
     expect(Doc.nextId(Doc.emptyDocument("x"), "e")).toBe("e1");
+    expect(Doc.nextId(Doc.emptyDocument("x"), "t")).toBe("t1");
   });
 
   test("syncLayout staggers missing nodes and prunes orphans", () => {
@@ -35,10 +38,16 @@ describe("document", () => {
       },
     };
     const synced = Doc.syncLayout(document);
-    expect(Object.keys(synced.layout.nodes).sort()).toEqual(["e1", "e2", "e3"]);
-    // e1 occupies the first stagger slot, so e2 and e3 take the next ones.
+    expect(Object.keys(synced.layout.nodes).sort()).toEqual(["e1", "e2", "e3", "t1"]);
+    // e1 occupies the first stagger slot, so e2, e3, and t1 take the next ones.
     expect(synced.layout.nodes["e2"]?.position).toEqual({ x: 340, y: 80 });
     expect(synced.layout.nodes["e3"]?.position).toEqual({ x: 600, y: 80 });
+    expect(synced.layout.nodes["t1"]?.position).toEqual({ x: 860, y: 80 });
+  });
+
+  test("syncLayout prunes the node of a type that no longer exists", () => {
+    const synced = Doc.syncLayout({ ...sample, types: [] });
+    expect(Object.keys(synced.layout.nodes).sort()).toEqual(["e1", "e2", "e3"]);
   });
 
   test("deleteEntity cascades to its associations and layout node", () => {
@@ -92,6 +101,59 @@ describe("document", () => {
     expect(Doc.moveAttribute(sample, "e1", "p2", "Up")).toEqual(sample);
   });
 
+  test("addEnum places a collapsed, empty enum clear of existing cards", () => {
+    const next = Doc.addEnum(sample, "t2", "Status", { x: 120, y: 520 });
+    expect(Option.getOrThrow(Doc.findEnum(next, "t2"))).toEqual({
+      id: "t2",
+      kind: "Enum",
+      name: "Status",
+      values: [],
+    });
+    const node = next.layout.nodes["t2"];
+    expect(node?.isExpanded).toBe(false);
+    // The Role card already sits at the requested spot.
+    expect(node?.position).not.toEqual({ x: 120, y: 520 });
+  });
+
+  test("addEntity avoids enum cards too", () => {
+    const next = Doc.addEntity(sample, "e4", "Comment", { x: 120, y: 520 });
+    expect(next.layout.nodes["e4"]?.position).not.toEqual({ x: 120, y: 520 });
+  });
+
+  test("renameEnum and deleteEnum, which removes its layout node", () => {
+    const renamed = Doc.renameEnum(sample, "t1", "Permission");
+    expect(Option.getOrThrow(Doc.findEnum(renamed, "t1")).name).toBe("Permission");
+    const deleted = Doc.deleteEnum(sample, "t1");
+    expect(deleted.types).toEqual([]);
+    expect(deleted.layout.nodes["t1"]).toBeUndefined();
+    expect(deleted.entities).toEqual(sample.entities);
+  });
+
+  test("enum value operations", () => {
+    const values = (document: DomainModelDocument) =>
+      Option.getOrThrow(Doc.findEnum(document, "t1")).values;
+    const added = Doc.addEnumValue(sample, "t1", { id: "v4", name: "guest" });
+    expect(values(added).map((value) => value.name)).toEqual([
+      "reader",
+      "author",
+      "admin",
+      "guest",
+    ]);
+    const described = Doc.updateEnumValue(added, "t1", "v4", "visitor", "  Not signed in ");
+    expect(values(described).at(-1)).toEqual({
+      id: "v4",
+      name: "visitor",
+      description: "Not signed in",
+    });
+    const cleared = Doc.updateEnumValue(described, "t1", "v4", "visitor", " ");
+    expect(values(cleared).at(-1)).toEqual({ id: "v4", name: "visitor" });
+    const moved = Doc.moveEnumValue(cleared, "t1", "v4", "Up");
+    expect(values(moved).map((value) => value.id)).toEqual(["v1", "v2", "v4", "v3"]);
+    expect(Doc.moveEnumValue(moved, "t1", "v1", "Up")).toEqual(moved);
+    const deleted = Doc.deleteEnumValue(moved, "t1", "v2");
+    expect(values(deleted).map((value) => value.id)).toEqual(["v1", "v4", "v3"]);
+  });
+
   test("newAssociation defaults to one from per many tos", () => {
     expect(Doc.newAssociation("r9", "e1", "e3").ends).toEqual([
       { entityId: "e1", multiplicity: { min: 1, max: "one" } },
@@ -135,8 +197,9 @@ describe("document", () => {
     expect(position).not.toEqual({ x: 120, y: 140 });
   });
 
-  test("the document codec round-trips", () => {
+  test("the document codec round-trips, enums included", () => {
     const json = Schema.encodeSync(DomainModelDocumentJsonString)(sample);
+    expect(JSON.parse(json).types[0]).toMatchObject({ id: "t1", kind: "Enum", name: "Role" });
     expect(Schema.decodeUnknownSync(DomainModelDocumentJsonString)(json)).toEqual(sample);
   });
 
@@ -226,8 +289,43 @@ describe("diagnostics", () => {
       "post",
     );
     const tags = Diagnostics.diagnose(document).map((diagnostic) => diagnostic._tag);
-    expect(tags.filter((tag) => tag === "DuplicateEntityName")).toHaveLength(2);
+    expect(tags.filter((tag) => tag === "DuplicateTypeName")).toHaveLength(2);
     expect(tags.filter((tag) => tag === "DuplicateAttributeName")).toHaveLength(2);
+  });
+
+  test("entities and enums share one namespace", () => {
+    const document = Doc.addEntity(sample, "e4", "role", { x: 0, y: 600 });
+    const diagnostics = Diagnostics.diagnose(document);
+    expect(diagnostics).toEqual([
+      Diagnostics.Diagnostic.DuplicateTypeName({ nodeId: "e4", name: "role" }),
+      Diagnostics.Diagnostic.DuplicateTypeName({ nodeId: "t1", name: "Role" }),
+    ]);
+    expect(Diagnostics.forEntity(diagnostics, "e4")).toHaveLength(1);
+    expect(Diagnostics.forEnum(diagnostics, "t1")).toHaveLength(1);
+    expect(Diagnostics.describe(diagnostics[1]!)).toBe("Duplicate type name “Role”");
+  });
+
+  test("flags duplicate enum value names", () => {
+    const document = Doc.addEnumValue(sample, "t1", { id: "v4", name: "Admin" });
+    const diagnostics = Diagnostics.diagnose(document);
+    expect(diagnostics).toEqual([
+      Diagnostics.Diagnostic.DuplicateEnumValueName({ typeId: "t1", valueId: "v3", name: "admin" }),
+      Diagnostics.Diagnostic.DuplicateEnumValueName({ typeId: "t1", valueId: "v4", name: "Admin" }),
+    ]);
+    expect(Diagnostics.forEnumValue(diagnostics, "v4")).toHaveLength(1);
+    expect(Diagnostics.forEnum(diagnostics, "t1")).toHaveLength(2);
+    expect(Diagnostics.describe(diagnostics[1]!)).toBe("Duplicate value name “Admin”");
+  });
+
+  test("flags an enum with no values", () => {
+    const document = Doc.addEnum(sample, "t2", "Status", { x: 0, y: 600 });
+    const diagnostics = Diagnostics.diagnose(document);
+    expect(diagnostics).toEqual([Diagnostics.Diagnostic.EmptyEnum({ typeId: "t2" })]);
+    expect(Diagnostics.forEnum(diagnostics, "t2")).toEqual(diagnostics);
+    expect(diagnostics.map(Diagnostics.describe)).toEqual(["Enum has no values"]);
+    expect(
+      Diagnostics.diagnose(Doc.addEnumValue(document, "t2", { id: "v4", name: "draft" })),
+    ).toEqual([]);
   });
 
   test("flags a unique list attribute in a loaded file", () => {
@@ -373,6 +471,26 @@ describe("diagnostics", () => {
 });
 
 describe("geometry", () => {
+  test("enum cards size like entity cards, with values as rows", () => {
+    const role = Option.getOrThrow(Doc.findEnum(sample, "t1"));
+    const tag = Option.getOrThrow(Doc.findEntity(sample, "e3"));
+    const collapsed = { position: { x: 0, y: 0 }, isExpanded: false };
+    expect(Geometry.enumRect(role, collapsed, Option.none())).toEqual(
+      Geometry.nodeRect(tag, collapsed, Option.none()),
+    );
+    const expanded = { ...collapsed, isExpanded: true };
+    const rect = Geometry.enumRect(role, expanded, Option.none());
+    expect(rect.width).toBe(Geometry.EXPANDED_NODE_WIDTH);
+    expect(rect.height).toBe(
+      Geometry.NODE_HEADER_HEIGHT + 3 * Geometry.ATTRIBUTE_ROW_HEIGHT + Geometry.NODE_FOOTER_HEIGHT,
+    );
+    expect(Geometry.enumRect(role, expanded, Option.some("v2")).height).toBe(
+      rect.height + Geometry.ENUM_VALUE_EDITOR_HEIGHT - Geometry.ATTRIBUTE_ROW_HEIGHT,
+    );
+    // An editor open on another card doesn't grow this one.
+    expect(Geometry.enumRect(role, expanded, Option.some("p2")).height).toBe(rect.height);
+  });
+
   test("zoomAround keeps the world point under the cursor fixed", () => {
     const viewport = { pan: { x: 40, y: -20 }, zoom: 1 };
     const focus = { x: 300, y: 200 };

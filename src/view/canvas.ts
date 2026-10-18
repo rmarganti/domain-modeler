@@ -15,6 +15,7 @@ import {
   inspectorView,
   markerDefs,
 } from "./edge";
+import { creatingEnumView, enumNodeView } from "./enumNode";
 import { creatingNodeView, nodeView } from "./node";
 import { onPress, px } from "./shared";
 
@@ -60,6 +61,8 @@ export const canvasView = (
   const { editor, selection } = model;
   const maybeEditingAttributeId =
     editor._tag === "EditingAttribute" ? Option.some(editor.attributeId) : Option.none<string>();
+  const maybeEditingValueId =
+    editor._tag === "EditingEnumValue" ? Option.some(editor.valueId) : Option.none<string>();
 
   const edges = Array.getSomes(
     Array.map(document.associations, (association) =>
@@ -145,8 +148,24 @@ export const canvasView = (
               ),
             ),
           ),
+          ...Array.getSomes(
+            Array.map(document.types, (definition) =>
+              Option.map(Option.fromNullishOr(document.layout.nodes[definition.id]), (layout) =>
+                enumNodeView(h, definition, layout, {
+                  editor,
+                  isSelected:
+                    selection._tag === "SelectedEnum" && selection.typeId === definition.id,
+                  diagnostics,
+                  maybeEditingValueId,
+                }),
+              ),
+            ),
+          ),
           ...(editor._tag === "CreatingEntity"
             ? [creatingNodeView(h, editor.position, editor.draftName)]
+            : []),
+          ...(editor._tag === "CreatingEnum"
+            ? [creatingEnumView(h, editor.position, editor.draftName)]
             : []),
         ],
       ),
@@ -157,7 +176,10 @@ export const canvasView = (
         onSome: (edge) => [inspectorView(h, document, edge, diagnostics)],
       }),
 
-      ...(Array.isReadonlyArrayNonEmpty(document.entities) || editor._tag === "CreatingEntity"
+      ...(Array.isReadonlyArrayNonEmpty(document.entities) ||
+      Array.isReadonlyArrayNonEmpty(document.types) ||
+      editor._tag === "CreatingEntity" ||
+      editor._tag === "CreatingEnum"
         ? []
         : [emptyState(h)]),
     ],

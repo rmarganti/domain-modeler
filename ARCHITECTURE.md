@@ -54,6 +54,22 @@ export const EntityDefinition = Schema.Struct({
 });
 export type EntityDefinition = typeof EntityDefinition.Type;
 
+export const EnumValue = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+});
+export type EnumValue = typeof EnumValue.Type;
+
+export const EnumDefinition = Schema.Struct({
+  id: Schema.String,
+  kind: Schema.Literal("Enum"), // discriminator: value objects may join a union later
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  values: Schema.Array(EnumValue),
+});
+export type EnumDefinition = typeof EnumDefinition.Type;
+
 export const AssociationEnd = Schema.Struct({
   entityId: Schema.String,
   role: Schema.optional(Schema.String),
@@ -74,6 +90,8 @@ export type AssociationDefinition = typeof AssociationDefinition.Type;
 ```
 
 Entity identity is implicit: every entity is distinguishable without an ID attribute, so there is no primary key flag; business keys are expressed with `unique`. An association connects two entities and nothing else; it never references individual attributes. Foreign keys and join tables are a concern of future exporters, which can derive them from the association's ends.
+
+Enums live in the document's top-level `types` collection. An enum is only its `types` entry plus its `layout.nodes` card; nothing on an entity points at it yet, which keeps enums movable to a separate view later. Entity and enum names share one namespace (see §8). IDs are derived from the document with one prefix per kind: `e` entities, `p` attributes, `t` types, `v` enum values, `r` associations.
 
 The code and the file format say "association" and "attribute"; everything the user sees says "Relationship" and "field".
 
@@ -115,7 +133,7 @@ export const ViewportLayout = Schema.Struct({
 export type ViewportLayout = typeof ViewportLayout.Type;
 
 export const DomainLayout = Schema.Struct({
-  nodes: Schema.Record({ key: Schema.String, value: NodeLayout }),
+  nodes: Schema.Record({ key: Schema.String, value: NodeLayout }), // keyed by entity or type ID
   viewport: ViewportLayout,
 });
 export type DomainLayout = typeof DomainLayout.Type;
@@ -124,18 +142,21 @@ export const DomainModelDocument = Schema.Struct({
   version: Schema.Literal("1.0.0"),
   name: Schema.String,
   entities: Schema.Array(EntityDefinition),
+  types: Schema.Array(EnumDefinition),
   associations: Schema.Array(AssociationDefinition),
   layout: DomainLayout,
 });
 export type DomainModelDocument = typeof DomainModelDocument.Type;
 ```
 
+`layout.nodes` is one record for every card on the canvas, keyed by entity ID or type ID.
+
 ### 3.2 Bi-directional Sync & Invariant Validation
 
 A domain validation pass ensures that:
 
-- Every entity ID has a corresponding entry in `layout.nodes` (missing entries are assigned smart auto-staggered positions).
-- No orphan entries exist in `layout.nodes` for deleted entities.
+- Every entity ID and type ID has a corresponding entry in `layout.nodes` (missing entries are assigned smart auto-staggered positions).
+- No orphan entries exist in `layout.nodes` for deleted entities or types.
 - Both association end entity IDs exist in `entities`.
 
 ---
@@ -155,13 +176,21 @@ A domain validation pass ensures that:
 - **Collapsed (Default)**: Compact badge displaying entity name, field count badge, and handle ports.
 - **Expanded (On-Click)**: Smoothly expands in-place into an entity card detailing all fields: name, type, a multiplicity badge when it isn't `1` (`0..1`, `0..*`, `1..*`), a `UQ` badge when unique, and inline actions to add, edit, reorder, or delete fields.
 
-### 4.3 Port Drag-and-Drop Connection
+### 4.3 Enum Cards
+
+- Enum cards share the entity card's chrome (`src/view/card.ts`) and dimensions: collapsed they are the same size as a collapsed entity, and expanded each value is one row (`cardShape` in `src/domain/geometry.ts` sizes both kinds). New cards of either kind are placed clear of every existing card.
+- The header shows the name (double-click to rename), an `enum` badge, the value count, and `Expand`/`Collapse`. Expanded rows show the value name in mono and its description in muted text, with `Move up`, `Move down`, `Edit value`, and `Delete value` on hover. Clicking a row opens an inline editor (`Value name`, `Value description`); Enter saves and Escape cancels. A blank description removes it.
+- The footer has `+ Add value` and `Delete <Name>`. The toolbar's `+ Enum` button (aria-label `Create enum`) starts naming a new enum at the viewport center.
+- Enum cards have no ports and carry `data-type-id`, never `data-entity-id`, so they are not relationship drop targets: releasing a connection over one cancels it, as on empty canvas.
+- Enum cards are dragged by the header and selected like entity cards; every change is undoable.
+
+### 4.4 Port Drag-and-Drop Connection
 
 - Every card has exactly two ports, on the left and right of its header, whether collapsed or expanded. Field rows have no ports.
 - Dragging from an entity port pulls a live dynamic connector line from the header. Releasing onto another entity creates a relationship edge (`1 ── 0..*`, from the dragged entity to the drop target) and opens the inspector to configure it.
 - Edges always anchor at the card header.
 
-### 4.4 Pluggable Edge Routing
+### 4.5 Pluggable Edge Routing
 
 Relationship edges are rendered via an abstract routing interface:
 
@@ -180,7 +209,7 @@ export interface EdgeRouter {
 - **Default implementation**: Smooth cubic Bézier curves with end markers and interactive midpoint multiplicity tags reading `<ends[0]> ── <ends[1]>` (for example `1 ── 0..*`).
 - Swappable in the future for orthogonal / Manhattan routing without touching UI components.
 
-### 4.5 Relationship Edge Inspection
+### 4.6 Relationship Edge Inspection
 
 - Clicking an edge highlights the curve and displays a floating inspector pill at its midpoint.
 - The pill edits the verb label (`Relationship name`) and a description, and has one section per end, headed with that end's entity name: a role textbox whose faded placeholder is the derived default role, and a multiplicity radiogroup (`1`, `0..1`, `0..*`, `1..*`). For a self association the end labels carry `(end 1)` / `(end 2)`.
@@ -198,26 +227,36 @@ export type EditorState =
   | { readonly _tag: "CreatingEntity"; readonly position: Point }
   | { readonly _tag: "RenamingEntity"; readonly entityId: string }
   | { readonly _tag: "EditingAttribute"; readonly entityId: string; readonly attributeId: string }
+  | { readonly _tag: "CreatingEnum"; readonly position: Point; readonly draftName: string }
+  | { readonly _tag: "RenamingEnum"; readonly typeId: string; readonly draftName: string }
+  | {
+      readonly _tag: "EditingEnumValue";
+      readonly typeId: string;
+      readonly valueId: string;
+      readonly draft: { name: string; description: string };
+    }
   | {
       readonly _tag: "ConnectingAssociation";
       readonly fromEntityId: string;
       readonly currentPos: Point;
     }
   | { readonly _tag: "EditingAssociation"; readonly associationId: string }
-  | { readonly _tag: "DraggingNode"; readonly entityId: string; readonly offset: Point }
+  | { readonly _tag: "DraggingNode"; readonly nodeId: string; readonly offset: Point } // any card
   | { readonly _tag: "PanningCanvas"; readonly startPan: Point; readonly startMouse: Point };
 ```
 
 ### Keybinding & Mode Matrix
 
-| State                                 | Keybindings Active                                                                                                                                                                              | Keystrokes        |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `Idle` (Normal Mode)                  | `c`: Create entity at center/cursor<br>`d`: Delete selected entity/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & edit selected entity<br>`Escape`: Deselect / clear selection | Canvas shortcuts  |
-| `RenamingEntity` / `EditingAttribute` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                       | Text input focus  |
-| `ConnectingAssociation`               | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                      | Active connection |
-| `DraggingNode` / `PanningCanvas`      | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                  | Canvas drag       |
+| State                                                                                                           | Keybindings Active                                                                                                                                                                                          | Keystrokes        |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `Idle` (Normal Mode)                                                                                            | `c`: Create entity at center/cursor<br>`d`: Delete selected entity/enum/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & rename selected entity/enum<br>`Escape`: Deselect / clear selection | Canvas shortcuts  |
+| `CreatingEntity` / `RenamingEntity` / `EditingAttribute` / `CreatingEnum` / `RenamingEnum` / `EditingEnumValue` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                                   | Text input focus  |
+| `ConnectingAssociation`                                                                                         | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                                  | Active connection |
+| `DraggingNode` / `PanningCanvas`                                                                                | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                              | Canvas drag       |
 
-A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `CREATING`, `EDITING`, `CONNECTING`).
+A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `CREATING`, `EDITING`, `CONNECTING`). `CreatingEnum` shows `CREATING`; `RenamingEnum` and `EditingEnumValue` show `EDITING`.
+
+Selection is a separate tagged union: `NoSelection`, `SelectedEntity { entityId }`, `SelectedEnum { typeId }`, `SelectedAssociation { associationId }`. Pressing a card's header selects it; `d`/`Delete`/`Backspace` deletes the selected entity, enum, or edge.
 
 ---
 
@@ -258,7 +297,9 @@ The editor ships as a standalone desktop app built with **Tauri v2**, so file ac
 
 Live schema validation runs in the background on every model update and reports non-blocking diagnostics:
 
-- **Duplicate Entity Names**: Highlighted with warning badges on affected cards.
+- **Duplicate Type Names** (`DuplicateTypeName { nodeId, name }`): entity and enum names share one namespace, compared case-insensitively. Every card with a clashing name, entity or enum, gets a warning badge ("Duplicate type name “…”").
+- **Duplicate Enum Value Names** (`DuplicateEnumValueName { typeId, valueId, name }`): flagged on the value row and the enum card ("Duplicate value name “…”").
+- **Empty Enums** (`EmptyEnum { typeId }`): an enum with no values is flagged on its card ("Enum has no values").
 - **Duplicate Attribute Names** (`DuplicateAttributeName`): flagged on the field row ("Duplicate field name “…”").
 - **Unique Lists** (`UniqueOnList`): a loaded file with an attribute that is both `unique` and `max: "many"` is flagged on its field row ("A list field can't be unique"). The editor can't produce this combination.
 - **Dangling References** (`DanglingEntityReference`): an edge whose end entity no longer exists is flagged with a warning badge ("Entity “…” at end 1 does not exist").

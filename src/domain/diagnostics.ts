@@ -7,19 +7,27 @@ import type {
   DomainModelDocument,
   EndIndex,
   EntityDefinition,
+  EnumDefinition,
 } from "./schema";
 
 // Diagnostics are derived from the document on every render and never stored
 // in the Model, so a plain tagged enum is enough; no Schema is needed.
 
 export type Diagnostic = Data.TaggedEnum<{
-  DuplicateEntityName: { readonly entityId: string; readonly name: string };
+  /** Entities and enums share one namespace, so `nodeId` is either. */
+  DuplicateTypeName: { readonly nodeId: string; readonly name: string };
   DuplicateAttributeName: {
     readonly entityId: string;
     readonly attributeId: string;
     readonly name: string;
   };
   UniqueOnList: { readonly entityId: string; readonly attributeId: string };
+  DuplicateEnumValueName: {
+    readonly typeId: string;
+    readonly valueId: string;
+    readonly name: string;
+  };
+  EmptyEnum: { readonly typeId: string };
   DanglingEntityReference: {
     readonly associationId: string;
     readonly endIndex: EndIndex;
@@ -49,10 +57,13 @@ const duplicatesBy = <A>(items: ReadonlyArray<A>, toName: (item: A) => string): 
     Array.flatten,
   );
 
-const duplicateEntityNames = (document: DomainModelDocument): ReadonlyArray<Diagnostic> =>
+const duplicateTypeNames = (document: DomainModelDocument): ReadonlyArray<Diagnostic> =>
   Array.map(
-    duplicatesBy(document.entities, (entity) => entity.name),
-    (entity) => Diagnostic.DuplicateEntityName({ entityId: entity.id, name: entity.name }),
+    duplicatesBy<Readonly<{ id: string; name: string }>>(
+      [...document.entities, ...document.types],
+      (node) => node.name,
+    ),
+    (node) => Diagnostic.DuplicateTypeName({ nodeId: node.id, name: node.name }),
   );
 
 const duplicateAttributeNames = (entity: EntityDefinition): ReadonlyArray<Diagnostic> =>
@@ -73,6 +84,24 @@ const uniqueOnLists = (entity: EntityDefinition): ReadonlyArray<Diagnostic> =>
     Array.map((attribute) =>
       Diagnostic.UniqueOnList({ entityId: entity.id, attributeId: attribute.id }),
     ),
+  );
+
+const duplicateEnumValueNames = (definition: EnumDefinition): ReadonlyArray<Diagnostic> =>
+  Array.map(
+    duplicatesBy(definition.values, (value) => value.name),
+    (value) =>
+      Diagnostic.DuplicateEnumValueName({
+        typeId: definition.id,
+        valueId: value.id,
+        name: value.name,
+      }),
+  );
+
+const emptyEnums = (document: DomainModelDocument): ReadonlyArray<Diagnostic> =>
+  pipe(
+    document.types,
+    Array.filter((definition) => !Array.isReadonlyArrayNonEmpty(definition.values)),
+    Array.map((definition) => Diagnostic.EmptyEnum({ typeId: definition.id })),
   );
 
 const END_INDEXES: ReadonlyArray<EndIndex> = [0, 1];
@@ -151,9 +180,11 @@ const roleClashes = (
 
 /** Live, non-blocking validation of a document. */
 export const diagnose = (document: DomainModelDocument): ReadonlyArray<Diagnostic> => [
-  ...duplicateEntityNames(document),
+  ...duplicateTypeNames(document),
   ...Array.flatMap(document.entities, duplicateAttributeNames),
   ...Array.flatMap(document.entities, uniqueOnLists),
+  ...Array.flatMap(document.types, duplicateEnumValueNames),
+  ...emptyEnums(document),
   ...Array.flatMap(document.associations, (association) =>
     danglingEntityReferences(document, association),
   ),
@@ -169,10 +200,9 @@ export const forEntity = (
   Array.filter(
     diagnostics,
     (diagnostic) =>
-      (diagnostic._tag === "DuplicateEntityName" ||
-        diagnostic._tag === "DuplicateAttributeName" ||
-        diagnostic._tag === "UniqueOnList") &&
-      diagnostic.entityId === entityId,
+      (diagnostic._tag === "DuplicateTypeName" && diagnostic.nodeId === entityId) ||
+      ((diagnostic._tag === "DuplicateAttributeName" || diagnostic._tag === "UniqueOnList") &&
+        diagnostic.entityId === entityId),
   );
 
 export const forAttribute = (
@@ -184,6 +214,27 @@ export const forAttribute = (
     (diagnostic) =>
       (diagnostic._tag === "DuplicateAttributeName" || diagnostic._tag === "UniqueOnList") &&
       diagnostic.attributeId === attributeId,
+  );
+
+export const forEnum = (
+  diagnostics: ReadonlyArray<Diagnostic>,
+  typeId: string,
+): ReadonlyArray<Diagnostic> =>
+  Array.filter(
+    diagnostics,
+    (diagnostic) =>
+      (diagnostic._tag === "DuplicateTypeName" && diagnostic.nodeId === typeId) ||
+      ((diagnostic._tag === "DuplicateEnumValueName" || diagnostic._tag === "EmptyEnum") &&
+        diagnostic.typeId === typeId),
+  );
+
+export const forEnumValue = (
+  diagnostics: ReadonlyArray<Diagnostic>,
+  valueId: string,
+): ReadonlyArray<Diagnostic> =>
+  Array.filter(
+    diagnostics,
+    (diagnostic) => diagnostic._tag === "DuplicateEnumValueName" && diagnostic.valueId === valueId,
   );
 
 export const forAssociation = (
@@ -199,9 +250,11 @@ export const forAssociation = (
 
 export const describe = (diagnostic: Diagnostic): string =>
   Diagnostic.$match(diagnostic, {
-    DuplicateEntityName: ({ name }) => `Duplicate entity name “${name}”`,
+    DuplicateTypeName: ({ name }) => `Duplicate type name “${name}”`,
     DuplicateAttributeName: ({ name }) => `Duplicate field name “${name}”`,
     UniqueOnList: () => "A list field can't be unique",
+    DuplicateEnumValueName: ({ name }) => `Duplicate value name “${name}”`,
+    EmptyEnum: () => "Enum has no values",
     DanglingEntityReference: ({ endIndex, entityId }) =>
       `Entity “${entityId}” at end ${endIndex + 1} does not exist`,
     RoleClash: ({ name, entityName }) => `Role “${name}” clashes on ${entityName}`,

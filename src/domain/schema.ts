@@ -41,6 +41,22 @@ export const EntityDefinition = Schema.Struct({
 });
 export type EntityDefinition = typeof EntityDefinition.Type;
 
+export const EnumValue = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+});
+export type EnumValue = typeof EnumValue.Type;
+
+export const EnumDefinition = Schema.Struct({
+  id: Schema.String,
+  kind: Schema.Literal("Enum"), // discriminator: value objects may join a union later
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  values: Schema.Array(EnumValue),
+});
+export type EnumDefinition = typeof EnumDefinition.Type;
+
 export const AssociationEnd = Schema.Struct({
   entityId: Schema.String,
   role: Schema.optional(Schema.String),
@@ -80,6 +96,7 @@ export const ViewportLayout = Schema.Struct({
 });
 export type ViewportLayout = typeof ViewportLayout.Type;
 
+/** `nodes` is keyed by entity or type ID: every card on the canvas has one. */
 export const DomainLayout = Schema.Struct({
   nodes: Schema.Record(Schema.String, NodeLayout),
   viewport: ViewportLayout,
@@ -92,6 +109,7 @@ export const DomainModelDocument = Schema.Struct({
   version: Schema.Literal("1.0.0"),
   name: Schema.String,
   entities: Schema.Array(EntityDefinition),
+  types: Schema.Array(EnumDefinition),
   associations: Schema.Array(AssociationDefinition),
   layout: DomainLayout,
 });

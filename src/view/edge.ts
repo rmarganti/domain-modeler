@@ -35,7 +35,7 @@ type PlacedEntity = Readonly<{ entity: EntityDefinition; layout: NodeLayout }>;
 
 /** Applies an in-progress drag so edges follow the node being moved. */
 const effectiveLayout = (entityId: string, layout: NodeLayout, editor: EditorState): NodeLayout =>
-  editor._tag === "DraggingNode" && editor.entityId === entityId
+  editor._tag === "DraggingNode" && editor.nodeId === entityId
     ? { ...layout, position: editor.position }
     : layout;
 

@@ -418,6 +418,243 @@ describe("associations", () => {
   });
 });
 
+describe("enums", () => {
+  const findRole = (m: Model) => Option.getOrThrow(Doc.findEnum(m.history.present, "t1"));
+  const roleValues = (m: Model) => findRole(m).values.map((value) => value.name);
+
+  test("+ Enum, typing, and Enter create a selected enum; undo removes it", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedAddEnum()),
+      focused,
+      model((m) => expect(m.editor._tag).toBe("CreatingEnum")),
+      message(Message.UpdatedEnumDraftName({ name: " Status " })),
+      message(Message.PressedEnterKey()),
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.Idle());
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2" }));
+        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
+        expect(m.history.present.layout.nodes["t2"]).toBeDefined();
+      }),
+      message(Message.PressedUndoKey()),
+      model((m) => {
+        expect(m.history.present.types).toHaveLength(1);
+        expect(m.selection).toEqual(Selection.NoSelection());
+      }),
+    );
+  });
+
+  test("Escape while creating an enum discards the draft", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedAddEnum()),
+      focused,
+      message(Message.UpdatedEnumDraftName({ name: "Status" })),
+      message(Message.PressedEscapeKey()),
+      model((m) => {
+        expect(m.history.present.types).toHaveLength(1);
+        expect(m.history.past).toHaveLength(0);
+      }),
+    );
+  });
+
+  test("double-clicking the name renames the enum, and undo restores it", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.DoubleClickedEnumName({ typeId: "t1" })),
+      focused,
+      model((m) =>
+        expect(m.editor).toEqual(EditorState.RenamingEnum({ typeId: "t1", draftName: "Role" })),
+      ),
+      message(Message.UpdatedEnumDraftName({ name: "Permission" })),
+      message(Message.PressedEnterKey()),
+      model((m) => expect(findRole(m).name).toBe("Permission")),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(findRole(m).name).toBe("Role")),
+    );
+  });
+
+  test("Enter on a selected enum expands it and starts renaming", () => {
+    story(
+      update,
+      given({ ...baseModel, selection: Selection.SelectedEnum({ typeId: "t1" }) }),
+      message(Message.PressedEnterKey()),
+      focused,
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.RenamingEnum({ typeId: "t1", draftName: "Role" }));
+        expect(m.history.present.layout.nodes["t1"]?.isExpanded).toBe(true);
+      }),
+    );
+  });
+
+  test("adding a value opens it for editing and saving applies the draft", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedAddEnumValue({ typeId: "t1" })),
+      focused,
+      model((m) => {
+        expect(m.editor).toEqual(
+          EditorState.EditingEnumValue({
+            typeId: "t1",
+            valueId: "v4",
+            draft: { name: "value4", description: "" },
+          }),
+        );
+        expect(m.history.present.layout.nodes["t1"]?.isExpanded).toBe(true);
+      }),
+      message(Message.UpdatedEnumValueDraftName({ name: " guest " })),
+      message(Message.UpdatedEnumValueDraftDescription({ description: "Not signed in" })),
+      message(Message.PressedEnterKey()),
+      model((m) => {
+        expect(findRole(m).values.at(-1)).toEqual({
+          id: "v4",
+          name: "guest",
+          description: "Not signed in",
+        });
+        // One snapshot for adding the value, one for saving the edit.
+        expect(m.history.past).toHaveLength(2);
+      }),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(findRole(m).values.at(-1)).toEqual({ id: "v4", name: "value4" })),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
+    );
+  });
+
+  test("editing a value is undoable, and cancelling leaves it unchanged", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedEditEnumValue({ typeId: "t1", valueId: "v1" })),
+      focused,
+      message(Message.UpdatedEnumValueDraftName({ name: "viewer" })),
+      message(Message.PressedEscapeKey()),
+      model((m) => {
+        expect(m.history.present).toEqual(Doc.setExpanded(baseModel.history.present, "t1", true));
+        expect(m.editor).toEqual(EditorState.Idle());
+      }),
+      message(Message.ClickedEditEnumValue({ typeId: "t1", valueId: "v1" })),
+      focused,
+      message(Message.UpdatedEnumValueDraftName({ name: "viewer" })),
+      message(Message.ClickedSaveEnumValue()),
+      model((m) => expect(roleValues(m)).toEqual(["viewer", "author", "admin"])),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
+    );
+  });
+
+  test("moving and deleting a value are undoable", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedMoveEnumValue({ typeId: "t1", valueId: "v3", direction: "Up" })),
+      model((m) => expect(roleValues(m)).toEqual(["reader", "admin", "author"])),
+      message(Message.ClickedDeleteEnumValue({ typeId: "t1", valueId: "v1" })),
+      model((m) => expect(roleValues(m)).toEqual(["admin", "author"])),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(roleValues(m)).toEqual(["reader", "admin", "author"])),
+      message(Message.PressedUndoKey()),
+      model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
+    );
+  });
+
+  test("deleting the value being edited returns to Idle", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedEditEnumValue({ typeId: "t1", valueId: "v2" })),
+      focused,
+      message(Message.ClickedDeleteEnumValue({ typeId: "t1", valueId: "v2" })),
+      model((m) => {
+        expect(roleValues(m)).toEqual(["reader", "admin"]);
+        expect(m.editor).toEqual(EditorState.Idle());
+      }),
+    );
+  });
+
+  test("d deletes the selected enum and its node; undo and redo", () => {
+    story(
+      update,
+      given({ ...baseModel, selection: Selection.SelectedEnum({ typeId: "t1" }) }),
+      message(Message.PressedDeleteKey()),
+      model((m) => {
+        expect(m.history.present.types).toHaveLength(0);
+        expect(m.history.present.layout.nodes["t1"]).toBeUndefined();
+        expect(m.selection).toEqual(Selection.NoSelection());
+      }),
+      message(Message.PressedUndoKey()),
+      model((m) => {
+        expect(findRole(m).name).toBe("Role");
+        expect(m.history.present.layout.nodes["t1"]).toBeDefined();
+      }),
+      message(Message.PressedRedoKey()),
+      model((m) => expect(m.history.present.types).toHaveLength(0)),
+    );
+  });
+
+  test("the Delete <Name> button deletes the enum", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedDeleteEnum({ typeId: "t1" })),
+      model((m) => expect(m.history.present.types).toHaveLength(0)),
+    );
+  });
+
+  test("dragging an enum card moves it in one undoable step", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.PressedEnumHeader({ typeId: "t1", ...press, clientX: 150, clientY: 540 })),
+      model((m) => {
+        expect(m.editor._tag).toBe("DraggingNode");
+        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t1" }));
+      }),
+      message(Message.MovedPointer({ clientX: 250, clientY: 600 })),
+      message(
+        Message.ReleasedPointer({
+          clientX: 250,
+          clientY: 600,
+          maybeTargetEntityId: Option.none(),
+        }),
+      ),
+      model((m) => {
+        expect(m.history.present.layout.nodes["t1"]?.position).toEqual({ x: 220, y: 580 });
+        expect(m.history.past).toHaveLength(1);
+      }),
+      message(Message.PressedUndoKey()),
+      model((m) =>
+        expect(m.history.present.layout.nodes["t1"]?.position).toEqual({ x: 120, y: 520 }),
+      ),
+    );
+  });
+
+  test("a connection released on an enum card creates nothing", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.PressedPort({ entityId: "e1", ...press, clientX: 420, clientY: 162 })),
+      message(Message.MovedPointer({ clientX: 150, clientY: 540 })),
+      message(
+        Message.ReleasedPointer({
+          clientX: 150,
+          clientY: 540,
+          maybeTargetEntityId: Option.some("t1"),
+        }),
+      ),
+      model((m) => {
+        expect(m.history.present.associations).toHaveLength(2);
+        expect(m.history.past).toHaveLength(0);
+        expect(m.editor).toEqual(EditorState.Idle());
+      }),
+    );
+  });
+});
+
 describe("files", () => {
   test("save hands the committed document to SaveFile", () => {
     story(
@@ -451,7 +688,8 @@ describe("files", () => {
         Message.SucceededOpenFile({ document: opened, fileName: "x.domain.json" }),
       ),
       model((m) => {
-        expect(Object.keys(m.history.present.layout.nodes)).toHaveLength(3);
+        // Three entities and the Role enum.
+        expect(Object.keys(m.history.present.layout.nodes)).toHaveLength(4);
         expect(m.history.past).toHaveLength(0);
         expect(m.saveStatus).toBe("Clean");
       }),

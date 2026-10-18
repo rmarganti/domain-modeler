@@ -11,8 +11,10 @@ import {
   selectDraftMultiplicity,
   toggleDraftUnique,
   updateAttributeDraft,
+  updateEnumValueDraft,
 } from "./update/editing";
 import * as Entities from "./update/entities";
+import * as Enums from "./update/enums";
 import * as Associations from "./update/associations";
 import * as Session from "./update/session";
 import {
@@ -50,6 +52,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     PressedCanvas: (press) => Canvas.pressCanvas(model, press),
     PressedNodeHeader: ({ entityId, ...press }) => Canvas.pressNodeHeader(model, entityId, press),
+    PressedEnumHeader: ({ typeId, ...press }) => Canvas.pressEnumHeader(model, typeId, press),
     PressedPort: ({ entityId, ...press }) => Canvas.pressPort(model, entityId, press),
     MovedPointer: ({ clientX, clientY }) => Canvas.movePointer(model, clientX, clientY),
     ReleasedPointer: ({ clientX, clientY, maybeTargetEntityId }) =>
@@ -73,11 +76,15 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedUndo: () => ({ model: Session.undo(model) }),
     ClickedRedo: () => ({ model: Session.redo(model) }),
     ClickedAddEntity: () => Entities.startCreating(model),
+    ClickedAddEnum: () => Enums.startCreating(model),
     ChangedDocumentName: ({ name }) => ({ model: Session.renameDocument(model, name) }),
+
+    // Cards
+
+    ClickedToggleExpand: ({ nodeId }) => ({ model: toggleExpanded(model, nodeId) }),
 
     // Entities
 
-    ClickedToggleExpand: ({ entityId }) => ({ model: toggleExpanded(model, entityId) }),
     DoubleClickedEntityName: ({ entityId }) => Entities.startRenaming(model, entityId),
     UpdatedEntityDraftName: ({ name }) => Entities.updateDraftName(model, name),
     ClickedDeleteEntity: ({ entityId }) => ({
@@ -111,6 +118,30 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       updateAttributeDraft(model, (draft) => ({ ...draft, literalOptions: text })),
     ClickedSaveAttribute: () => ({ model: finishEditing(model) }),
     ClickedCancelEdit: () => ({ model: cancelEditing(model) }),
+
+    // Enums
+
+    DoubleClickedEnumName: ({ typeId }) => Enums.startRenaming(model, typeId),
+    UpdatedEnumDraftName: ({ name }) => Enums.updateDraftName(model, name),
+    ClickedDeleteEnum: ({ typeId }) => ({
+      model: Session.deleteSelection({ ...model, selection: Selection.SelectedEnum({ typeId }) }),
+    }),
+    ClickedAddEnumValue: ({ typeId }) => Enums.addValue(model, typeId),
+    ClickedEditEnumValue: ({ typeId, valueId }) =>
+      Enums.startEditingValue(finishEditing(model), typeId, valueId),
+    ClickedDeleteEnumValue: ({ typeId, valueId }) => ({
+      model: Enums.deleteValue(model, typeId, valueId),
+    }),
+    ClickedMoveEnumValue: ({ typeId, valueId, direction }) => ({
+      model: commitDocument(model, (document) =>
+        Doc.moveEnumValue(document, typeId, valueId, direction),
+      ),
+    }),
+    UpdatedEnumValueDraftName: ({ name }) =>
+      updateEnumValueDraft(model, (draft) => ({ ...draft, name })),
+    UpdatedEnumValueDraftDescription: ({ description }) =>
+      updateEnumValueDraft(model, (draft) => ({ ...draft, description })),
+    ClickedSaveEnumValue: () => ({ model: finishEditing(model) }),
 
     // Associations
 

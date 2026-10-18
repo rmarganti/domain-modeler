@@ -3,10 +3,9 @@ import { Array, Option, Record, pipe } from "effect";
 import {
   COLLAPSED_NODE_WIDTH,
   NODE_HEADER_HEIGHT,
+  cardRects,
   nearestFreePosition,
   nextStaggerPosition,
-  nodeRect,
-  type Rect,
 } from "./geometry";
 import type {
   AssociationDefinition,
@@ -15,6 +14,8 @@ import type {
   DomainModelDocument,
   EndIndex,
   EntityDefinition,
+  EnumDefinition,
+  EnumValue,
   Multiplicity,
   NodeLayout,
   Point,
@@ -30,6 +31,7 @@ export const emptyDocument = (name: string): DomainModelDocument => ({
   version: "1.0.0",
   name,
   entities: [],
+  types: [],
   associations: [],
   layout: { nodes: {}, viewport: DEFAULT_VIEWPORT },
 });
@@ -39,12 +41,16 @@ export const emptyDocument = (name: string): DomainModelDocument => ({
 // pure and deterministic. A prefix plus one more than the largest numeric
 // suffix in use can never collide.
 
-export type IdPrefix = "e" | "p" | "r";
+export type IdPrefix = "e" | "p" | "t" | "v" | "r";
 
 const allIds = (document: DomainModelDocument): ReadonlyArray<string> => [
   ...Array.map(document.entities, (entity) => entity.id),
   ...Array.flatMap(document.entities, (entity) =>
     Array.map(entity.attributes, (attribute) => attribute.id),
+  ),
+  ...Array.map(document.types, (definition) => definition.id),
+  ...Array.flatMap(document.types, (definition) =>
+    Array.map(definition.values, (value) => value.id),
   ),
   ...Array.map(document.associations, (association) => association.id),
 ];
@@ -74,35 +80,52 @@ export const findAttribute = (
 ): Option.Option<AttributeDefinition> =>
   Array.findFirst(entity.attributes, (attribute) => attribute.id === attributeId);
 
+export const findEnum = (
+  document: DomainModelDocument,
+  typeId: string,
+): Option.Option<EnumDefinition> =>
+  Array.findFirst(document.types, (definition) => definition.id === typeId);
+
+export const findEnumValue = (
+  definition: EnumDefinition,
+  valueId: string,
+): Option.Option<EnumValue> => Array.findFirst(definition.values, (value) => value.id === valueId);
+
 export const findAssociation = (
   document: DomainModelDocument,
   associationId: string,
 ): Option.Option<AssociationDefinition> =>
   Array.findFirst(document.associations, (association) => association.id === associationId);
 
+/** The layout node of an entity or type card. */
 export const findNode = (
   document: DomainModelDocument,
-  entityId: string,
-): Option.Option<NodeLayout> => Option.fromNullishOr(document.layout.nodes[entityId]);
+  nodeId: string,
+): Option.Option<NodeLayout> => Option.fromNullishOr(document.layout.nodes[nodeId]);
 
 // LAYOUT SYNC (bi-directional invariants)
 
 const nodePositions = (nodes: DomainLayout["nodes"]): ReadonlyArray<Point> =>
   Array.map(Record.values(nodes), (node) => node.position);
 
-/** Restores the layout invariants: every entity has a layout node (missing
- *  ones get auto-staggered positions) and no layout node outlives its entity. */
+const cardIds = (document: DomainModelDocument): ReadonlyArray<string> => [
+  ...Array.map(document.entities, (entity) => entity.id),
+  ...Array.map(document.types, (definition) => definition.id),
+];
+
+/** Restores the layout invariants: every entity and type has a layout node
+ *  (missing ones get auto-staggered positions) and no layout node outlives
+ *  its entity or type. */
 export const syncLayout = (document: DomainModelDocument): DomainModelDocument => {
-  const entityIds = new Set(Array.map(document.entities, (entity) => entity.id));
-  const keptNodes = Record.filter(document.layout.nodes, (_node, entityId) =>
-    entityIds.has(entityId),
-  );
-  const nodes = Array.reduce(document.entities, keptNodes, (acc, entity) =>
-    entity.id in acc
+  const ids = cardIds(document);
+  const idSet = new Set(ids);
+  const keptNodes = Record.filter(document.layout.nodes, (_node, nodeId) => idSet.has(nodeId));
+  const nodes = Array.reduce(ids, keptNodes, (acc, nodeId) =>
+    nodeId in acc
       ? acc
       : {
           ...acc,
-          [entity.id]: {
+          [nodeId]: {
             position: nextStaggerPosition(nodePositions(acc)),
             isExpanded: false,
           },
@@ -113,12 +136,26 @@ export const syncLayout = (document: DomainModelDocument): DomainModelDocument =
 
 // ENTITIES
 
-const occupiedRects = (document: DomainModelDocument): ReadonlyArray<Rect> =>
-  Array.getSomes(
-    Array.map(document.entities, (entity) =>
-      Option.map(findNode(document, entity.id), (node) => nodeRect(entity, node, Option.none())),
-    ),
-  );
+/** A collapsed layout node for a new card, nudged to the nearest spot near
+ *  `position` that no existing card covers. */
+const placeNewNode = (
+  document: DomainModelDocument,
+  nodeId: string,
+  position: Point,
+): DomainLayout => ({
+  ...document.layout,
+  nodes: {
+    ...document.layout.nodes,
+    [nodeId]: {
+      position: nearestFreePosition(
+        position,
+        { width: COLLAPSED_NODE_WIDTH, height: NODE_HEADER_HEIGHT },
+        cardRects(document),
+      ),
+      isExpanded: false,
+    },
+  },
+});
 
 export const addEntity = (
   document: DomainModelDocument,
@@ -128,20 +165,7 @@ export const addEntity = (
 ): DomainModelDocument => ({
   ...document,
   entities: [...document.entities, { id: entityId, name, attributes: [] }],
-  layout: {
-    ...document.layout,
-    nodes: {
-      ...document.layout.nodes,
-      [entityId]: {
-        position: nearestFreePosition(
-          position,
-          { width: COLLAPSED_NODE_WIDTH, height: NODE_HEADER_HEIGHT },
-          occupiedRects(document),
-        ),
-        isExpanded: false,
-      },
-    },
-  },
+  layout: placeNewNode(document, entityId, position),
 });
 
 const mapEntity = (
@@ -228,38 +252,130 @@ export const deleteAttribute = (
 
 export type MoveDirection = "Up" | "Down";
 
+/** Swaps the item with `id` and its neighbor in `direction`; out of range
+ *  moves change nothing. */
+const moveById = <A extends Readonly<{ id: string }>>(
+  items: ReadonlyArray<A>,
+  id: string,
+  direction: MoveDirection,
+): ReadonlyArray<A> =>
+  pipe(
+    Array.findFirstIndex(items, (item) => item.id === id),
+    Option.flatMap((index) => {
+      const swapIndex = direction === "Up" ? index - 1 : index + 1;
+      return Option.all([Array.get(items, index), Array.get(items, swapIndex)]).pipe(
+        Option.map(([moving, displaced]) =>
+          Array.map(items, (item, itemIndex) =>
+            itemIndex === index ? displaced : itemIndex === swapIndex ? moving : item,
+          ),
+        ),
+      );
+    }),
+    Option.getOrElse(() => items),
+  );
+
 export const moveAttribute = (
   document: DomainModelDocument,
   entityId: string,
   attributeId: string,
   direction: MoveDirection,
 ): DomainModelDocument =>
-  mapEntity(document, entityId, (entity) =>
-    pipe(
-      Array.findFirstIndex(entity.attributes, (attribute) => attribute.id === attributeId),
-      Option.flatMap((index) => {
-        const swapIndex = direction === "Up" ? index - 1 : index + 1;
-        return Option.all([
-          Array.get(entity.attributes, index),
-          Array.get(entity.attributes, swapIndex),
-        ]).pipe(
-          Option.map(([moving, displaced]) =>
-            Array.map(entity.attributes, (attribute, attributeIndex) =>
-              attributeIndex === index
-                ? displaced
-                : attributeIndex === swapIndex
-                  ? moving
-                  : attribute,
-            ),
-          ),
-        );
-      }),
-      Option.match({
-        onNone: () => entity,
-        onSome: (attributes) => ({ ...entity, attributes }),
-      }),
-    ),
-  );
+  mapEntity(document, entityId, (entity) => ({
+    ...entity,
+    attributes: moveById(entity.attributes, attributeId, direction),
+  }));
+
+// ENUMS
+
+export const addEnum = (
+  document: DomainModelDocument,
+  typeId: string,
+  name: string,
+  position: Point,
+): DomainModelDocument => ({
+  ...document,
+  types: [...document.types, { id: typeId, kind: "Enum", name, values: [] }],
+  layout: placeNewNode(document, typeId, position),
+});
+
+const mapEnum = (
+  document: DomainModelDocument,
+  typeId: string,
+  f: (definition: EnumDefinition) => EnumDefinition,
+): DomainModelDocument => ({
+  ...document,
+  types: Array.map(document.types, (definition) =>
+    definition.id === typeId ? f(definition) : definition,
+  ),
+});
+
+export const renameEnum = (
+  document: DomainModelDocument,
+  typeId: string,
+  name: string,
+): DomainModelDocument => mapEnum(document, typeId, (definition) => ({ ...definition, name }));
+
+/** Removes an enum and its layout node. */
+export const deleteEnum = (document: DomainModelDocument, typeId: string): DomainModelDocument => ({
+  ...document,
+  types: Array.filter(document.types, (definition) => definition.id !== typeId),
+  layout: {
+    ...document.layout,
+    nodes: Record.remove(document.layout.nodes, typeId),
+  },
+});
+
+export const addEnumValue = (
+  document: DomainModelDocument,
+  typeId: string,
+  value: EnumValue,
+): DomainModelDocument =>
+  mapEnum(document, typeId, (definition) => ({
+    ...definition,
+    values: [...definition.values, value],
+  }));
+
+/** Sets a value's name and description; a blank description removes it. */
+export const updateEnumValue = (
+  document: DomainModelDocument,
+  typeId: string,
+  valueId: string,
+  name: string,
+  description: string,
+): DomainModelDocument =>
+  mapEnum(document, typeId, (definition) => ({
+    ...definition,
+    values: Array.map(definition.values, (value) => {
+      if (value.id !== valueId) {
+        return value;
+      }
+      const { description: _previous, ...rest } = value;
+      return description.trim() === ""
+        ? { ...rest, name }
+        : { ...rest, name, description: description.trim() };
+    }),
+  }));
+
+export const deleteEnumValue = (
+  document: DomainModelDocument,
+  typeId: string,
+  valueId: string,
+): DomainModelDocument =>
+  mapEnum(document, typeId, (definition) => ({
+    ...definition,
+    values: Array.filter(definition.values, (value) => value.id !== valueId),
+  }));
+
+export const moveEnumValue = (
+  document: DomainModelDocument,
+  typeId: string,
+  valueId: string,
+  direction: MoveDirection,
+): DomainModelDocument =>
+  mapEnum(document, typeId, (definition) => ({
+    ...definition,
+    values: moveById(definition.values, valueId, direction),
+  }));
 
 // ASSOCIATIONS
 
@@ -374,30 +490,30 @@ export const deleteAssociation = (
 
 const mapNode = (
   document: DomainModelDocument,
-  entityId: string,
+  nodeId: string,
   f: (node: NodeLayout) => NodeLayout,
 ): DomainModelDocument => ({
   ...document,
   layout: {
     ...document.layout,
-    nodes: Option.match(findNode(document, entityId), {
+    nodes: Option.match(findNode(document, nodeId), {
       onNone: () => document.layout.nodes,
-      onSome: (node) => ({ ...document.layout.nodes, [entityId]: f(node) }),
+      onSome: (node) => ({ ...document.layout.nodes, [nodeId]: f(node) }),
     }),
   },
 });
 
 export const moveNode = (
   document: DomainModelDocument,
-  entityId: string,
+  nodeId: string,
   position: Point,
-): DomainModelDocument => mapNode(document, entityId, (node) => ({ ...node, position }));
+): DomainModelDocument => mapNode(document, nodeId, (node) => ({ ...node, position }));
 
 export const setExpanded = (
   document: DomainModelDocument,
-  entityId: string,
+  nodeId: string,
   isExpanded: boolean,
-): DomainModelDocument => mapNode(document, entityId, (node) => ({ ...node, isExpanded }));
+): DomainModelDocument => mapNode(document, nodeId, (node) => ({ ...node, isExpanded }));
 
 export const setViewport = (
   document: DomainModelDocument,
@@ -422,9 +538,9 @@ export const preservePresentation = (
   ...restored,
   layout: {
     viewport: current.layout.viewport,
-    nodes: Record.map(restored.layout.nodes, (node, entityId) =>
+    nodes: Record.map(restored.layout.nodes, (node, nodeId) =>
       pipe(
-        Option.fromNullishOr(current.layout.nodes[entityId]),
+        Option.fromNullishOr(current.layout.nodes[nodeId]),
         Option.match({
           onNone: () => node,
           onSome: (currentNode) => ({
@@ -506,6 +622,18 @@ export const sampleDocument: DomainModelDocument = {
       ],
     },
   ],
+  types: [
+    {
+      id: "t1",
+      kind: "Enum",
+      name: "Role",
+      values: [
+        { id: "v1", name: "reader" },
+        { id: "v2", name: "author" },
+        { id: "v3", name: "admin" },
+      ],
+    },
+  ],
   associations: [
     {
       id: "r1",
@@ -529,6 +657,7 @@ export const sampleDocument: DomainModelDocument = {
       e1: { position: { x: 120, y: 140 }, isExpanded: true },
       e2: { position: { x: 560, y: 220 }, isExpanded: true },
       e3: { position: { x: 980, y: 140 }, isExpanded: false },
+      t1: { position: { x: 120, y: 520 }, isExpanded: false },
     },
     viewport: DEFAULT_VIEWPORT,
   },

@@ -32,6 +32,8 @@ export const deleteSelection = (model: Model): Model =>
           NoSelection: () => model,
           SelectedEntity: ({ entityId }) =>
             commitDocument(model, (document) => Doc.deleteEntity(document, entityId)),
+          SelectedEnum: ({ typeId }) =>
+            commitDocument(model, (document) => Doc.deleteEnum(document, typeId)),
           SelectedAssociation: ({ associationId }) =>
             commitDocument(model, (document) => Doc.deleteAssociation(document, associationId)),
         }),

@@ -50,10 +50,16 @@ const routePress = (model: Model, press: Press, onPrimary: () => UpdateReturn): 
 export const pressCanvas = (model: Model, press: Press): UpdateReturn =>
   routePress(model, press, () => ({ model: deselect(toIdle(finishEditing(model))) }));
 
-export const pressNodeHeader = (model: Model, entityId: string, press: Press): UpdateReturn =>
+/** Selects a card and starts dragging it by its header. */
+const pressCardHeader = (
+  model: Model,
+  nodeId: string,
+  selection: Selection,
+  press: Press,
+): UpdateReturn =>
   routePress(model, press, () => {
     const ready = finishEditing(model);
-    return Option.match(Doc.findNode(present(ready), entityId), {
+    return Option.match(Doc.findNode(present(ready), nodeId), {
       onNone: () => ({ model: ready }),
       onSome: (node) => {
         const pointer = toWorld(ready, press.clientX, press.clientY);
@@ -61,17 +67,23 @@ export const pressNodeHeader = (model: Model, entityId: string, press: Press): U
           model: {
             ...ready,
             editor: EditorState.DraggingNode({
-              entityId,
+              nodeId,
               offset: { x: pointer.x - node.position.x, y: pointer.y - node.position.y },
               origin: node.position,
               position: node.position,
             }),
-            selection: Selection.SelectedEntity({ entityId }),
+            selection,
           },
         };
       },
     });
   });
+
+export const pressNodeHeader = (model: Model, entityId: string, press: Press): UpdateReturn =>
+  pressCardHeader(model, entityId, Selection.SelectedEntity({ entityId }), press);
+
+export const pressEnumHeader = (model: Model, typeId: string, press: Press): UpdateReturn =>
+  pressCardHeader(model, typeId, Selection.SelectedEnum({ typeId }), press);
 
 export const pressPort = (model: Model, entityId: string, press: Press): UpdateReturn =>
   routePress(model, press, () => {
@@ -123,14 +135,14 @@ export const movePointer = (model: Model, clientX: number, clientY: number): Upd
     () => ({ model }),
   );
 
-const releaseDrag = (model: Model, entityId: string, origin: Point, position: Point): Model => {
+const releaseDrag = (model: Model, nodeId: string, origin: Point, position: Point): Model => {
   const isClick = Geometry.distance(origin, position) * viewport(model).zoom < CLICK_TOLERANCE_PX;
   // NOTE: a press and release without movement is a click, which toggles the
   // card open or closed in place.
   return toIdle(
     isClick
-      ? toggleExpanded(model, entityId)
-      : commitDocument(model, (document) => Doc.moveNode(document, entityId, position)),
+      ? toggleExpanded(model, nodeId)
+      : commitDocument(model, (document) => Doc.moveNode(document, nodeId, position)),
   );
 };
 
@@ -143,8 +155,8 @@ export const releasePointer = (
   EditorState.matchOrElse(
     model.editor,
     {
-      DraggingNode: ({ entityId, origin, position }) => ({
-        model: releaseDrag(model, entityId, origin, position),
+      DraggingNode: ({ nodeId, origin, position }) => ({
+        model: releaseDrag(model, nodeId, origin, position),
       }),
       PanningCanvas: () => ({ model: toIdle(model) }),
       ConnectingAssociation: ({ fromEntityId, startPos }) => ({

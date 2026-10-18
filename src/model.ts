@@ -17,6 +17,12 @@ export const AttributeDraft = Schema.Struct({
 });
 export type AttributeDraft = typeof AttributeDraft.Type;
 
+export const EnumValueDraft = Schema.Struct({
+  name: Schema.String,
+  description: Schema.String,
+});
+export type EnumValueDraft = typeof EnumValueDraft.Type;
+
 export const EditorState = defineTaggedUnion({
   Idle: {},
   CreatingEntity: { position: Point, draftName: Schema.String },
@@ -26,14 +32,22 @@ export const EditorState = defineTaggedUnion({
     attributeId: Schema.String,
     draft: AttributeDraft,
   },
+  CreatingEnum: { position: Point, draftName: Schema.String },
+  RenamingEnum: { typeId: Schema.String, draftName: Schema.String },
+  EditingEnumValue: {
+    typeId: Schema.String,
+    valueId: Schema.String,
+    draft: EnumValueDraft,
+  },
   ConnectingAssociation: {
     fromEntityId: Schema.String,
     startPos: Point,
     currentPos: Point,
   },
   EditingAssociation: { associationId: Schema.String },
+  /** Dragging any card, entity or enum, by its header. */
   DraggingNode: {
-    entityId: Schema.String,
+    nodeId: Schema.String,
     offset: Point,
     origin: Point,
     position: Point,
@@ -45,6 +59,7 @@ export type EditorState = typeof EditorState.Type;
 export const Selection = defineTaggedUnion({
   NoSelection: {},
   SelectedEntity: { entityId: Schema.String },
+  SelectedEnum: { typeId: Schema.String },
   SelectedAssociation: { associationId: Schema.String },
 });
 export type Selection = typeof Selection.Type;

@@ -36,12 +36,21 @@ export const amendDocument = (
 export const setViewport = (model: Model, next: ViewportLayout): Model =>
   amendDocument(model, (document) => Doc.setViewport(document, next));
 
-export const toggleExpanded = (model: Model, entityId: string): Model =>
+/** Where a new card goes: centered on the viewport, as a collapsed card. */
+export const newCardPosition = (model: Model): Point => {
+  const center = toWorld(model, model.screen.width / 2, model.screen.height / 2);
+  return {
+    x: center.x - Geometry.COLLAPSED_NODE_WIDTH / 2,
+    y: center.y - Geometry.NODE_HEADER_HEIGHT / 2,
+  };
+};
+
+export const toggleExpanded = (model: Model, nodeId: string): Model =>
   amendDocument(model, (document) =>
     Doc.setExpanded(
       document,
-      entityId,
-      !Option.exists(Doc.findNode(document, entityId), (node) => node.isExpanded),
+      nodeId,
+      !Option.exists(Doc.findNode(document, nodeId), (node) => node.isExpanded),
     ),
   );
 
@@ -57,6 +66,7 @@ export const deselect = (model: Model): Model => ({
 export const reconcile = (model: Model): Model => {
   const document = present(model);
   const hasEntity = (entityId: string) => Option.isSome(Doc.findEntity(document, entityId));
+  const hasEnum = (typeId: string) => Option.isSome(Doc.findEnum(document, typeId));
   const hasAssociation = (associationId: string) =>
     Option.isSome(Doc.findAssociation(document, associationId));
 
@@ -64,6 +74,7 @@ export const reconcile = (model: Model): Model => {
     NoSelection: () => model.selection,
     SelectedEntity: ({ entityId }) =>
       hasEntity(entityId) ? model.selection : Selection.NoSelection(),
+    SelectedEnum: ({ typeId }) => (hasEnum(typeId) ? model.selection : Selection.NoSelection()),
     SelectedAssociation: ({ associationId }) =>
       hasAssociation(associationId) ? model.selection : Selection.NoSelection(),
   });
@@ -78,9 +89,17 @@ export const reconcile = (model: Model): Model => {
         Option.flatMap((entity) => Doc.findAttribute(entity, attributeId)),
         Option.isSome,
       ),
+    CreatingEnum: () => true,
+    RenamingEnum: ({ typeId }) => hasEnum(typeId),
+    EditingEnumValue: ({ typeId, valueId }) =>
+      pipe(
+        Doc.findEnum(document, typeId),
+        Option.flatMap((definition) => Doc.findEnumValue(definition, valueId)),
+        Option.isSome,
+      ),
     ConnectingAssociation: ({ fromEntityId }) => hasEntity(fromEntityId),
     EditingAssociation: ({ associationId }) => hasAssociation(associationId),
-    DraggingNode: ({ entityId }) => hasEntity(entityId),
+    DraggingNode: ({ nodeId }) => hasEntity(nodeId) || hasEnum(nodeId),
     PanningCanvas: () => true,
   });
 

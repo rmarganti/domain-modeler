@@ -1,8 +1,9 @@
-import { Array, Number, Option, Order } from "effect";
+import { Array, Number, Option, Order, pipe } from "effect";
 
 import type {
   DomainModelDocument,
   EntityDefinition,
+  EnumDefinition,
   NodeLayout,
   Point,
   ViewportLayout,
@@ -18,6 +19,7 @@ export const EXPANDED_NODE_WIDTH = 300;
 export const NODE_HEADER_HEIGHT = 44;
 export const ATTRIBUTE_ROW_HEIGHT = 30;
 export const ATTRIBUTE_EDITOR_HEIGHT = 128;
+export const ENUM_VALUE_EDITOR_HEIGHT = 96;
 export const NODE_FOOTER_HEIGHT = 40;
 export const PORT_RADIUS = 6;
 
@@ -43,37 +45,69 @@ export type Rect = Readonly<{
 export const nodeWidth = (layout: NodeLayout): number =>
   layout.isExpanded ? EXPANDED_NODE_WIDTH : COLLAPSED_NODE_WIDTH;
 
-/** Height of a node, accounting for an inline attribute editor when one is
- *  open on this entity. */
-export const nodeHeight = (
-  entity: EntityDefinition,
-  layout: NodeLayout,
-  maybeEditingAttributeId: Option.Option<string>,
-): number => {
-  if (!layout.isExpanded) {
-    return NODE_HEADER_HEIGHT;
-  }
-  const isEditingHere = Option.exists(maybeEditingAttributeId, (attributeId) =>
-    Array.some(entity.attributes, (attribute) => attribute.id === attributeId),
-  );
-  return (
-    NODE_HEADER_HEIGHT +
-    entity.attributes.length * ATTRIBUTE_ROW_HEIGHT +
-    (isEditingHere ? ATTRIBUTE_EDITOR_HEIGHT - ATTRIBUTE_ROW_HEIGHT : 0) +
-    NODE_FOOTER_HEIGHT
-  );
-};
+/** What decides a card's height: its rows, and the height of the inline
+ *  editor when one of those rows is open in it. Entity and enum cards share
+ *  every other dimension. */
+export type CardShape = Readonly<{
+  rowCount: number;
+  maybeEditorHeight: Option.Option<number>;
+}>;
 
+const cardShape = <Row extends Readonly<{ id: string }>>(
+  rows: ReadonlyArray<Row>,
+  maybeEditingRowId: Option.Option<string>,
+  editorHeight: number,
+): CardShape => ({
+  rowCount: rows.length,
+  maybeEditorHeight: pipe(
+    maybeEditingRowId,
+    Option.filter((rowId) => Array.some(rows, (row) => row.id === rowId)),
+    Option.as(editorHeight),
+  ),
+});
+
+export const entityShape = (
+  entity: EntityDefinition,
+  maybeEditingAttributeId: Option.Option<string>,
+): CardShape => cardShape(entity.attributes, maybeEditingAttributeId, ATTRIBUTE_EDITOR_HEIGHT);
+
+export const enumShape = (
+  definition: EnumDefinition,
+  maybeEditingValueId: Option.Option<string>,
+): CardShape => cardShape(definition.values, maybeEditingValueId, ENUM_VALUE_EDITOR_HEIGHT);
+
+/** Height of a card: a collapsed card is only its header. */
+export const cardHeight = (shape: CardShape, layout: NodeLayout): number =>
+  layout.isExpanded
+    ? NODE_HEADER_HEIGHT +
+      shape.rowCount * ATTRIBUTE_ROW_HEIGHT +
+      Option.match(shape.maybeEditorHeight, {
+        onNone: () => 0,
+        onSome: (editorHeight) => editorHeight - ATTRIBUTE_ROW_HEIGHT,
+      }) +
+      NODE_FOOTER_HEIGHT
+    : NODE_HEADER_HEIGHT;
+
+export const cardRect = (shape: CardShape, layout: NodeLayout): Rect => ({
+  x: layout.position.x,
+  y: layout.position.y,
+  width: nodeWidth(layout),
+  height: cardHeight(shape, layout),
+});
+
+/** An entity card's rect, accounting for an inline attribute editor when one
+ *  is open on this entity. */
 export const nodeRect = (
   entity: EntityDefinition,
   layout: NodeLayout,
   maybeEditingAttributeId: Option.Option<string>,
-): Rect => ({
-  x: layout.position.x,
-  y: layout.position.y,
-  width: nodeWidth(layout),
-  height: nodeHeight(entity, layout, maybeEditingAttributeId),
-});
+): Rect => cardRect(entityShape(entity, maybeEditingAttributeId), layout);
+
+export const enumRect = (
+  definition: EnumDefinition,
+  layout: NodeLayout,
+  maybeEditingValueId: Option.Option<string>,
+): Rect => cardRect(enumShape(definition, maybeEditingValueId), layout);
 
 /** Vertical offset (from the node's top) of every edge and port anchor: the
  *  middle of the header, whether the node is collapsed or expanded. */
@@ -207,16 +241,24 @@ export const fitViewport = (bounds: Rect, screen: Size): ViewportLayout => {
 export const resetViewport = (viewport: ViewportLayout, screen: Size): ViewportLayout =>
   zoomAround(viewport, { x: screen.width / 2, y: screen.height / 2 }, 1);
 
-export const documentBounds = (document: DomainModelDocument): Option.Option<Rect> =>
-  boundingRect(
-    Array.getSomes(
-      Array.map(document.entities, (entity) =>
-        Option.map(Option.fromNullishOr(document.layout.nodes[entity.id]), (layout) =>
-          nodeRect(entity, layout, Option.none()),
-        ),
+/** The rects of every card in the document, entities and enums alike, with
+ *  no inline editor open. */
+export const cardRects = (document: DomainModelDocument): ReadonlyArray<Rect> =>
+  Array.getSomes([
+    ...Array.map(document.entities, (entity) =>
+      Option.map(Option.fromNullishOr(document.layout.nodes[entity.id]), (layout) =>
+        nodeRect(entity, layout, Option.none()),
       ),
     ),
-  );
+    ...Array.map(document.types, (definition) =>
+      Option.map(Option.fromNullishOr(document.layout.nodes[definition.id]), (layout) =>
+        enumRect(definition, layout, Option.none()),
+      ),
+    ),
+  ]);
+
+export const documentBounds = (document: DomainModelDocument): Option.Option<Rect> =>
+  boundingRect(cardRects(document));
 
 // AUTO-STAGGER
 

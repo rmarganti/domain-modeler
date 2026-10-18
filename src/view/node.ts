@@ -14,7 +14,17 @@ import {
 import { MULTIPLICITIES, multiplicityEquals, multiplicityLabel } from "../domain/multiplicity";
 import { Message } from "../message";
 import type { EditorState, AttributeDraft } from "../model";
-import { canvasItem, iconButton, onPress, px, warningBadge } from "./shared";
+import {
+  cardFooter,
+  cardFrame,
+  cardHeader,
+  cardName,
+  countBadge,
+  creatingCardView,
+  editorActions,
+  rowActions,
+} from "./card";
+import { onPress, px, warningBadge } from "./shared";
 
 export type NodeContext = Readonly<{
   editor: EditorState;
@@ -22,8 +32,6 @@ export type NodeContext = Readonly<{
   diagnostics: ReadonlyArray<Diagnostics.Diagnostic>;
   maybeEditingAttributeId: Option.Option<string>;
 }>;
-
-const IGNORE_HEADER_PRESS = "button, input, select, [data-port]";
 
 const TYPE_COLORS: Record<AttributeDefinition["type"], string> = {
   String: "text-emerald-700",
@@ -62,67 +70,36 @@ const port = (h: HtmlBuilder<Message>, entityId: string, side: Geometry.Side): H
 
 // HEADER
 
-const nameView = (h: HtmlBuilder<Message>, entity: EntityDefinition, editor: EditorState): Html =>
-  editor._tag === "RenamingEntity" && editor.entityId === entity.id
-    ? h.input([
-        h.Id(ENTITY_NAME_INPUT_ID),
-        h.Value(editor.draftName),
-        h.AriaLabel("Entity name"),
-        h.Autocomplete("off"),
-        h.Spellcheck(false),
-        h.OnInput((name) => Message.UpdatedEntityDraftName({ name })),
-        h.Class(
-          "min-w-0 flex-1 rounded-md border border-indigo-300 bg-white px-1.5 py-0.5 text-sm font-semibold text-slate-900 outline-none ring-2 ring-indigo-200",
-        ),
-      ])
-    : h.span(
-        [
-          h.Class("min-w-0 flex-1 truncate text-sm font-semibold text-slate-900"),
-          h.Title(entity.description ?? "Double-click to rename"),
-          h.OnDoubleClick(Message.DoubleClickedEntityName({ entityId: entity.id })),
-        ],
-        [entity.name],
-      );
-
 const headerView = (
   h: HtmlBuilder<Message>,
   entity: EntityDefinition,
   layout: NodeLayout,
   context: NodeContext,
-): Html => {
-  const entityWarnings = Array.map(
-    Diagnostics.forEntity(context.diagnostics, entity.id),
-    Diagnostics.describe,
-  );
-  return h.div(
-    [
-      h.Class("flex cursor-grab items-center gap-2 px-3 active:cursor-grabbing select-none"),
-      h.Style({ height: px(Geometry.NODE_HEADER_HEIGHT), touchAction: "none" }),
-      onPress(h, Option.some(IGNORE_HEADER_PRESS), ({ button, clientX, clientY }) =>
-        Message.PressedNodeHeader({ entityId: entity.id, button, clientX, clientY }),
-      ),
-    ],
-    [
-      h.span([h.Class("text-indigo-500"), h.AriaHidden(true)], ["▣"]),
-      nameView(h, entity, context.editor),
-      ...(Array.isReadonlyArrayNonEmpty(entityWarnings) ? [warningBadge(h, entityWarnings)] : []),
-      h.span(
-        [
-          h.Class(
-            "rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600",
-          ),
-          h.Title(`${entity.attributes.length} fields`),
-        ],
-        [String(entity.attributes.length)],
-      ),
-      iconButton(h, {
-        label: layout.isExpanded ? "Collapse" : "Expand",
-        icon: layout.isExpanded ? "▾" : "▸",
-        onClick: Message.ClickedToggleExpand({ entityId: entity.id }),
-      }),
-    ],
-  );
-};
+): Html =>
+  cardHeader(h, {
+    nodeId: entity.id,
+    layout,
+    icon: h.span([h.Class("text-indigo-500"), h.AriaHidden(true)], ["▣"]),
+    name: cardName(h, {
+      name: entity.name,
+      maybeDescription: Option.fromNullishOr(entity.description),
+      maybeDraftName:
+        context.editor._tag === "RenamingEntity" && context.editor.entityId === entity.id
+          ? Option.some(context.editor.draftName)
+          : Option.none(),
+      inputId: ENTITY_NAME_INPUT_ID,
+      inputLabel: "Entity name",
+      onInput: (name) => Message.UpdatedEntityDraftName({ name }),
+      onDoubleClick: Message.DoubleClickedEntityName({ entityId: entity.id }),
+    }),
+    warnings: Array.map(
+      Diagnostics.forEntity(context.diagnostics, entity.id),
+      Diagnostics.describe,
+    ),
+    badges: [countBadge(h, entity.attributes.length, `${entity.attributes.length} fields`)],
+    onPress: ({ button, clientX, clientY }) =>
+      Message.PressedNodeHeader({ entityId: entity.id, button, clientX, clientY }),
+  });
 
 // ATTRIBUTE ROWS
 
@@ -189,34 +166,15 @@ const attributeRow = (
         [h.Class("flex shrink-0 gap-1 group-hover/row:hidden")],
         constraintBadges(h, attribute),
       ),
-      h.span(
-        [h.Class("ml-auto hidden shrink-0 items-center gap-0.5 group-hover/row:flex")],
-        [
-          iconButton(h, {
-            label: "Move up",
-            icon: "↑",
-            isDisabled: index === 0,
-            onClick: Message.ClickedMoveAttribute({ entityId, attributeId, direction: "Up" }),
-          }),
-          iconButton(h, {
-            label: "Move down",
-            icon: "↓",
-            isDisabled: index === entity.attributes.length - 1,
-            onClick: Message.ClickedMoveAttribute({ entityId, attributeId, direction: "Down" }),
-          }),
-          iconButton(h, {
-            label: "Edit field",
-            icon: "✎",
-            onClick: Message.ClickedEditAttribute({ entityId, attributeId }),
-          }),
-          iconButton(h, {
-            label: "Delete field",
-            icon: "✕",
-            className: "h-6 w-6 text-xs hover:!bg-rose-50 hover:!text-rose-600",
-            onClick: Message.ClickedDeleteAttribute({ entityId, attributeId }),
-          }),
-        ],
-      ),
+      rowActions(h, {
+        noun: "field",
+        isFirst: index === 0,
+        isLast: index === entity.attributes.length - 1,
+        onMoveUp: Message.ClickedMoveAttribute({ entityId, attributeId, direction: "Up" }),
+        onMoveDown: Message.ClickedMoveAttribute({ entityId, attributeId, direction: "Down" }),
+        onEdit: Message.ClickedEditAttribute({ entityId, attributeId }),
+        onDelete: Message.ClickedDeleteAttribute({ entityId, attributeId }),
+      }),
     ],
   );
 };
@@ -331,129 +289,59 @@ const attributeEditor = (
           "rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-[11px] outline-none focus:border-indigo-400 disabled:bg-slate-100 disabled:text-slate-400",
         ),
       ]),
-      h.div(
-        [h.Class("flex items-center justify-end gap-1.5")],
-        [
-          h.span(
-            [h.Class("mr-auto text-[10px] text-slate-500")],
-            ["Enter to save · Esc to cancel"],
-          ),
-          h.button(
-            [
-              h.Type("button"),
-              h.OnClick(Message.ClickedCancelEdit()),
-              h.Class("rounded px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-200"),
-            ],
-            ["Cancel"],
-          ),
-          h.button(
-            [
-              h.Type("button"),
-              h.OnClick(Message.ClickedSaveAttribute()),
-              h.Class(
-                "rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-700",
-              ),
-            ],
-            ["Save"],
-          ),
-        ],
-      ),
+      editorActions(h, Message.ClickedSaveAttribute()),
     ],
   );
 
 const footerView = (h: HtmlBuilder<Message>, entity: EntityDefinition): Html =>
-  h.div(
-    [
-      h.Class("flex items-center justify-between border-t border-slate-100 px-2"),
-      h.Style({ height: px(Geometry.NODE_FOOTER_HEIGHT) }),
-    ],
-    [
-      h.button(
-        [
-          h.Type("button"),
-          h.OnClick(Message.ClickedAddAttribute({ entityId: entity.id })),
-          h.Class("rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"),
-        ],
-        ["+ Add field"],
-      ),
-      iconButton(h, {
-        label: `Delete ${entity.name}`,
-        icon: "🗑",
-        className: "h-7 w-7 text-xs hover:!bg-rose-50 hover:!text-rose-600",
-        onClick: Message.ClickedDeleteEntity({ entityId: entity.id }),
-      }),
-    ],
-  );
+  cardFooter(h, {
+    addLabel: "+ Add field",
+    onAdd: Message.ClickedAddAttribute({ entityId: entity.id }),
+    name: entity.name,
+    onDelete: Message.ClickedDeleteEntity({ entityId: entity.id }),
+  });
 
 // NODE
-
-const nodePosition = (entity: EntityDefinition, layout: NodeLayout, editor: EditorState): Point =>
-  editor._tag === "DraggingNode" && editor.entityId === entity.id
-    ? editor.position
-    : layout.position;
 
 export const nodeView = (
   h: HtmlBuilder<Message>,
   entity: EntityDefinition,
   layout: NodeLayout,
   context: NodeContext,
-): Html => {
-  const position = nodePosition(entity, layout, context.editor);
-  const rect = Geometry.nodeRect(entity, layout, context.maybeEditingAttributeId);
-  const isDragging =
-    context.editor._tag === "DraggingNode" && context.editor.entityId === entity.id;
-  const hasWarnings = Array.isReadonlyArrayNonEmpty(
-    Diagnostics.forEntity(context.diagnostics, entity.id),
-  );
-  const ring = context.isSelected
-    ? "ring-2 ring-indigo-500"
-    : hasWarnings
-      ? "ring-2 ring-amber-300"
-      : "ring-1 ring-slate-200";
-
-  return h.keyed("div")(
-    entity.id,
-    [
-      canvasItem(h),
-      h.DataAttribute(ENTITY_ID_ATTRIBUTE, entity.id),
-      h.Role("group"),
-      h.AriaLabel(`Entity ${entity.name}`),
-      h.Class(
-        `group absolute rounded-xl bg-white transition-[width,height,box-shadow] duration-200 ease-out ${ring} ${isDragging ? "z-20 shadow-xl" : "shadow-md"}`,
+): Html =>
+  cardFrame(
+    h,
+    {
+      nodeId: entity.id,
+      dataAttribute: { name: ENTITY_ID_ATTRIBUTE, value: entity.id },
+      ariaLabel: `Entity ${entity.name}`,
+      layout,
+      rect: Geometry.nodeRect(entity, layout, context.maybeEditingAttributeId),
+      editor: context.editor,
+      isSelected: context.isSelected,
+      hasWarnings: Array.isReadonlyArrayNonEmpty(
+        Diagnostics.forEntity(context.diagnostics, entity.id),
       ),
-      h.Style({
-        left: px(position.x),
-        top: px(position.y),
-        width: px(rect.width),
-        height: px(rect.height),
-      }),
-    ],
+    },
     [
-      h.div(
-        [h.Class("h-full overflow-hidden rounded-xl")],
-        [
-          headerView(h, entity, layout, context),
-          ...(layout.isExpanded
-            ? [
-                h.ul(
-                  [],
-                  Array.map(entity.attributes, (attribute, index) =>
-                    context.editor._tag === "EditingAttribute" &&
-                    context.editor.attributeId === attribute.id
-                      ? attributeEditor(h, attribute.id, context.editor.draft)
-                      : attributeRow(h, entity, attribute, index, context),
-                  ),
-                ),
-                footerView(h, entity),
-              ]
-            : []),
-        ],
-      ),
-      port(h, entity.id, "left"),
-      port(h, entity.id, "right"),
+      headerView(h, entity, layout, context),
+      ...(layout.isExpanded
+        ? [
+            h.ul(
+              [],
+              Array.map(entity.attributes, (attribute, index) =>
+                context.editor._tag === "EditingAttribute" &&
+                context.editor.attributeId === attribute.id
+                  ? attributeEditor(h, attribute.id, context.editor.draft)
+                  : attributeRow(h, entity, attribute, index, context),
+              ),
+            ),
+            footerView(h, entity),
+          ]
+        : []),
     ],
+    [port(h, entity.id, "left"), port(h, entity.id, "right")],
   );
-};
 
 /** The placeholder card shown while naming a new entity. */
 export const creatingNodeView = (
@@ -461,30 +349,12 @@ export const creatingNodeView = (
   position: Point,
   draftName: string,
 ): Html =>
-  h.div(
-    [
-      canvasItem(h),
-      h.Class(
-        "absolute flex items-center gap-2 rounded-xl bg-white px-3 shadow-lg ring-2 ring-indigo-400",
-      ),
-      h.Style({
-        left: px(position.x),
-        top: px(position.y),
-        width: px(Geometry.COLLAPSED_NODE_WIDTH),
-        height: px(Geometry.NODE_HEADER_HEIGHT),
-      }),
-    ],
-    [
-      h.span([h.Class("text-indigo-500"), h.AriaHidden(true)], ["▣"]),
-      h.input([
-        h.Id(ENTITY_NAME_INPUT_ID),
-        h.Value(draftName),
-        h.AriaLabel("New entity name"),
-        h.Placeholder("EntityName"),
-        h.Autocomplete("off"),
-        h.Spellcheck(false),
-        h.OnInput((name) => Message.UpdatedEntityDraftName({ name })),
-        h.Class("min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none"),
-      ]),
-    ],
-  );
+  creatingCardView(h, {
+    position,
+    draftName,
+    icon: h.span([h.Class("text-indigo-500"), h.AriaHidden(true)], ["▣"]),
+    inputId: ENTITY_NAME_INPUT_ID,
+    inputLabel: "New entity name",
+    placeholder: "EntityName",
+    onInput: (name) => Message.UpdatedEntityDraftName({ name }),
+  });

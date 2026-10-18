@@ -2,16 +2,16 @@ import { Option, pipe } from "effect";
 
 import { ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
-import * as Geometry from "../domain/geometry";
 import { EditorState, Selection, type Model } from "../model";
 import { draftFromAttribute, finishEditing } from "./editing";
+import * as Enums from "./enums";
 import {
   amendDocument,
   commitDocument,
   focus,
+  newCardPosition,
   present,
   reconcile,
-  toWorld,
   type UpdateReturn,
 } from "./shared";
 
@@ -19,15 +19,10 @@ import {
 
 export const startCreating = (model: Model): UpdateReturn => {
   const ready = finishEditing(model);
-  const center = toWorld(ready, ready.screen.width / 2, ready.screen.height / 2);
-  const position = {
-    x: center.x - Geometry.COLLAPSED_NODE_WIDTH / 2,
-    y: center.y - Geometry.NODE_HEADER_HEIGHT / 2,
-  };
   return {
     model: {
       ...ready,
-      editor: EditorState.CreatingEntity({ position, draftName: "" }),
+      editor: EditorState.CreatingEntity({ position: newCardPosition(ready), draftName: "" }),
       selection: Selection.NoSelection(),
     },
     commands: [focus(ENTITY_NAME_INPUT_ID)],
@@ -47,8 +42,8 @@ export const startRenaming = (model: Model, entityId: string): UpdateReturn =>
     }),
   });
 
-/** Opens the selection for editing: expands and renames an entity, or opens
- *  the inspector for an association. */
+/** Opens the selection for editing: expands and renames an entity or enum,
+ *  or opens the inspector for an association. */
 export const editSelection = (model: Model): UpdateReturn =>
   Selection.match(model.selection, {
     NoSelection: () => ({ model }),
@@ -59,6 +54,11 @@ export const editSelection = (model: Model): UpdateReturn =>
       startRenaming(
         amendDocument(model, (document) => Doc.setExpanded(document, entityId, true)),
         entityId,
+      ),
+    SelectedEnum: ({ typeId }) =>
+      Enums.startRenaming(
+        amendDocument(model, (document) => Doc.setExpanded(document, typeId, true)),
+        typeId,
       ),
   });
 
