@@ -10,7 +10,7 @@ You are working unattended in the domain-modeler repository. Implement exactly o
 
 - Implement everything in the brief, and nothing from the epic's "Deferred" list. Don't start other ishes.
 - Match the surrounding code style. For Effect v4 APIs, read the types in `node_modules/effect` rather than relying on memory.
-- Keep `ARCHITECTURE.md` and `.agents/skills/verify-domain-modeler/` current in the same change, as the brief says.
+- Keep `.agents/skills/verify-domain-modeler/` current in the same change. Touch `ARCHITECTURE.md` only when the change adds or alters a design decision, invariant, or convention the code can't state on its own; never copy types, shortcut tables, or feature behavior into it. Behavior worth keeping belongs in tests and code comments, because `.ish/` briefs are not kept.
 
 ## Finish (the work is done only when all of these hold)
 

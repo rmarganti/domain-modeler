@@ -1,366 +1,59 @@
-# Domain Modeler Architecture Document
-
-## 1. Overview & System Vision
-
-The **Domain Modeler** is a browser-based, visual database and domain schema designer. It enables software engineers and architects to interactively design entity-relationship diagrams (ERDs) and domain models with high precision, fluidity, and type-safety.
-
-The application is built on **Foldkit**, a frontend framework embodying **The Elm Architecture (TEA)** on top of **Effect**. The entire domain schema and application state are governed by explicit models, typed message unions, pure update loops, and declarative views.
-
----
-
-## 2. Generic Domain Model AST
-
-The schema definition format is a **Generic Domain Model AST**: a problem-domain-agnostic meta-model capable of describing arbitrary domains, entities, attributes, constraints, and relationships. It is strictly parsed, validated, and serialized using **Effect Schema**.
-
-### 2.1 AST Specification
+# Domain Modeler Architecture
 
-```ts
-import { Schema } from "effect";
+A canvas editor for domain models (entities, enums, associations), built on Foldkit (The Elm Architecture on Effect) and shipped as a Tauri v2 desktop app. This file records the decisions and invariants the code doesn't state on its own. For shapes, read the code: `src/domain/schema.ts` (file format), `src/model.ts` (editor state), `src/keymap.ts` (shortcuts).
 
-export const Multiplicity = Schema.Struct({
-  min: Schema.Literals([0, 1]),
-  max: Schema.Literals(["one", "many"]),
-});
-export type Multiplicity = typeof Multiplicity.Type;
+## Code map
 
-export const Primitive = Schema.Literals([
-  "String",
-  "Integer",
-  "Decimal",
-  "Boolean",
-  "Date",
-  "DateTime",
-  "Json",
-]);
-export type Primitive = typeof Primitive.Type;
-
-export const TypeRef = Schema.Struct({ typeId: Schema.String }); // an entry of `types`
-export type TypeRef = typeof TypeRef.Type;
-
-export const AttributeType = Schema.Union([Primitive, TypeRef]);
-export type AttributeType = typeof AttributeType.Type;
-
-export const AttributeDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  type: AttributeType,
-  multiplicity: Multiplicity,
-  unique: Schema.Boolean,
-});
-export type AttributeDefinition = typeof AttributeDefinition.Type;
-
-export const EntityDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  attributes: Schema.Array(AttributeDefinition),
-});
-export type EntityDefinition = typeof EntityDefinition.Type;
-
-export const EnumValue = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-});
-export type EnumValue = typeof EnumValue.Type;
-
-export const EnumDefinition = Schema.Struct({
-  id: Schema.String,
-  kind: Schema.Literal("Enum"), // discriminator: value objects may join a union later
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  values: Schema.Array(EnumValue),
-});
-export type EnumDefinition = typeof EnumDefinition.Type;
-
-export const AssociationEnd = Schema.Struct({
-  entityId: Schema.String,
-  role: Schema.optional(Schema.String),
-  multiplicity: Multiplicity,
-});
-export type AssociationEnd = typeof AssociationEnd.Type;
+- `src/domain/`: pure document logic. It imports only `effect`, `pluralize`, and other domain modules: schema, document edits, history, diagnostics, naming, geometry, edge routing, card search.
+- `src/update/`: one module per feature area, called by `src/update.ts`.
+- `src/view/`: rendering. Entity and enum cards share chrome in `card.ts`.
+- `src/platform/`: the only code that touches Tauri (files, window close).
+- `src/keymap.ts` + `src/subscription.ts`: every keyboard binding.
 
-export const EndIndex = Schema.Literals([0, 1]);
-export type EndIndex = typeof EndIndex.Type;
+## Domain model
 
-export const AssociationDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.optional(Schema.String), // verb label, display only
-  description: Schema.optional(Schema.String),
-  ends: Schema.Tuple([AssociationEnd, AssociationEnd]),
-});
-export type AssociationDefinition = typeof AssociationDefinition.Type;
-```
-
-Entity identity is implicit: every entity is distinguishable without an ID attribute, so there is no primary key flag; business keys are expressed with `unique`. An association connects two entities and nothing else; it never references individual attributes. Foreign keys and join tables are a concern of future exporters, which can derive them from the association's ends.
+- **Entity-first.** An association connects two entities and never individual attributes. Identity is implicit: there are no ID attributes or primary-key flags, and business keys use `unique`. Foreign keys and join tables are for future exporters to derive.
+- **Associations have no direction.** Both ends are navigable. `name` is only a display verb, and `ends[0]` is the entity the user dragged from. New associations are `1 ── 0..*`.
+- **Multiplicity reads UML-style.** The multiplicity on `ends[i]` is how many of `ends[i]`'s entity exist per one of the other entity, so in `User 1 ── 0..* Post` a User has many Posts. Attributes reuse the same four values: `0..1` is optional, and a `many` max is a list.
+- **Roles are derived, never stored.** The role on `ends[i]` is what the other entity calls `ends[i]`'s entity. If blank, it's the camelCased entity name, pluralized when the max is `many`. Only `naming.ts` knows about plurals.
+- **Enums** live in top-level `types`, with a `kind` discriminator so value objects can join later. Only attributes typed `{ typeId }` point at them. Deleting an enum leaves those attributes dangling, a diagnostic flags them, and undo is the recovery path.
+- **A list can't be `unique`.** The document API forces `unique: false` when the max is `many`.
+- **Names:** entity and enum names share one case-insensitive namespace.
+- **Vocabulary:** code and the file format say "association" and "attribute"; the UI says "Relationship" and "field".
+- **ID prefixes:** IDs are derived from the document with one prefix per kind: `e` entity, `p` attribute, `t` type, `v` enum value, `r` association.
+- **File format:** the version stays `1.0.0` while the project is early. The schema changes in place, with no migrations.
 
-Enums live in the document's top-level `types` collection. An enum is only its `types` entry plus its `layout.nodes` card, and the only thing that points at it is an attribute typed `{ typeId }`; that keeps enums movable to a separate view later. `isTypeRef` (`schema.ts`) tells a reference from a primitive, and `attributeTypeLabel` (`document.ts`) reads a type as the primitive's name, the enum's name, or `?` for a dangling reference. Deleting an enum does not retype the attributes that use it: they dangle, a diagnostic reports it (§8), and undo is the way back. `unique` is allowed on an enum-typed attribute. Entity and enum names share one namespace (see §8). IDs are derived from the document with one prefix per kind: `e` entities, `p` attributes, `t` types, `v` enum values, `r` associations.
-
-The code and the file format say "association" and "attribute"; everything the user sees says "Relationship" and "field".
+## Layout is separate from semantics
 
-An attribute's `multiplicity` uses the same shape and the same ordered labels (`1`, `0..1`, `0..*`, `1..*`) as an association end; `0..1` is an optional value and a `many` maximum is a list. A list can't be `unique`: the document API forces `unique` to `false` whenever an attribute's `max` is `"many"`, and the field editor disables the Unique checkbox for list multiplicities. A new attribute is a `String` with multiplicity `1` and `unique: false`.
+`layout` (card positions, expansion, viewport) is kept apart from the domain sections so external consumers see a clean schema. `layout.nodes` is keyed by entity or type ID. Reconciliation keeps these true:
 
-### 2.2 Associations
+- every entity and enum has a node, and a missing one gets a non-overlapping position;
+- no node is left for a deleted card;
+- association ends reference existing entities. A stale edge is surfaced as a diagnostic, never dropped.
 
-An association has two ends and no direction: both ends are always navigable, and `name` is only a verb label for display ("User _writes_ Post"). `ends[0]` is the entity the user dragged from.
+## Editor state
 
-- **Multiplicity** uses the UML reading: the multiplicity on `ends[i]` answers "how many of `ends[i]`'s entity per one of the other entity". `User 1 ── 0..* Post` means a User has zero or more Posts and a Post has exactly one User. The four allowed values are listed, in order, by `MULTIPLICITIES` in `src/domain/multiplicity.ts`: `1` = `{1, one}`, `0..1` = `{0, one}`, `0..*` = `{0, many}`, `1..*` = `{1, many}`. Attributes reuse the same list.
-- **Roles**: the role on `ends[i]` is the name the other entity uses to reach `ends[i]`'s entity (the role on the Post end of `writes` is `user.posts`). A missing or blank role gets a default, derived on demand and never stored: the entity name in camelCase, pluralized with the `pluralize` package when `max` is `"many"` (`Line Item` at `0..*` → `lineItems`). `src/domain/naming.ts` owns this and is the only module that imports `pluralize`.
-- New associations start as `ends[0]` at `1` and `ends[1]` at `0..*`.
+- Modes are a tagged union (`EditorState`), and selection is a separate one (`Selection` with a `CardRow` cursor). Don't add boolean flags.
+- Row cursors use IDs, not indexes, so they survive reordering. `reconcile` repairs selection after every document change and history restore.
+- Diagnostics (`diagnostics.ts`) never block editing. They are recomputed from the document and shown as badges, so loading an invalid file still works.
 
----
+## Undo / redo
 
-## 3. Separation of Domain Semantics and Layout
+`History` is a snapshot zipper of whole documents, capped at 50. Only discrete edits push a snapshot. Drag moves, pans, zooms, selection, and camera moves never do. A completed drag is one entry.
 
-Layout and visual presentation metadata are completely decoupled from domain entities and stored in a dedicated `layout` section. This preserves clean schema semantics for external consumers while enabling exact canvas viewport and coordinate restoration.
+A compound action is one entry. "New enum…" from a field creates the enum, retypes the field, and names the first value in one snapshot: the value edit uses `save: "Amend"`, so one `u` undoes it all.
 
-### 3.1 Document Schema
+## Keyboard
 
-```ts
-export const Point = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-});
-export type Point = typeof Point.Type;
+- `src/keymap.ts` is the single source of truth. Each entry owns its keys, message, modes, description, and typing policy, and the help dialog, toolbar titles, and hints are all built from it. Add shortcuts there, nowhere else. A test requires every entry to appear in help.
+- Foldkit matches `event.key` and Shift exactly. Shifted keys need their produced character as an alias (`Shift+1` / `Shift+!`, `?` / `Shift+?`); `displayKeys` hides the alias.
+- On non-Apple platforms, Find card is `Ctrl+Shift+K` (`otherKeys`), keeping `Ctrl+K` free for spatial navigation.
+- Tauri's `zoomHotkeysEnabled` stays off so `Mod+=` / `Mod+-` / `Mod+0` reach the app instead of zooming the webview.
 
-export const NodeLayout = Schema.Struct({
-  position: Point,
-  isExpanded: Schema.Boolean,
-});
-export type NodeLayout = typeof NodeLayout.Type;
+## Persistence
 
-export const ViewportLayout = Schema.Struct({
-  pan: Point,
-  zoom: Schema.Number,
-});
-export type ViewportLayout = typeof ViewportLayout.Type;
+Native open and save dialogs go through the Tauri dialog and fs plugins. The active file path is held at runtime, outside the Model. Capabilities are least-privilege: there is no standing fs scope, and the dialog grants access to exactly the paths the user picks. Closing with unsaved changes asks for confirmation.
 
-export const DomainLayout = Schema.Struct({
-  nodes: Schema.Record({ key: Schema.String, value: NodeLayout }), // keyed by entity or type ID
-  viewport: ViewportLayout,
-});
-export type DomainLayout = typeof DomainLayout.Type;
+## Edge routing
 
-export const DomainModelDocument = Schema.Struct({
-  version: Schema.Literal("1.0.0"),
-  name: Schema.String,
-  entities: Schema.Array(EntityDefinition),
-  types: Schema.Array(EnumDefinition),
-  associations: Schema.Array(AssociationDefinition),
-  layout: DomainLayout,
-});
-export type DomainModelDocument = typeof DomainModelDocument.Type;
-```
-
-`layout.nodes` is one record for every card on the canvas, keyed by entity ID or type ID.
-
-### 3.2 Bi-directional Sync & Invariant Validation
-
-A domain validation pass ensures that:
-
-- Every entity ID and type ID has a corresponding entry in `layout.nodes` (missing entries are assigned smart auto-staggered positions).
-- No orphan entries exist in `layout.nodes` for deleted entities or types.
-- Both association end entity IDs exist in `entities`.
-
----
-
-## 4. Canvas Architecture & Visual Interactions
-
-### 4.1 Infinite Pan & Zoom
-
-- Infinite dot-grid canvas with smooth panning and zooming.
-- Controls:
-  - Middle-click drag, trackpad pan, or Spacebar + drag pans the canvas.
-  - Mouse wheel or pinch zooms centered around the cursor position.
-  - Floating HUD displays zoom percentage with quick "Reset View" (100%) and "Fit to Screen" buttons.
-
-### 4.2 Entity Nodes & Inline Expansion
-
-- **Collapsed (Default)**: Compact badge displaying entity name, field count badge, and handle ports.
-- **Expanded (On-Click)**: Smoothly expands in-place into an entity card detailing all fields: name, type, a multiplicity badge when it isn't `1` (`0..1`, `0..*`, `1..*`), a `UQ` badge when unique, and inline actions to add, edit, reorder, or delete fields.
-
-### 4.3 Enum Cards
-
-- Enum cards share the entity card's chrome (`src/view/card.ts`) and dimensions: collapsed they are the same size as a collapsed entity, and expanded each value is one row (`cardShape` in `src/domain/geometry.ts` sizes both kinds). New cards of either kind are placed clear of every existing card.
-- The header shows the name (double-click to rename), an `enum` badge, the value count, and `Expand`/`Collapse`. Expanded rows show the value name in mono and its description in muted text, with `Move up`, `Move down`, `Edit value`, and `Delete value` on hover. Clicking a row selects it; Enter, `i`, or `Edit value` opens its inline editor (`Value name`, `Value description`). Enter saves and Escape cancels, keeping that row current. A blank description removes it.
-- The footer has `+ Add value` and `Delete <Name>`. The toolbar's `+ Enum` button (aria-label `Create enum`) starts naming a new enum at the viewport center.
-- Enum cards have no ports and carry `data-type-id`, never `data-entity-id`, so they are not relationship drop targets: releasing a connection over one cancels it, as on empty canvas.
-- Enum cards are dragged by the header and selected like entity cards; every change is undoable.
-- **Field typing.** The field editor's `Field type` select groups its options: `Primitives`, then `Enums` (every enum by name, option value `type:<id>`; left out when there are none), then `New enum…`. A field whose enum no longer exists shows a disabled, selected `?`. On an expanded entity, an enum-typed field shows the enum's name as a link-like button (`Go to enum <Name>`) that selects the enum card without moving the camera; the button stays put on hover (the row reserves room for its actions), and a dangling type reads `?` with a warning.
-- **New enum….** Choosing it is one undo step: `addEnumForAttribute` creates an enum named after the field (PascalCase via `naming.ts`'s `enumNameForAttribute`, `NewEnum` when blank) with one blank value, places it expanded to the right of the entity card, and saves the field's draft typed `{ typeId }`. The editor moves to `EditingEnumValue` on that value with `save: "Amend"`, so naming the value folds into the same snapshot: one `u` removes the enum and restores the field. Escape leaves the blank value in place as an empty row; no diagnostic flags a blank value name yet.
-- **Used-by highlight.** While an enum card is selected, the rows of fields typed by it get a highlight and the attribute `data-uses-selected-type`. There are no connector lines.
-
-### 4.4 Port Drag-and-Drop Connection
-
-- Every card has exactly two ports, on the left and right of its header, whether collapsed or expanded. Field rows have no ports.
-- Dragging from an entity port pulls a live dynamic connector line from the header. Releasing onto another entity creates a relationship edge (`1 ── 0..*`, from the dragged entity to the drop target) and opens the inspector to configure it.
-- Edges always anchor at the card header.
-
-### 4.5 Pluggable Edge Routing
-
-Relationship edges are rendered via an abstract routing interface:
-
-```ts
-export interface EdgeRouter {
-  computePath(
-    source: Point,
-    target: Point,
-    sourceSide: "left" | "right",
-    targetSide: "left" | "right",
-  ): string;
-  computeMidpoint(source: Point, target: Point): Point;
-}
-```
-
-- **Default implementation**: Smooth cubic Bézier curves with end markers and interactive midpoint multiplicity tags reading `<ends[0]> ── <ends[1]>` (for example `1 ── 0..*`).
-- Swappable in the future for orthogonal / Manhattan routing without touching UI components.
-
-### 4.6 Relationship Edge Inspection
-
-- Clicking an edge highlights the curve and displays a floating inspector pill at its midpoint.
-- The pill edits the verb label (`Relationship name`) and a description, and has one section per end, headed with that end's entity name: a role textbox whose faded placeholder is the derived default role, and a multiplicity radiogroup (`1`, `0..1`, `0..*`, `1..*`). For a self association the end labels carry `(end 1)` / `(end 2)`.
-- `Delete` / `Backspace` or the trash button deletes the edge. There is no reverse button: without direction, reversing means nothing.
-
----
-
-## 5. UI Interaction State Machine
-
-The editor UI strictly avoids boolean flags and is governed by an **Explicit Tagged Union State Machine**:
-
-```ts
-export type EditorState =
-  | { readonly _tag: "Idle" }
-  | { readonly _tag: "ViewingShortcuts" }
-  | {
-      readonly _tag: "PickingCard";
-      readonly query: string;
-      readonly highlighted: number;
-      readonly purpose:
-        | { readonly _tag: "Focus" }
-        | { readonly _tag: "Connect"; readonly sourceEntityId: string };
-    }
-  | {
-      readonly _tag: "ChoosingNew";
-      readonly position: Point;
-      readonly highlighted: "Entity" | "Enum";
-    }
-  | { readonly _tag: "CreatingEntity"; readonly position: Point }
-  | { readonly _tag: "RenamingEntity"; readonly entityId: string }
-  | { readonly _tag: "EditingAttribute"; readonly entityId: string; readonly attributeId: string }
-  | { readonly _tag: "CreatingEnum"; readonly position: Point; readonly draftName: string }
-  | { readonly _tag: "RenamingEnum"; readonly typeId: string; readonly draftName: string }
-  | {
-      readonly _tag: "EditingEnumValue";
-      readonly typeId: string;
-      readonly valueId: string;
-      readonly draft: { name: string; description: string };
-      readonly save: "Commit" | "Amend"; // Amend: the first value of a "New enum…"
-    }
-  | {
-      readonly _tag: "ConnectingAssociation";
-      readonly fromEntityId: string;
-      readonly currentPos: Point;
-    }
-  | { readonly _tag: "EditingAssociation"; readonly associationId: string }
-  | { readonly _tag: "DraggingNode"; readonly nodeId: string; readonly offset: Point } // any card
-  | { readonly _tag: "PanningCanvas"; readonly startPan: Point; readonly startMouse: Point };
-```
-
-### Keybinding & Mode Matrix
-
-`src/keymap.ts` is the single source of truth for keyboard bindings: each entry owns its keys (including alternatives and sequences), message mapping, description, modes, and typing policy. An optional `displayKeys` names the familiar physical shortcut when runtime aliases must match produced characters. `keysFor` resolves optional `otherKeys` on non-Apple platforms for both subscriptions and labels: Find card uses Command+K on Apple and Ctrl+Shift+K elsewhere, leaving Ctrl+K available for spatial-up everywhere. `subscription.ts` selects the active mode and builds its Foldkit table with `bindingsFor`; Space-to-pan is in the same registry. Key releases still clear Space independently. Add future shortcuts here, not in another subscription or view.
-
-`formatKeys` formats alternatives and sequences for display. Platform detection runs once against `navigator.userAgent`, with the same Apple pattern Foldkit uses for `Mod`. Toolbar and HUD titles, status hints, and the help dialog read the registry, so they follow the active platform rather than hard-coding Command symbols. HUD actions without a binding show only their label.
-
-| State                                                                                                           | Keybindings Active                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Keystrokes         |
-| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
-| `Idle` / `EditingAssociation` (Normal Mode)                                                                     | `Mod+K` (Apple) / `Ctrl+Shift+K` (elsewhere): Find card<br>`Ctrl+h/j/k/l`: Select nearest card left/down/up/right<br>`c`: Open the Entity/Enum chooser<br>`r`: Connect selected entity to… (any cursor row)<br>`d` / `Delete` / `Backspace`: Delete current row (title deletes card), or edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`j` / `ArrowDown`, `k` / `ArrowUp`: Next/previous row (stop at ends)<br>`g g`: Title<br>`Shift+G`: Last row<br>`Enter` or `i`: Edit current row (title renames; expands first)<br>`o` / `Shift+O`: Add row below/above (first on title; expands and edits)<br>`Shift+J` / `Shift+K`: Reorder current field/value down/up<br>`Escape`: Deselect / close inspector<br>`?`: Keyboard shortcuts<br>`Mod+=` / `Mod+Plus`, `Mod+-`: Zoom in/out<br>`Mod+0`: 100%<br>`Shift+1`: Fit all cards<br>`Shift+2`: Zoom to selection | Canvas shortcuts   |
-| `ViewingShortcuts` (Help Mode)                                                                                  | `Escape` or `?`: Close, keeping selection                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Shortcut reference |
-| `PickingCard` (Picking Mode)                                                                                    | `ArrowDown` / `Control+N`, `ArrowUp` / `Control+P`: Move highlight, wrapping<br>`Enter`: Focus card / connect to entity<br>`Escape`: Cancel, keeping selection                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Card search input  |
-| `ChoosingNew` (Choosing Mode)                                                                                   | `ArrowDown` / `ArrowUp`: Move highlight, wrapping<br>`1`: Pick Entity<br>`2`: Pick Enum<br>`Enter`: Pick highlighted option<br>`Escape`: Cancel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | New card chooser   |
-| `CreatingEntity` / `RenamingEntity` / `EditingAttribute` / `CreatingEnum` / `RenamingEnum` / `EditingEnumValue` | Input text capture active (`c`, `d` type text)<br>`Mod+=` / `Mod+Plus`, `Mod+-`, `Mod+0`: Zoom / reset<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Text input focus   |
-| `ConnectingAssociation`                                                                                         | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Active connection  |
-| `DraggingNode` / `PanningCanvas`                                                                                | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Canvas drag        |
-
-File bindings are active in Normal, Text, and Choosing modes, including while typing: `Mod+N` creates a new document, `Mod+O` opens, `Mod+S` saves, and `Mod+Shift+S` saves as. `Mod` is Command on macOS and Control elsewhere. `Mod+N` uses the same action as the toolbar's `New model` button, including its existing unsaved-changes behavior; it is not a chooser shortcut.
-
-View bindings use the same messages as the HUD: `Mod+=` / `Mod+Plus` zoom in, `Mod+-` zooms out around the viewport center, and `Mod+0` resets to 100% around that center. These bindings allow typing in Normal and Text modes, preventing the webview's own zoom. `Shift+1` fits all entity and enum cards, retaining the HUD's 100% cap. `Shift+2` fits the selected entity/enum or both ends of the selected relationship; it does nothing without a valid selection. Both fit actions share bounds math and 80px padding; selection fitting may enlarge up to the global 400% maximum. None adds history or commits an active draft. Fit keys are Normal-only and suppressed in text inputs, where `!` / `@` type normally. Foldkit matches `event.key` and Shift exactly: the registry accepts `Shift+1` / `Shift+!`, `Shift+2` / `Shift+@`, and both unshifted and shifted `Mod+Plus`, while display labels hide layout aliases. Tauri's `zoomHotkeysEnabled` is absent (default false), and its default macOS menu has no zoom accelerators.
-
-`c` opens a screen-centered listbox (`Create new`) with Entity highlighted first. The `ChoosingNew` state captures the new card's canvas position at the viewport center. Picking an option, by key or click, enters `CreatingEntity` or `CreatingEnum` at that position. Clicking outside or pressing Escape cancels without changing the document or history. `c` still types normally in text inputs. The toolbar's `+ Entity` and `+ Enum` buttons start creation directly; their titles advertise `(c)`, and `New model` advertises the platform-specific `Mod+N` shortcut.
-
-`?` in Normal mode or the toolbar's `Keyboard shortcuts` button opens `ViewingShortcuts`: a dialog (`Keyboard shortcuts`) organized by task rather than key mode. A one-line primer explains the select → row cursor → act model. `HELP_SECTIONS` in `src/keymap.ts` lays out Move around and File, Build, and View and Mouse as three columns (at two columns, View and Mouse sit side by side under the rest), and `HELP_NOTES` adds one-line `While typing` and `In menus` references for the short-lived modes. Items name registry ids, never keys: `helpChips` renders each alternative as its own chip with a muted "or", and `paired` items zip related entries into one row (`j k` or `↓ ↑`). `covers` names entries in another mode bound to the same keys (the New… chooser's arrows and Enter), and a test requires every registry entry to be shown or covered. On Apple, Backspace and Delete display as `⌫` and `⌦`. Escape, `?`, the close button, or an outside click returns to Idle without changing selection, document, or history. The dialog takes focus and makes the background inert; Help mode only accepts its close bindings. Opening via the toolbar abandons any unfinished text draft without committing it. Literal and shifted `?` events are both registered because Foldkit matches Shift exactly, but `formatKeys` displays them once. `?` in a text input types normally.
-
-A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `NEW`, `CREATING`, `EDITING`, `CONNECTING`). `ViewingShortcuts` shows `HELP`; `PickingCard` shows `FIND` for Focus or `CONNECT` for Connect; `ChoosingNew` shows `NEW`; `CreatingEnum` shows `CREATING`; `RenamingEnum` and `EditingEnumValue` show `EDITING`.
-
-Command+K on Apple (Ctrl+Shift+K elsewhere) in Normal mode opens `PickingCard`, a top-centered modal with a focused `Find card` combobox and `Cards` listbox. `src/domain/card-search.ts` ranks case-insensitive subsequences: exact, prefix, word-start/camel-hump (including acronym boundaries), then other subsequences; ties prefer shorter names, then alphabetical order. Empty/whitespace queries list every entity and enum alphabetically. Matched characters are highlighted. Changing the query resets the highlight; arrows and Control+N/P wrap, allowing typing, and keep the active option visible. Enter or clicking an option selects its Title and centers its persisted bounds at the existing zoom without changing expansion, dirty status, or undo/redo history. `src/update/canvas.ts` exposes `focusCard` for this camera/selection operation, independent of header gestures. Escape or an outside click returns to Idle with the previous selection/cursor and viewport unchanged. No matches displays "No cards match"; Enter does nothing. Picker mode suppresses canvas/file shortcuts and makes the background inert. Its tagged `PickerPurpose` distinguishes `Focus` from `Connect { sourceEntityId }`.
-
-`r` in Normal mode with an entity selected at any cursor row opens the same picker with `Connect { sourceEntityId }`. An enum, relationship, missing entity, or no selection is a no-op. Connect focuses the `Connect <Source> to` combobox (placeholder `Connect <Source> to…`) and shows an `Entities` listbox with the same fuzzy ranking, highlights, wrapping keys, and cancellation. Enums are excluded before ranking; the source remains available because deliberate self associations are supported by the pointer flow. No matches reads "No entities match". Enter or an option click delegates to `Associations.create`, shared with completed pointer connections: it validates both entities, adds default `1 ── 0..*` ends in one history entry, selects the new relationship, and opens its inspector. It never pans, zooms, or resizes endpoints. Escape/outside click preserves the source's row cursor, layout, viewport, dirty status, and undo/redo. Reconciliation closes Connect if its source disappears; stale picks cannot create dangling edges. `Control+R` remains redo, and plain r types normally in inputs. The mode pill is `CONNECT` (pointer dragging retains `CONNECTING`).
-
-`Control+h/j/k/l` in Normal mode select the nearest entity or enum left/down/up/right with Title current. `Geometry.nearestCard` uses persisted centers within an inclusive 90° cone, minimizing axis distance + 2 × perpendicular distance; equal scores use node ID for deterministic results. No candidate leaves the model untouched, including its row cursor. With no card selected (including relationship selection), it instead chooses the Euclidean-nearest card to the world-space viewport center, regardless of direction. `Canvas.navigateCards` closes an inspector only when a target is found and never simulates a header click. `Geometry.revealRect` pans the minimum screen-space distance to reveal the target with a 24px margin, preserving zoom, expansion, dirty status, past and redo. Oversized cards cover the available axis or align its nearest edge; full visibility is impossible without zooming, so already-spanning cards stay put. Plain h/l remain unbound, plain j/k retain row motion, and Control+r remains redo. Foldkit's handled bindings prevent browser defaults synchronously and are suppressed on editable targets.
-
-Selection is a separate tagged union: `NoSelection`, `SelectedEntity { entityId, row }`, `SelectedEnum { typeId, row }`, `SelectedAssociation { associationId }`. `CardRow` is `Title | Attribute { attributeId } | Value { valueId }`; IDs keep the cursor stable across reordering. Entity selections use Title/Attribute; enum selections use Title/Value. `reconcile` falls back to Title for a missing or wrong-kind row and clears selection for a missing card. Both document mutation helpers and history restoration reconcile selection.
-
-Pressing a card's header selects Title; clicking a field/value selects that row without editing. The current title or `li` carries `aria-current="true"` and a persistent highlight distinct from hover. `src/update/rows.ts` shares row motion, row-aware editing and deletion across both card kinds. `j` on a collapsed card expands it and selects the first row; `k` on Title stays put. Motion and selection add no history. Enter/`i` edit the current row, expanding first; commit and cancel keep the same cursor. `d`/Delete/Backspace on a field/value deletes just that row in one history entry, choosing the next row, or previous when last, or Title when empty. On Title it deletes the card; relationship deletion is unchanged. Escape in Normal mode clears selection.
-
-`o` / `O` insert a field/value below/above the current row; either inserts first on Title, including on an empty card. The card expands and the new row becomes current with its name input focused. These use the same creation and editing flow as `+ Add field` / `+ Add value`: insertion creates a default `fieldN` / `valueN` in one history entry; Escape keeps that row and discards only its draft, and saving a changed draft adds a separate entry. The document add functions accept an optional insertion index; omitting it retains footer append behavior. `J` / `K` share the move-button handlers and move the current field/value down/up in one history entry, keeping its ID current. Title and out-of-range moves change nothing, preserve the redo branch, and add no history. Reordering never changes expansion. All four verbs are Normal-only, listed under help's Build section; while editing they type normally.
-
----
-
-## 6. Undo / Redo Architecture: State Snapshot Zipper
-
-To ensure 100% deterministic, side-effect-free undo and redo in Foldkit's Elm Architecture:
-
-```ts
-export const History = Schema.Struct({
-  past: Schema.Array(DomainModelDocument),
-  present: DomainModelDocument,
-  future: Schema.Array(DomainModelDocument),
-});
-export type History = typeof History.Type;
-```
-
-- Discrete model mutations (adding/deleting entities, attribute modifications, completed node drags, edge changes) push `present` onto `past` (capped at 50 snapshots) and clear `future`.
-- Transient interactions (in-progress mouse moves during dragging or pan/zoom) only update the active canvas coordinates without pushing history snapshots.
-- `u` / `Cmd+Z` pops from `past` into `present`.
-- `Ctrl+r` / `Cmd+Shift+Z` pops from `future` into `present`.
-
----
-
-## 7. File Persistence (Tauri)
-
-The editor ships as a standalone desktop app built with **Tauri v2**, so file access works the same on every platform and does not depend on browser support for the File System Access API.
-
-- "Open" uses the dialog plugin's native `open({ filters: [{ name: 'Domain Model JSON', extensions: ['json'] }] })`, then reads the file with the fs plugin's `readTextFile`.
-- "Save As" uses the native `save({ defaultPath: '<name>.domain.json', filters })`, then writes with `writeTextFile`.
-- The active file's path is retained in runtime memory, outside the Model.
-- Subsequent "Save" operations (`Cmd/Ctrl+S`) write directly to the active path without a dialog.
-- Capabilities are least-privilege: the app holds no standing filesystem scope. The dialog plugin grants the fs plugin access to exactly the paths the user picks, for the lifetime of the process.
-- Closing the window with unsaved changes asks for confirmation before discarding them.
-
----
-
-## 8. Non-Blocking Inline Diagnostics
-
-Live schema validation runs in the background on every model update and reports non-blocking diagnostics:
-
-- **Duplicate Type Names** (`DuplicateTypeName { nodeId, name }`): entity and enum names share one namespace, compared case-insensitively. Every card with a clashing name, entity or enum, gets a warning badge ("Duplicate type name “…”").
-- **Duplicate Enum Value Names** (`DuplicateEnumValueName { typeId, valueId, name }`): flagged on the value row and the enum card ("Duplicate value name “…”").
-- **Empty Enums** (`EmptyEnum { typeId }`): an enum with no values is flagged on its card ("Enum has no values").
-- **Duplicate Attribute Names** (`DuplicateAttributeName`): flagged on the field row ("Duplicate field name “…”").
-- **Dangling Type References** (`DanglingTypeReference { entityId, attributeId, typeId }`): a field typed by an enum that no longer exists, as after deleting the enum, is flagged on its field row and entity card ("Enum “…” does not exist").
-- **Unique Lists** (`UniqueOnList`): a loaded file with an attribute that is both `unique` and `max: "many"` is flagged on its field row ("A list field can't be unique"). The editor can't produce this combination.
-- **Dangling References** (`DanglingEntityReference`): an edge whose end entity no longer exists is flagged with a warning badge ("Entity “…” at end 1 does not exist").
-- **Role Clashes** (`RoleClash`): for each entity, its attribute names and the effective role of the far end of every association touching it (both roles for a self association) must be unique, case-insensitively. Every association end whose role collides is flagged on its edge ("Role “posts” clashes on User"); giving the end an explicit role clears it.
-
----
-
-## 9. Technology Stack
-
-- **Framework**: Foldkit (`0.168.0`) + `@foldkit/ui`
-- **Functional Core**: Effect (`4.0.0`) + `@effect/platform-browser` (`4.0.0`)
-- **Bundler**: Vite (`8.3.1`) + `@foldkit/vite-plugin`
-- **Styling**: Tailwind CSS v4 (`@tailwindcss/vite`, `tailwindcss 4.3.3`)
-- **Testing**: Vitest (`5.0.2`) + `happy-dom`
-- **Desktop Shell**: Tauri v2 (`@tauri-apps/cli`, `@tauri-apps/api`, `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`)
-- **Package Manager**: pnpm
+Edges are drawn through the `EdgeRouter` interface (`edgeRouter.ts`), with cubic Bézier by default, so an orthogonal router can replace it without touching views. Edges anchor at card headers. Each card has exactly two header ports, and enum cards have none, so they aren't drop targets.
