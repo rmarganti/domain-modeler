@@ -121,15 +121,15 @@ describe("keybinding registry", () => {
     }
   });
 
-  test("zoom bindings reuse HUD messages and allow typing only for Mod zoom", () => {
+  test("zoom bindings send the shared Requested messages and allow typing only for Mod zoom", () => {
     const actions = [
-      ["Mod+=", "ClickedZoomIn"],
-      ["Mod+Plus", "ClickedZoomIn"],
-      ["Mod+Shift+Plus", "ClickedZoomIn"],
-      ["Mod+-", "ClickedZoomOut"],
-      ["Mod+0", "ClickedResetView"],
-      ["Shift+1", "ClickedFitToScreen"],
-      ["Shift+!", "ClickedFitToScreen"],
+      ["Mod+=", "RequestedZoomIn"],
+      ["Mod+Plus", "RequestedZoomIn"],
+      ["Mod+Shift+Plus", "RequestedZoomIn"],
+      ["Mod+-", "RequestedZoomOut"],
+      ["Mod+0", "RequestedResetView"],
+      ["Shift+1", "RequestedFitToScreen"],
+      ["Shift+!", "RequestedFitToScreen"],
       ["Shift+2", "PressedZoomToSelectionKey"],
       ["Shift+@", "PressedZoomToSelectionKey"],
     ];

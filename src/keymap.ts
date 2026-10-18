@@ -33,7 +33,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "New model",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
-    mapEvent: () => Message.PressedNewDocumentKey(),
+    mapEvent: () => Message.RequestedNewDocument(),
   },
   {
     id: "open",
@@ -41,7 +41,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "Open",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
-    mapEvent: () => Message.PressedOpenKey(),
+    mapEvent: () => Message.RequestedOpen(),
   },
   {
     id: "save",
@@ -49,7 +49,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "Save",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
-    mapEvent: () => Message.PressedSaveKey(),
+    mapEvent: () => Message.RequestedSave(),
   },
   {
     id: "saveAs",
@@ -57,7 +57,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "Save as",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
-    mapEvent: () => Message.PressedSaveAsKey(),
+    mapEvent: () => Message.RequestedSaveAs(),
   },
   {
     id: "create",
@@ -85,14 +85,14 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     keys: ["U", "Mod+Z"],
     description: "Undo",
     modes: ["Normal"],
-    mapEvent: () => Message.PressedUndoKey(),
+    mapEvent: () => Message.RequestedUndo(),
   },
   {
     id: "redo",
     keys: ["Control+R", "Mod+Shift+Z"],
     description: "Redo",
     modes: ["Normal"],
-    mapEvent: () => Message.PressedRedoKey(),
+    mapEvent: () => Message.RequestedRedo(),
   },
   {
     id: "findCard",
@@ -297,7 +297,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "Zoom in",
     modes: ["Normal", "Text"],
     whileTyping: "Allow",
-    mapEvent: () => Message.ClickedZoomIn(),
+    mapEvent: () => Message.RequestedZoomIn(),
   },
   {
     id: "zoomOut",
@@ -305,7 +305,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "Zoom out",
     modes: ["Normal", "Text"],
     whileTyping: "Allow",
-    mapEvent: () => Message.ClickedZoomOut(),
+    mapEvent: () => Message.RequestedZoomOut(),
   },
   {
     id: "resetView",
@@ -313,7 +313,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     description: "Reset view to 100%",
     modes: ["Normal", "Text"],
     whileTyping: "Allow",
-    mapEvent: () => Message.ClickedResetView(),
+    mapEvent: () => Message.RequestedResetView(),
   },
   // Foldkit matches event.key, not code: US Shift+1/2 produce !/@.
   {
@@ -322,7 +322,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     displayKeys: ["Shift+1"],
     description: "Fit to screen",
     modes: ["Normal"],
-    mapEvent: () => Message.ClickedFitToScreen(),
+    mapEvent: () => Message.RequestedFitToScreen(),
   },
   {
     id: "zoomToSelection",

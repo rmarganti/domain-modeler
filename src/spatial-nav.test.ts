@@ -380,7 +380,7 @@ describe("spatial card navigation", () => {
       expect(bindings.some(({ keys }) => keys === "H" || keys === "L")).toBe(false);
       expect(
         bindings.find(({ keys }) => keys === "Control+R")?.mapEvent(new KeyboardEvent("keydown")),
-      ).toEqual(Message.PressedRedoKey());
+      ).toEqual(Message.RequestedRedo());
       const find = KEYMAP.find(({ id }) => id === "findCard")!;
       expect(formatKeys(keysFor(find, platform), platform)).toBe(
         platform === "Apple" ? "⌘K" : "Ctrl+Shift+K",

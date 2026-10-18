@@ -169,7 +169,7 @@ describe("card row cursor", () => {
       expect(currentRow(m)).toEqual(next);
       expect(m.history.past).toHaveLength(1);
       expect(m.selection._tag).toBe(kind === "Entity" ? "SelectedEntity" : "SelectedEnum");
-      const restored = step(m, Message.PressedUndoKey());
+      const restored = step(m, Message.RequestedUndo());
       expect(restored.history.present).toEqual(before);
       expect(restored.selection).toEqual(m.selection);
       m = move(m, "Last");
@@ -194,10 +194,10 @@ describe("card row cursor", () => {
     );
     const saved = step(added, Message.PressedEscapeKey());
     expect(currentRow(saved)._tag).toBe(kind === "Entity" ? "Attribute" : "Value");
-    expect(currentRow(step(saved, Message.PressedUndoKey()))).toEqual(CardRow.Title());
-    expect(
-      currentRow(step(step(saved, Message.PressedUndoKey()), Message.PressedRedoKey())),
-    ).toEqual(CardRow.Title());
+    expect(currentRow(step(saved, Message.RequestedUndo()))).toEqual(CardRow.Title());
+    expect(currentRow(step(step(saved, Message.RequestedUndo()), Message.RequestedRedo()))).toEqual(
+      CardRow.Title(),
+    );
   });
 
   test("all document mutations reconcile missing rows, and undo removes missing cards", () => {
@@ -214,7 +214,7 @@ describe("card row cursor", () => {
       ),
       Message.PressedEnterKey(),
     );
-    expect(step(created, Message.PressedUndoKey()).selection).toEqual(Selection.NoSelection());
+    expect(step(created, Message.RequestedUndo()).selection).toEqual(Selection.NoSelection());
   });
 
   test("row clicks select without editing and header presses reset to title", () => {
@@ -258,7 +258,7 @@ describe("card row cursor", () => {
       Message.ClickedMoveAttribute({ entityId: "e1", attributeId: "p2", direction: "Down" }),
     );
     expect(reordered.selection).toEqual(selected.selection);
-    expect(step(reordered, Message.PressedUndoKey()).selection).toEqual(selected.selection);
+    expect(step(reordered, Message.RequestedUndo()).selection).toEqual(selected.selection);
   });
 
   test("registry owns motions and delete aliases, only in Normal mode", () => {

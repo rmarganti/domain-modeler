@@ -40,7 +40,7 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
       ),
     ],
     [
-      hudButton(h, "Zoom out", "−", Message.ClickedZoomOut(), "zoomOut"),
+      hudButton(h, "Zoom out", "−", Message.RequestedZoomOut(), "zoomOut"),
       h.span(
         [
           h.Class("w-12 text-center text-xs font-semibold tabular-nums text-slate-700"),
@@ -48,10 +48,10 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
         ],
         [`${Math.round(zoom * 100)}%`],
       ),
-      hudButton(h, "Zoom in", "+", Message.ClickedZoomIn(), "zoomIn"),
+      hudButton(h, "Zoom in", "+", Message.RequestedZoomIn(), "zoomIn"),
       h.span([h.Class("mx-1 h-4 w-px bg-slate-200")], []),
-      hudButton(h, "Reset view to 100%", "100%", Message.ClickedResetView(), "resetView"),
-      hudButton(h, "Fit to screen", "Fit", Message.ClickedFitToScreen(), "fitToScreen"),
+      hudButton(h, "Reset view to 100%", "100%", Message.RequestedResetView(), "resetView"),
+      hudButton(h, "Fit to screen", "Fit", Message.RequestedFitToScreen(), "fitToScreen"),
     ],
   );
 };
@@ -189,25 +189,25 @@ export const toolbarView = (
         label: "New model",
         content: "New",
         shortcutId: "newDocument",
-        onClick: Message.ClickedNewDocument(),
+        onClick: Message.RequestedNewDocument(),
       }),
       toolbarButton(h, {
         label: "Open",
         content: "Open",
         shortcutId: "open",
-        onClick: Message.ClickedOpen(),
+        onClick: Message.RequestedOpen(),
       }),
       toolbarButton(h, {
         label: "Save",
         content: "Save",
         shortcutId: "save",
-        onClick: Message.ClickedSave(),
+        onClick: Message.RequestedSave(),
       }),
       toolbarButton(h, {
         label: "Save as",
         content: "Save As…",
         shortcutId: "saveAs",
-        onClick: Message.ClickedSaveAs(),
+        onClick: Message.RequestedSaveAs(),
       }),
       divider(h),
       h.input([
@@ -241,14 +241,14 @@ export const toolbarView = (
         content: "↶ Undo",
         shortcutId: "undo",
         isDisabled: !History.canUndo(model.history),
-        onClick: Message.ClickedUndo(),
+        onClick: Message.RequestedUndo(),
       }),
       toolbarButton(h, {
         label: "Redo",
         content: "↷ Redo",
         shortcutId: "redo",
         isDisabled: !History.canRedo(model.history),
-        onClick: Message.ClickedRedo(),
+        onClick: Message.RequestedRedo(),
       }),
       divider(h),
       h.button(

@@ -51,10 +51,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     PressedZoomToSelectionKey: () => ({ model: Canvas.zoomToSelection(model) }),
     PressedShortcutsKey: () =>
       model.editor._tag === "ViewingShortcuts" ? { model: toIdle(model) } : showShortcuts(model),
-    PressedNewDocumentKey: () => Session.newDocument(model),
     PressedDeleteKey: () => ({ model: Session.deleteSelection(model) }),
-    PressedUndoKey: () => ({ model: Session.undo(model) }),
-    PressedRedoKey: () => ({ model: Session.redo(model) }),
     PressedEditKey: () => Rows.edit(model),
     NavigatedCard: ({ direction }) => ({ model: Canvas.navigateCards(model, direction) }),
     MovedCardRow: ({ motion }) => ({ model: Rows.move(model, motion) }),
@@ -72,9 +69,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         () => ({ model: finishEditing(model) }),
       ),
     PressedEscapeKey: () => ({ model: cancelEditing(model) }),
-    PressedSaveKey: () => Session.save(model),
-    PressedSaveAsKey: () => Session.saveAs(model),
-    PressedOpenKey: () => Session.open(model),
     PressedSpace: () => ({ model: { ...model, panKey: "Held" } }),
     ReleasedSpace: () => ({ model: { ...model, panKey: "Released" } }),
 
@@ -97,22 +91,22 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     WheeledCanvas: (wheelEvent) => ({ model: Canvas.wheel(model, wheelEvent) }),
     ResizedScreen: ({ width, height }) => ({ model: { ...model, screen: { width, height } } }),
 
-    // HUD
+    // Shared by a key and a control (see ARCHITECTURE.md)
 
-    ClickedZoomIn: () => ({ model: Canvas.zoomBy(model, ZOOM_STEP) }),
-    ClickedZoomOut: () => ({ model: Canvas.zoomBy(model, 1 / ZOOM_STEP) }),
-    ClickedResetView: () => ({ model: Canvas.resetView(model) }),
-    ClickedFitToScreen: () => ({ model: Canvas.fitToScreen(model) }),
+    RequestedNewDocument: () => Session.newDocument(model),
+    RequestedOpen: () => Session.open(model),
+    RequestedSave: () => Session.save(model),
+    RequestedSaveAs: () => Session.saveAs(model),
+    RequestedUndo: () => ({ model: Session.undo(model) }),
+    RequestedRedo: () => ({ model: Session.redo(model) }),
+    RequestedZoomIn: () => ({ model: Canvas.zoomBy(model, ZOOM_STEP) }),
+    RequestedZoomOut: () => ({ model: Canvas.zoomBy(model, 1 / ZOOM_STEP) }),
+    RequestedResetView: () => ({ model: Canvas.resetView(model) }),
+    RequestedFitToScreen: () => ({ model: Canvas.fitToScreen(model) }),
 
     // Toolbar
 
-    ClickedNewDocument: () => Session.newDocument(model),
     ClickedShowShortcuts: () => showShortcuts(model),
-    ClickedOpen: () => Session.open(model),
-    ClickedSave: () => Session.save(model),
-    ClickedSaveAs: () => Session.saveAs(model),
-    ClickedUndo: () => ({ model: Session.undo(model) }),
-    ClickedRedo: () => ({ model: Session.redo(model) }),
     ClickedAddEntity: () => Entities.startCreating(model),
     ClickedAddEnum: () => Enums.startCreating(model),
     ChangedDocumentName: ({ name }) => ({ model: Session.renameDocument(model, name) }),

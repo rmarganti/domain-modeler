@@ -43,6 +43,13 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 
 A compound action is one entry. "New enum…" from a field creates the enum, retypes the field, and names the first value in one snapshot: the value edit uses `save: "Amend"`, so one `u` undoes it all.
 
+## Messages
+
+A message records what happened, in the past tense. It is never a command, so there are no names like `ZoomIn` or `SetName`. `update` decides what a message means.
+
+- **Name the input when its meaning or data is specific to that input.** Use `Clicked…`, `Pressed…Key`, or the gesture (`MovedCardRow`). That covers keys whose meaning depends on mode or selection (`PressedEnterKey`, `PressedEscapeKey`), and controls that carry their own target where the key acts on the selection (`ClickedToggleExpand { nodeId }` vs `PressedToggleExpandKey`). Each input gets its own message, and both call the same update function.
+- **Share one `Requested…` message when a key and a control do exactly the same thing with the same data**: `RequestedSave`, `RequestedUndo`, `RequestedZoomIn`. A key never sends a `Clicked…` message, and a control never sends a `Pressed…` message.
+
 ## Keyboard
 
 - `src/keymap.ts` is the single source of truth. Each entry owns its keys, message, modes, description, and typing policy, and the help dialog, toolbar titles, and hints are all built from it. Add shortcuts there, nowhere else. A test requires every entry to appear in help.

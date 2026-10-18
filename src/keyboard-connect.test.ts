@@ -192,11 +192,11 @@ describe("keyboard connection picker", () => {
         expect(result.editor).toEqual(EditorState.EditingAssociation({ associationId: "r3" }));
         expect(result.history.present.layout).toBe(document.layout);
         expect(step(result, Message.PressedEnterKey()).history).toBe(result.history);
-        const undone = step(result, Message.PressedUndoKey());
+        const undone = step(result, Message.RequestedUndo());
         expect(undone.history.present).toEqual(document);
         expect(undone.editor).toEqual(EditorState.Idle());
         expect(undone.selection).toEqual(Selection.NoSelection());
-        expect(step(undone, Message.PressedRedoKey()).history.present).toEqual(
+        expect(step(undone, Message.RequestedRedo()).history.present).toEqual(
           result.history.present,
         );
       }
@@ -264,7 +264,7 @@ describe("keyboard connection picker", () => {
       expect(binding?.whileTyping).not.toBe("Allow");
       expect(
         normal.find(({ keys }) => keys === "Control+R")?.mapEvent(new KeyboardEvent("keydown")),
-      ).toEqual(Message.PressedRedoKey());
+      ).toEqual(Message.RequestedRedo());
       for (const mode of ["Text", "Choosing", "Picking", "Pointer", "Help"] as const) {
         expect(bindingsFor(mode, platform).some(({ keys }) => keys === "R")).toBe(false);
       }

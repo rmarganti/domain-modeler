@@ -162,13 +162,13 @@ describe("canvas", () => {
 describe("zoom shortcuts", () => {
   test("each registered zoom key has the same update as its HUD action without history", () => {
     const actions = [
-      ["Mod+=", Message.ClickedZoomIn()],
-      ["Mod+Plus", Message.ClickedZoomIn()],
-      ["Mod+Shift+Plus", Message.ClickedZoomIn()],
-      ["Mod+-", Message.ClickedZoomOut()],
-      ["Mod+0", Message.ClickedResetView()],
-      ["Shift+1", Message.ClickedFitToScreen()],
-      ["Shift+!", Message.ClickedFitToScreen()],
+      ["Mod+=", Message.RequestedZoomIn()],
+      ["Mod+Plus", Message.RequestedZoomIn()],
+      ["Mod+Shift+Plus", Message.RequestedZoomIn()],
+      ["Mod+-", Message.RequestedZoomOut()],
+      ["Mod+0", Message.RequestedResetView()],
+      ["Shift+1", Message.RequestedFitToScreen()],
+      ["Shift+!", Message.RequestedFitToScreen()],
     ] as const;
     const initial: Model = {
       ...baseModel,
@@ -196,9 +196,9 @@ describe("zoom shortcuts", () => {
     const center = { x: 600, y: 400 };
     const before = Geometry.screenToWorld(initial.history.present.layout.viewport, center);
     for (const action of [
-      Message.ClickedZoomIn(),
-      Message.ClickedZoomOut(),
-      Message.ClickedResetView(),
+      Message.RequestedZoomIn(),
+      Message.RequestedZoomOut(),
+      Message.RequestedResetView(),
     ]) {
       const after = update(initial, action).model.history.present.layout.viewport;
       expect(Geometry.screenToWorld(after, center)).toEqual(before);
@@ -264,7 +264,7 @@ describe("zoom shortcuts", () => {
   });
 
   test("fit-all includes enum cards and retains the HUD's 100% cap and empty reset", () => {
-    const result = update(baseModel, Message.ClickedFitToScreen()).model;
+    const result = update(baseModel, Message.RequestedFitToScreen()).model;
     const bounds = Option.getOrThrow(Geometry.documentBounds(Doc.sampleDocument));
     expect(result.history.present.layout.viewport).toEqual(
       Geometry.fitViewport(bounds, baseModel.screen),
@@ -276,7 +276,7 @@ describe("zoom shortcuts", () => {
       ),
     };
     expect(
-      update(empty, Message.ClickedFitToScreen()).model.history.present.layout.viewport,
+      update(empty, Message.RequestedFitToScreen()).model.history.present.layout.viewport,
     ).toEqual(Doc.DEFAULT_VIEWPORT);
   });
 });
@@ -411,8 +411,8 @@ describe("new chooser", () => {
       EditorState.CreatingEntity({ position: { x: 0, y: 0 }, draftName: "Unsaved" }),
     ]) {
       const current = { ...baseModel, editor };
-      const viaKey = update(current, Message.PressedNewDocumentKey());
-      const viaButton = update(current, Message.ClickedNewDocument());
+      const viaKey = update(current, Message.RequestedNewDocument());
+      const viaButton = update(current, Message.RequestedNewDocument());
       expect(viaKey.model).toEqual(viaButton.model);
       expect(viaKey.commands).toEqual(viaButton.commands);
       expect(viaKey.commands).toEqual([ForgetActiveFile()]);
@@ -452,7 +452,7 @@ describe("key bindings", () => {
     for (const mode of ["Normal", "Text", "Choosing"] as const) {
       const binding = bindingsFor(mode).find((candidate) => candidate.keys === "Mod+N");
       expect(binding?.whileTyping).toBe("Allow");
-      expect(binding?.mapEvent(new KeyboardEvent("keydown"))._tag).toBe("PressedNewDocumentKey");
+      expect(binding?.mapEvent(new KeyboardEvent("keydown"))._tag).toBe("RequestedNewDocument");
     }
   });
 
@@ -645,12 +645,12 @@ describe("entities", () => {
         expect(m.history.present.associations).toHaveLength(0);
         expect(m.selection).toEqual(Selection.NoSelection());
       }),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(3);
         expect(m.history.present.associations).toHaveLength(2);
       }),
-      message(Message.PressedRedoKey()),
+      message(Message.RequestedRedo()),
       model((m) => expect(m.history.present.entities).toHaveLength(2)),
     );
   });
@@ -794,11 +794,11 @@ describe("associations", () => {
         expect(m.history.past).toHaveLength(2);
       }),
       message(Message.PressedEscapeKey()),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(r1Ends(m)[1].role).toBeUndefined()),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(r1Ends(m)[0].multiplicity).toEqual({ min: 1, max: "one" })),
-      message(Message.PressedRedoKey()),
+      message(Message.RequestedRedo()),
       model((m) => expect(r1Ends(m)[0].multiplicity).toEqual({ min: 0, max: "one" })),
     );
   });
@@ -850,7 +850,7 @@ describe("enums", () => {
         expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
         expect(m.history.present.layout.nodes["t2"]).toBeDefined();
       }),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => {
         expect(m.history.present.types).toHaveLength(1);
         expect(m.selection).toEqual(Selection.NoSelection());
@@ -885,7 +885,7 @@ describe("enums", () => {
       message(Message.UpdatedEnumDraftName({ name: "Permission" })),
       message(Message.PressedEnterKey()),
       model((m) => expect(findRole(m).name).toBe("Permission")),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(findRole(m).name).toBe("Role")),
     );
   });
@@ -935,9 +935,9 @@ describe("enums", () => {
         // One snapshot for adding the value, one for saving the edit.
         expect(m.history.past).toHaveLength(2);
       }),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(findRole(m).values.at(-1)).toEqual({ id: "v4", name: "value4" })),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
     );
   });
@@ -959,7 +959,7 @@ describe("enums", () => {
       message(Message.UpdatedEnumValueDraftName({ name: "viewer" })),
       message(Message.ClickedSaveEnumValue()),
       model((m) => expect(roleValues(m)).toEqual(["viewer", "author", "admin"])),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
     );
   });
@@ -972,9 +972,9 @@ describe("enums", () => {
       model((m) => expect(roleValues(m)).toEqual(["reader", "admin", "author"])),
       message(Message.ClickedDeleteEnumValue({ typeId: "t1", valueId: "v1" })),
       model((m) => expect(roleValues(m)).toEqual(["admin", "author"])),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(roleValues(m)).toEqual(["reader", "admin", "author"])),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
     );
   });
@@ -1006,12 +1006,12 @@ describe("enums", () => {
         expect(m.history.present.layout.nodes["t1"]).toBeUndefined();
         expect(m.selection).toEqual(Selection.NoSelection());
       }),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => {
         expect(findRole(m).name).toBe("Role");
         expect(m.history.present.layout.nodes["t1"]).toBeDefined();
       }),
-      message(Message.PressedRedoKey()),
+      message(Message.RequestedRedo()),
       model((m) => expect(m.history.present.types).toHaveLength(0)),
     );
   });
@@ -1046,7 +1046,7 @@ describe("enums", () => {
         expect(m.history.present.layout.nodes["t1"]?.position).toEqual({ x: 220, y: 580 });
         expect(m.history.past).toHaveLength(1);
       }),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) =>
         expect(m.history.present.layout.nodes["t1"]?.position).toEqual({ x: 120, y: 520 }),
       ),
@@ -1119,14 +1119,14 @@ describe("enum-typed fields", () => {
         // Naming the first value folds into the same step.
         expect(m.history.past).toHaveLength(2);
       }),
-      message(Message.PressedUndoKey()),
+      message(Message.RequestedUndo()),
       model((m) => {
         expect(Doc.findEnum(m.history.present, "t2")).toEqual(Option.none());
         expect(m.history.present.layout.nodes["t2"]).toBeUndefined();
         expect(post(m).attributes.at(-1)).toEqual(Doc.newAttribute("p11", "field3"));
         expect(m.selection).toEqual(Selection.NoSelection());
       }),
-      message(Message.PressedRedoKey()),
+      message(Message.RequestedRedo()),
       model((m) => {
         expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
           { id: "v4", name: "draft" },
@@ -1308,7 +1308,7 @@ describe("keyboard row verbs", () => {
       const cancelledFooter = update(footer, Message.PressedEscapeKey()).model;
       expect(rows(cancelledFooter).at(-1)).toEqual(rows(cancelled)[0]);
 
-      const undone = update(cancelled, Message.PressedUndoKey()).model;
+      const undone = update(cancelled, Message.RequestedUndo()).model;
       expect(rows(undone).map(({ id }) => id)).toEqual(ids);
       expect(undone.selection).toEqual(select(CardRow.Title()));
     });
@@ -1329,9 +1329,9 @@ describe("keyboard row verbs", () => {
       expect(m.editor).toEqual(EditorState.Idle());
       expect(m.selection).toEqual(select(row(newId)));
       expect(m.history.past).toHaveLength(2);
-      m = update(m, Message.PressedUndoKey()).model;
+      m = update(m, Message.RequestedUndo()).model;
       expect(rows(m)[0]?.name).toBe(defaultName);
-      m = update(m, Message.PressedUndoKey()).model;
+      m = update(m, Message.RequestedUndo()).model;
       expect(rows(m).map(({ id }) => id)).toEqual(ids);
     });
 
@@ -1353,10 +1353,10 @@ describe("keyboard row verbs", () => {
         m = moved;
       }
       expect(rows(m).map(({ id }) => id)).toEqual(ids);
-      m = update(m, Message.PressedUndoKey()).model;
+      m = update(m, Message.RequestedUndo()).model;
       expect(rows(m).map(({ id }) => id)).toEqual([ids[1], ids[0], ids[2]]);
       expect(m.selection).toEqual(selected.selection);
-      m = update(m, Message.PressedRedoKey()).model;
+      m = update(m, Message.RequestedRedo()).model;
       expect(rows(m).map(({ id }) => id)).toEqual(ids);
       expect(m.selection).toEqual(selected.selection);
     });
@@ -1400,7 +1400,7 @@ describe("files", () => {
         ...baseModel,
         editor: EditorState.RenamingEntity({ entityId: "e3", draftName: "Label" }),
       }),
-      message(Message.PressedSaveKey()),
+      message(Message.RequestedSave()),
       Command.expectHas(SaveFile),
       Command.resolve(SaveFile, Message.SucceededSaveFile({ fileName: "blog.domain.json" })),
       model((m) => {
@@ -1419,7 +1419,7 @@ describe("files", () => {
     story(
       update,
       given({ ...baseModel, saveStatus: "Dirty" }),
-      message(Message.PressedOpenKey()),
+      message(Message.RequestedOpen()),
       Command.resolve(
         OpenFile,
         Message.SucceededOpenFile({ document: opened, fileName: "x.domain.json" }),
@@ -1437,13 +1437,13 @@ describe("files", () => {
     story(
       update,
       given({ ...baseModel, maybeFileName: Option.some("blog.domain.json") }),
-      message(Message.ClickedNewDocument()),
+      message(Message.RequestedNewDocument()),
       Command.resolve(ForgetActiveFile, Message.CompletedForgetActiveFile()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(0);
         expect(m.maybeFileName).toEqual(Option.none());
       }),
-      message(Message.ClickedUndo()),
+      message(Message.RequestedUndo()),
       model((m) => expect(m.history.present.entities).toHaveLength(3)),
     );
   });
@@ -1452,7 +1452,7 @@ describe("files", () => {
     story(
       update,
       given(baseModel),
-      message(Message.ClickedOpen()),
+      message(Message.RequestedOpen()),
       Command.resolve(OpenFile, Message.FailedOpenFile({ error: "bad file" })),
       model((m) => expect(m.maybeNotice).toEqual(Option.some({ tone: "Error", text: "bad file" }))),
     );
