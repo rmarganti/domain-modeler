@@ -51,8 +51,8 @@ const placeEntity = (
     ),
   });
 
-const maybeEditingPropertyId = (editor: EditorState): Option.Option<string> =>
-  editor._tag === "EditingProperty" ? Option.some(editor.propertyId) : Option.none();
+const maybeEditingAttributeId = (editor: EditorState): Option.Option<string> =>
+  editor._tag === "EditingAttribute" ? Option.some(editor.attributeId) : Option.none();
 
 /** Edge endpoints, path, and midpoint, or none when either end is dangling. */
 export const edgeGeometry = (
@@ -69,7 +69,7 @@ export const edgeGeometry = (
       placeEntity(document, to.entityId, editor),
     ]),
     ([source, target]) => {
-      const editing = maybeEditingPropertyId(editor);
+      const editing = maybeEditingAttributeId(editor);
       const sourceRect = Geometry.nodeRect(source.entity, source.layout, editing);
       const targetRect = Geometry.nodeRect(target.entity, target.layout, editing);
       const { sourceSide, targetSide } = Geometry.chooseSides(

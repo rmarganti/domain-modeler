@@ -48,23 +48,48 @@ describe("document", () => {
     expect(next.layout.nodes["e2"]).toBeUndefined();
   });
 
-  test("deleteProperty removes the field and leaves associations alone", () => {
-    const next = Doc.deleteProperty(sample, "e1", "p3");
-    expect(Option.getOrThrow(Doc.findEntity(next, "e1")).properties.map((p) => p.id)).toEqual([
+  test("deleteAttribute removes the field and leaves associations alone", () => {
+    const next = Doc.deleteAttribute(sample, "e1", "p3");
+    expect(Option.getOrThrow(Doc.findEntity(next, "e1")).attributes.map((p) => p.id)).toEqual([
       "p2",
       "p4",
     ]);
     expect(next.associations).toEqual(sample.associations);
   });
 
-  test("moveProperty swaps with its neighbor and ignores out of range moves", () => {
-    const moved = Doc.moveProperty(sample, "e1", "p3", "Up");
-    expect(Option.getOrThrow(Doc.findEntity(moved, "e1")).properties.map((p) => p.id)).toEqual([
+  test("a new attribute is a single, non-unique String", () => {
+    expect(Doc.newAttribute("p1", "name")).toEqual({
+      id: "p1",
+      name: "name",
+      type: "String",
+      multiplicity: { min: 1, max: "one" },
+      unique: false,
+    });
+  });
+
+  test("a list attribute can't be stored as unique", () => {
+    const list = { min: 0, max: "many" } as const;
+    const tags = { ...Doc.newAttribute("p99", "tags"), multiplicity: list, unique: true };
+    const added = Doc.addAttribute(sample, "e3", tags);
+    expect(Option.getOrThrow(Doc.findEntity(added, "e3")).attributes.at(-1)?.unique).toBe(false);
+    const email = Option.getOrThrow(
+      Doc.findAttribute(Option.getOrThrow(Doc.findEntity(sample, "e1")), "p2"),
+    );
+    const replaced = Doc.replaceAttribute(sample, "e1", { ...email, multiplicity: list });
+    expect(
+      Option.getOrThrow(Doc.findEntity(replaced, "e1")).attributes.find((a) => a.id === "p2")
+        ?.unique,
+    ).toBe(false);
+  });
+
+  test("moveAttribute swaps with its neighbor and ignores out of range moves", () => {
+    const moved = Doc.moveAttribute(sample, "e1", "p3", "Up");
+    expect(Option.getOrThrow(Doc.findEntity(moved, "e1")).attributes.map((p) => p.id)).toEqual([
       "p3",
       "p2",
       "p4",
     ]);
-    expect(Doc.moveProperty(sample, "e1", "p2", "Up")).toEqual(sample);
+    expect(Doc.moveAttribute(sample, "e1", "p2", "Up")).toEqual(sample);
   });
 
   test("newAssociation defaults to one from per many tos", () => {
@@ -192,17 +217,42 @@ describe("diagnostics", () => {
     expect(Diagnostics.diagnose(sample)).toEqual([]);
   });
 
-  test("flags duplicate entity and property names case-insensitively", () => {
+  test("flags duplicate entity and attribute names case-insensitively", () => {
     const document = Doc.renameEntity(
-      Doc.replaceProperty(sample, "e1", {
-        ...Doc.newProperty("p3", "EMAIL"),
+      Doc.replaceAttribute(sample, "e1", {
+        ...Doc.newAttribute("p3", "EMAIL"),
       }),
       "e3",
       "post",
     );
     const tags = Diagnostics.diagnose(document).map((diagnostic) => diagnostic._tag);
     expect(tags.filter((tag) => tag === "DuplicateEntityName")).toHaveLength(2);
-    expect(tags.filter((tag) => tag === "DuplicatePropertyName")).toHaveLength(2);
+    expect(tags.filter((tag) => tag === "DuplicateAttributeName")).toHaveLength(2);
+  });
+
+  test("flags a unique list attribute in a loaded file", () => {
+    const document: DomainModelDocument = {
+      ...Doc.emptyDocument("Loaded"),
+      entities: [
+        {
+          id: "e1",
+          name: "Post",
+          attributes: [
+            {
+              ...Doc.newAttribute("p1", "tags"),
+              multiplicity: { min: 0, max: "many" },
+              unique: true,
+            },
+          ],
+        },
+      ],
+    };
+    const diagnostics = Diagnostics.diagnose(document);
+    expect(diagnostics).toEqual([
+      Diagnostics.Diagnostic.UniqueOnList({ entityId: "e1", attributeId: "p1" }),
+    ]);
+    expect(Diagnostics.forAttribute(diagnostics, "p1")).toEqual(diagnostics);
+    expect(diagnostics.map(Diagnostics.describe)).toEqual(["A list field can't be unique"]);
   });
 
   test("flags dangling entity references", () => {
@@ -243,8 +293,8 @@ describe("diagnostics", () => {
     const shop: DomainModelDocument = {
       ...Doc.emptyDocument("Shop"),
       entities: [
-        { id: "e1", name: "Order", properties: [] },
-        { id: "e2", name: "Address", properties: [] },
+        { id: "e1", name: "Order", attributes: [] },
+        { id: "e2", name: "Address", attributes: [] },
       ],
       associations: [orderAddress("r1"), orderAddress("r2")],
     };
@@ -290,8 +340,8 @@ describe("diagnostics", () => {
       expect(clashesOn(named, "e2").map((clash) => clash.name)).toEqual(["orders", "orders"]);
     });
 
-    test("a role clashes with a property of the same name", () => {
-      const document = Doc.addProperty(sample, "e1", Doc.newProperty("p99", "Posts"));
+    test("a role clashes with an attribute of the same name", () => {
+      const document = Doc.addAttribute(sample, "e1", Doc.newAttribute("p99", "Posts"));
       expect(clashes(document)).toEqual([
         Diagnostics.Diagnostic.RoleClash({
           associationId: "r1",

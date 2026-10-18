@@ -16,8 +16,8 @@ import type {
 export const COLLAPSED_NODE_WIDTH = 200;
 export const EXPANDED_NODE_WIDTH = 300;
 export const NODE_HEADER_HEIGHT = 44;
-export const PROPERTY_ROW_HEIGHT = 30;
-export const PROPERTY_EDITOR_HEIGHT = 128;
+export const ATTRIBUTE_ROW_HEIGHT = 30;
+export const ATTRIBUTE_EDITOR_HEIGHT = 128;
 export const NODE_FOOTER_HEIGHT = 40;
 export const PORT_RADIUS = 6;
 
@@ -43,23 +43,23 @@ export type Rect = Readonly<{
 export const nodeWidth = (layout: NodeLayout): number =>
   layout.isExpanded ? EXPANDED_NODE_WIDTH : COLLAPSED_NODE_WIDTH;
 
-/** Height of a node, accounting for an inline property editor when one is
+/** Height of a node, accounting for an inline attribute editor when one is
  *  open on this entity. */
 export const nodeHeight = (
   entity: EntityDefinition,
   layout: NodeLayout,
-  maybeEditingPropertyId: Option.Option<string>,
+  maybeEditingAttributeId: Option.Option<string>,
 ): number => {
   if (!layout.isExpanded) {
     return NODE_HEADER_HEIGHT;
   }
-  const isEditingHere = Option.exists(maybeEditingPropertyId, (propertyId) =>
-    Array.some(entity.properties, (property) => property.id === propertyId),
+  const isEditingHere = Option.exists(maybeEditingAttributeId, (attributeId) =>
+    Array.some(entity.attributes, (attribute) => attribute.id === attributeId),
   );
   return (
     NODE_HEADER_HEIGHT +
-    entity.properties.length * PROPERTY_ROW_HEIGHT +
-    (isEditingHere ? PROPERTY_EDITOR_HEIGHT - PROPERTY_ROW_HEIGHT : 0) +
+    entity.attributes.length * ATTRIBUTE_ROW_HEIGHT +
+    (isEditingHere ? ATTRIBUTE_EDITOR_HEIGHT - ATTRIBUTE_ROW_HEIGHT : 0) +
     NODE_FOOTER_HEIGHT
   );
 };
@@ -67,12 +67,12 @@ export const nodeHeight = (
 export const nodeRect = (
   entity: EntityDefinition,
   layout: NodeLayout,
-  maybeEditingPropertyId: Option.Option<string>,
+  maybeEditingAttributeId: Option.Option<string>,
 ): Rect => ({
   x: layout.position.x,
   y: layout.position.y,
   width: nodeWidth(layout),
-  height: nodeHeight(entity, layout, maybeEditingPropertyId),
+  height: nodeHeight(entity, layout, maybeEditingAttributeId),
 });
 
 /** Vertical offset (from the node's top) of every edge and port anchor: the

@@ -58,8 +58,8 @@ export const canvasView = (
 ): Html => {
   const document = model.history.present;
   const { editor, selection } = model;
-  const maybeEditingPropertyId =
-    editor._tag === "EditingProperty" ? Option.some(editor.propertyId) : Option.none<string>();
+  const maybeEditingAttributeId =
+    editor._tag === "EditingAttribute" ? Option.some(editor.attributeId) : Option.none<string>();
 
   const edges = Array.getSomes(
     Array.map(document.associations, (association) =>
@@ -140,7 +140,7 @@ export const canvasView = (
                   isSelected:
                     selection._tag === "SelectedEntity" && selection.entityId === entity.id,
                   diagnostics,
-                  maybeEditingPropertyId,
+                  maybeEditingAttributeId,
                 }),
               ),
             ),

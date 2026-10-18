@@ -10,48 +10,49 @@ The application is built on **Foldkit**, a frontend framework embodying **The El
 
 ## 2. Generic Domain Model AST
 
-The schema definition format is a **Generic Domain Model AST**: a problem-domain-agnostic meta-model capable of describing arbitrary domains, entities, properties, constraints, and relationships. It is strictly parsed, validated, and serialized using **Effect Schema**.
+The schema definition format is a **Generic Domain Model AST**: a problem-domain-agnostic meta-model capable of describing arbitrary domains, entities, attributes, constraints, and relationships. It is strictly parsed, validated, and serialized using **Effect Schema**.
 
 ### 2.1 AST Specification
 
 ```ts
 import { Schema } from "effect";
 
-export const PropertyType = Schema.Literals([
-  "String",
-  "Number",
-  "Boolean",
-  "Date",
-  "UUID",
-  "Literal",
-  "Json",
-]);
-export type PropertyType = typeof PropertyType.Type;
-
-export const PropertyDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  type: PropertyType,
-  literalOptions: Schema.optional(Schema.Array(Schema.String)),
-  isOptional: Schema.Boolean,
-  isNullable: Schema.Boolean,
-  description: Schema.optional(Schema.String),
-});
-export type PropertyDefinition = typeof PropertyDefinition.Type;
-
-export const EntityDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  properties: Schema.Array(PropertyDefinition),
-});
-export type EntityDefinition = typeof EntityDefinition.Type;
-
 export const Multiplicity = Schema.Struct({
   min: Schema.Literals([0, 1]),
   max: Schema.Literals(["one", "many"]),
 });
 export type Multiplicity = typeof Multiplicity.Type;
+
+export const Primitive = Schema.Literals([
+  "String",
+  "Integer",
+  "Decimal",
+  "Boolean",
+  "Date",
+  "DateTime",
+  "Json",
+  "Literal", // temporary: replaced by enums
+]);
+export type Primitive = typeof Primitive.Type;
+
+export const AttributeDefinition = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  type: Primitive,
+  literalOptions: Schema.optional(Schema.Array(Schema.String)), // temporary: replaced by enums
+  multiplicity: Multiplicity,
+  unique: Schema.Boolean,
+});
+export type AttributeDefinition = typeof AttributeDefinition.Type;
+
+export const EntityDefinition = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  attributes: Schema.Array(AttributeDefinition),
+});
+export type EntityDefinition = typeof EntityDefinition.Type;
 
 export const AssociationEnd = Schema.Struct({
   entityId: Schema.String,
@@ -72,9 +73,11 @@ export const AssociationDefinition = Schema.Struct({
 export type AssociationDefinition = typeof AssociationDefinition.Type;
 ```
 
-Entity identity is implicit: every entity is distinguishable without an ID property, so there is no primary key flag. An association connects two entities and nothing else; it never references individual properties. Foreign keys and join tables are a concern of future exporters, which can derive them from the association's ends.
+Entity identity is implicit: every entity is distinguishable without an ID attribute, so there is no primary key flag; business keys are expressed with `unique`. An association connects two entities and nothing else; it never references individual attributes. Foreign keys and join tables are a concern of future exporters, which can derive them from the association's ends.
 
-The code and the file format say "association"; everything the user sees says "Relationship".
+The code and the file format say "association" and "attribute"; everything the user sees says "Relationship" and "field".
+
+An attribute's `multiplicity` uses the same shape and the same ordered labels (`1`, `0..1`, `0..*`, `1..*`) as an association end; `0..1` is an optional value and a `many` maximum is a list. A list can't be `unique`: the document API forces `unique` to `false` whenever an attribute's `max` is `"many"`, and the field editor disables the Unique checkbox for list multiplicities. A new attribute is a `String` with multiplicity `1` and `unique: false`.
 
 ### 2.2 Associations
 
@@ -150,7 +153,7 @@ A domain validation pass ensures that:
 ### 4.2 Entity Nodes & Inline Expansion
 
 - **Collapsed (Default)**: Compact badge displaying entity name, field count badge, and handle ports.
-- **Expanded (On-Click)**: Smoothly expands in-place into an entity card detailing all properties, types, constraints (`NULL`, `OPT`), and inline actions to add, edit, reorder, or delete fields.
+- **Expanded (On-Click)**: Smoothly expands in-place into an entity card detailing all fields: name, type, a multiplicity badge when it isn't `1` (`0..1`, `0..*`, `1..*`), a `UQ` badge when unique, and inline actions to add, edit, reorder, or delete fields.
 
 ### 4.3 Port Drag-and-Drop Connection
 
@@ -194,7 +197,7 @@ export type EditorState =
   | { readonly _tag: "Idle" }
   | { readonly _tag: "CreatingEntity"; readonly position: Point }
   | { readonly _tag: "RenamingEntity"; readonly entityId: string }
-  | { readonly _tag: "EditingProperty"; readonly entityId: string; readonly propertyId: string }
+  | { readonly _tag: "EditingAttribute"; readonly entityId: string; readonly attributeId: string }
   | {
       readonly _tag: "ConnectingAssociation";
       readonly fromEntityId: string;
@@ -207,12 +210,12 @@ export type EditorState =
 
 ### Keybinding & Mode Matrix
 
-| State                                | Keybindings Active                                                                                                                                                                              | Keystrokes        |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `Idle` (Normal Mode)                 | `c`: Create entity at center/cursor<br>`d`: Delete selected entity/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & edit selected entity<br>`Escape`: Deselect / clear selection | Canvas shortcuts  |
-| `RenamingEntity` / `EditingProperty` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                       | Text input focus  |
-| `ConnectingAssociation`              | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                      | Active connection |
-| `DraggingNode` / `PanningCanvas`     | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                  | Canvas drag       |
+| State                                 | Keybindings Active                                                                                                                                                                              | Keystrokes        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `Idle` (Normal Mode)                  | `c`: Create entity at center/cursor<br>`d`: Delete selected entity/edge<br>`u`: Undo<br>`Ctrl+r`: Redo<br>`Enter` or `i`: Expand & edit selected entity<br>`Escape`: Deselect / clear selection | Canvas shortcuts  |
+| `RenamingEntity` / `EditingAttribute` | Input text capture active (`c`, `d` type text)<br>`Enter`: Commit edit and return to `Idle`<br>`Escape`: Cancel edit and return to `Idle`                                                       | Text input focus  |
+| `ConnectingAssociation`               | Dragging mouse updates line<br>`Escape`: Cancel connection                                                                                                                                      | Active connection |
+| `DraggingNode` / `PanningCanvas`      | Pointer movement updates coordinates<br>Pointer release commits position and returns to `Idle`                                                                                                  | Canvas drag       |
 
 A status bar in the bottom toolbar displays the active state pill (e.g. `NORMAL`, `CREATING`, `EDITING`, `CONNECTING`).
 
@@ -231,7 +234,7 @@ export const History = Schema.Struct({
 export type History = typeof History.Type;
 ```
 
-- Discrete model mutations (adding/deleting entities, property modifications, completed node drags, edge changes) push `present` onto `past` (capped at 50 snapshots) and clear `future`.
+- Discrete model mutations (adding/deleting entities, attribute modifications, completed node drags, edge changes) push `present` onto `past` (capped at 50 snapshots) and clear `future`.
 - Transient interactions (in-progress mouse moves during dragging or pan/zoom) only update the active canvas coordinates without pushing history snapshots.
 - `u` / `Cmd+Z` pops from `past` into `present`.
 - `Ctrl+r` / `Cmd+Shift+Z` pops from `future` into `present`.
@@ -256,9 +259,10 @@ The editor ships as a standalone desktop app built with **Tauri v2**, so file ac
 Live schema validation runs in the background on every model update and reports non-blocking diagnostics:
 
 - **Duplicate Entity Names**: Highlighted with warning badges on affected cards.
-- **Duplicate Property Names**: Flagged within the entity property list.
+- **Duplicate Attribute Names** (`DuplicateAttributeName`): flagged on the field row ("Duplicate field name “…”").
+- **Unique Lists** (`UniqueOnList`): a loaded file with an attribute that is both `unique` and `max: "many"` is flagged on its field row ("A list field can't be unique"). The editor can't produce this combination.
 - **Dangling References** (`DanglingEntityReference`): an edge whose end entity no longer exists is flagged with a warning badge ("Entity “…” at end 1 does not exist").
-- **Role Clashes** (`RoleClash`): for each entity, its property names and the effective role of the far end of every association touching it (both roles for a self association) must be unique, case-insensitively. Every association end whose role collides is flagged on its edge ("Role “posts” clashes on User"); giving the end an explicit role clears it.
+- **Role Clashes** (`RoleClash`): for each entity, its attribute names and the effective role of the far end of every association touching it (both roles for a self association) must be unique, case-insensitively. Every association end whose role collides is flagged on its edge ("Role “posts” clashes on User"); giving the end an explicit role clears it.
 
 ---
 

@@ -1,9 +1,8 @@
 import { Array, Option, pipe } from "effect";
 
 import * as Doc from "../domain/document";
-import type { Point, PropertyDefinition } from "../domain/schema";
-import type { DraftFlag } from "../message";
-import { EditorState, Selection, type Model, type PropertyDraft } from "../model";
+import type { AttributeDefinition, Multiplicity, Point } from "../domain/schema";
+import { EditorState, Selection, type Model, type AttributeDraft } from "../model";
 import {
   commitDocument,
   deselect,
@@ -17,14 +16,14 @@ import {
 // The text-edit lifecycle shared by every area: drafts, committing, and
 // cancelling whatever edit is in progress.
 
-// PROPERTY DRAFTS
+// ATTRIBUTE DRAFTS
 
-export const draftFromProperty = (property: PropertyDefinition): PropertyDraft => ({
-  name: property.name,
-  type: property.type,
-  literalOptions: (property.literalOptions ?? []).join(", "),
-  isOptional: property.isOptional,
-  isNullable: property.isNullable,
+export const draftFromAttribute = (attribute: AttributeDefinition): AttributeDraft => ({
+  name: attribute.name,
+  type: attribute.type,
+  literalOptions: (attribute.literalOptions ?? []).join(", "),
+  multiplicity: attribute.multiplicity,
+  unique: attribute.unique,
 });
 
 const parseLiteralOptions = (text: string): ReadonlyArray<string> =>
@@ -35,35 +34,46 @@ const parseLiteralOptions = (text: string): ReadonlyArray<string> =>
     Array.dedupe,
   );
 
-export const propertyFromDraft = (
-  property: PropertyDefinition,
-  draft: PropertyDraft,
-): PropertyDefinition => {
-  const { literalOptions: _literalOptions, ...rest } = property;
+export const attributeFromDraft = (
+  attribute: AttributeDefinition,
+  draft: AttributeDraft,
+): AttributeDefinition => {
+  const { literalOptions: _literalOptions, ...rest } = attribute;
   const name = draft.name.trim();
   return {
     ...rest,
-    name: name === "" ? property.name : name,
+    name: name === "" ? attribute.name : name,
     type: draft.type,
-    isOptional: draft.isOptional,
-    isNullable: draft.isNullable,
+    multiplicity: draft.multiplicity,
+    unique: draft.unique,
     ...(draft.type === "Literal"
       ? { literalOptions: parseLiteralOptions(draft.literalOptions) }
       : {}),
   };
 };
 
-export const toggleDraftFlag = (draft: PropertyDraft, flag: DraftFlag): PropertyDraft => ({
+/** Choosing a list multiplicity clears `unique`, since a list can't be
+ *  unique. */
+export const selectDraftMultiplicity = (
+  draft: AttributeDraft,
+  multiplicity: Multiplicity,
+): AttributeDraft => ({
   ...draft,
-  [flag]: !draft[flag],
+  multiplicity,
+  unique: multiplicity.max === "many" ? false : draft.unique,
 });
 
-export const updatePropertyDraft = (
+export const toggleDraftUnique = (draft: AttributeDraft): AttributeDraft => ({
+  ...draft,
+  unique: draft.multiplicity.max === "many" ? false : !draft.unique,
+});
+
+export const updateAttributeDraft = (
   model: Model,
-  f: (draft: PropertyDraft) => PropertyDraft,
+  f: (draft: AttributeDraft) => AttributeDraft,
 ): UpdateReturn => ({
   model:
-    model.editor._tag === "EditingProperty"
+    model.editor._tag === "EditingAttribute"
       ? { ...model, editor: { ...model.editor, draft: f(model.editor.draft) } }
       : model,
 });
@@ -92,21 +102,21 @@ const commitRenameEntity = (model: Model, entityId: string, draftName: string): 
   );
 };
 
-const commitPropertyEdit = (
+const commitAttributeEdit = (
   model: Model,
   entityId: string,
-  propertyId: string,
-  draft: PropertyDraft,
+  attributeId: string,
+  draft: AttributeDraft,
 ): Model =>
   pipe(
     Doc.findEntity(present(model), entityId),
-    Option.flatMap((entity) => Doc.findProperty(entity, propertyId)),
+    Option.flatMap((entity) => Doc.findAttribute(entity, attributeId)),
     Option.match({
       onNone: () => toIdle(model),
-      onSome: (property) =>
+      onSome: (attribute) =>
         toIdle(
           commitDocument(model, (document) =>
-            Doc.replaceProperty(document, entityId, propertyFromDraft(property, draft)),
+            Doc.replaceAttribute(document, entityId, attributeFromDraft(attribute, draft)),
           ),
         ),
     }),
@@ -120,8 +130,8 @@ export const finishEditing = (model: Model): Model =>
     Idle: () => model,
     CreatingEntity: ({ position, draftName }) => commitCreateEntity(model, position, draftName),
     RenamingEntity: ({ entityId, draftName }) => commitRenameEntity(model, entityId, draftName),
-    EditingProperty: ({ entityId, propertyId, draft }) =>
-      commitPropertyEdit(model, entityId, propertyId, draft),
+    EditingAttribute: ({ entityId, attributeId, draft }) =>
+      commitAttributeEdit(model, entityId, attributeId, draft),
     EditingAssociation: () => toIdle(model),
     ConnectingAssociation: () => toIdle(model),
     DraggingNode: () => model,
@@ -134,7 +144,7 @@ export const cancelEditing = (model: Model): Model =>
     Idle: () => deselect(model),
     CreatingEntity: () => toIdle(model),
     RenamingEntity: () => toIdle(model),
-    EditingProperty: () => toIdle(model),
+    EditingAttribute: () => toIdle(model),
     ConnectingAssociation: () => toIdle(model),
     EditingAssociation: () => deselect(toIdle(model)),
     DraggingNode: () => toIdle(model),

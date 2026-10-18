@@ -18,7 +18,7 @@ import type {
   Multiplicity,
   NodeLayout,
   Point,
-  PropertyDefinition,
+  AttributeDefinition,
   ViewportLayout,
 } from "./schema";
 
@@ -44,7 +44,7 @@ export type IdPrefix = "e" | "p" | "r";
 const allIds = (document: DomainModelDocument): ReadonlyArray<string> => [
   ...Array.map(document.entities, (entity) => entity.id),
   ...Array.flatMap(document.entities, (entity) =>
-    Array.map(entity.properties, (property) => property.id),
+    Array.map(entity.attributes, (attribute) => attribute.id),
   ),
   ...Array.map(document.associations, (association) => association.id),
 ];
@@ -68,11 +68,11 @@ export const findEntity = (
 ): Option.Option<EntityDefinition> =>
   Array.findFirst(document.entities, (entity) => entity.id === entityId);
 
-export const findProperty = (
+export const findAttribute = (
   entity: EntityDefinition,
-  propertyId: string,
-): Option.Option<PropertyDefinition> =>
-  Array.findFirst(entity.properties, (property) => property.id === propertyId);
+  attributeId: string,
+): Option.Option<AttributeDefinition> =>
+  Array.findFirst(entity.attributes, (attribute) => attribute.id === attributeId);
 
 export const findAssociation = (
   document: DomainModelDocument,
@@ -127,7 +127,7 @@ export const addEntity = (
   position: Point,
 ): DomainModelDocument => ({
   ...document,
-  entities: [...document.entities, { id: entityId, name, properties: [] }],
+  entities: [...document.entities, { id: entityId, name, attributes: [] }],
   layout: {
     ...document.layout,
     nodes: {
@@ -176,75 +176,87 @@ export const deleteEntity = (
   },
 });
 
-// PROPERTIES
+// ATTRIBUTES
 
-export const newProperty = (propertyId: string, name: string): PropertyDefinition => ({
-  id: propertyId,
+export const newAttribute = (attributeId: string, name: string): AttributeDefinition => ({
+  id: attributeId,
   name,
   type: "String",
-  isOptional: false,
-  isNullable: false,
+  multiplicity: { min: 1, max: "one" },
+  unique: false,
 });
 
-export const addProperty = (
+/** A list can't be unique, so a `many` multiplicity forces `unique` off.
+ *  Every write goes through this, keeping the combination out of the
+ *  document. */
+const normalizeAttribute = (attribute: AttributeDefinition): AttributeDefinition =>
+  attribute.multiplicity.max === "many" && attribute.unique
+    ? { ...attribute, unique: false }
+    : attribute;
+
+export const addAttribute = (
   document: DomainModelDocument,
   entityId: string,
-  property: PropertyDefinition,
+  attribute: AttributeDefinition,
 ): DomainModelDocument =>
   mapEntity(document, entityId, (entity) => ({
     ...entity,
-    properties: [...entity.properties, property],
+    attributes: [...entity.attributes, normalizeAttribute(attribute)],
   }));
 
-export const replaceProperty = (
+export const replaceAttribute = (
   document: DomainModelDocument,
   entityId: string,
-  property: PropertyDefinition,
+  attribute: AttributeDefinition,
 ): DomainModelDocument =>
   mapEntity(document, entityId, (entity) => ({
     ...entity,
-    properties: Array.map(entity.properties, (existing) =>
-      existing.id === property.id ? property : existing,
+    attributes: Array.map(entity.attributes, (existing) =>
+      existing.id === attribute.id ? normalizeAttribute(attribute) : existing,
     ),
   }));
 
-export const deleteProperty = (
+export const deleteAttribute = (
   document: DomainModelDocument,
   entityId: string,
-  propertyId: string,
+  attributeId: string,
 ): DomainModelDocument =>
   mapEntity(document, entityId, (entity) => ({
     ...entity,
-    properties: Array.filter(entity.properties, (property) => property.id !== propertyId),
+    attributes: Array.filter(entity.attributes, (attribute) => attribute.id !== attributeId),
   }));
 
 export type MoveDirection = "Up" | "Down";
 
-export const moveProperty = (
+export const moveAttribute = (
   document: DomainModelDocument,
   entityId: string,
-  propertyId: string,
+  attributeId: string,
   direction: MoveDirection,
 ): DomainModelDocument =>
   mapEntity(document, entityId, (entity) =>
     pipe(
-      Array.findFirstIndex(entity.properties, (property) => property.id === propertyId),
+      Array.findFirstIndex(entity.attributes, (attribute) => attribute.id === attributeId),
       Option.flatMap((index) => {
         const swapIndex = direction === "Up" ? index - 1 : index + 1;
         return Option.all([
-          Array.get(entity.properties, index),
-          Array.get(entity.properties, swapIndex),
+          Array.get(entity.attributes, index),
+          Array.get(entity.attributes, swapIndex),
         ]).pipe(
           Option.map(([moving, displaced]) =>
-            Array.map(entity.properties, (property, propertyIndex) =>
-              propertyIndex === index ? displaced : propertyIndex === swapIndex ? moving : property,
+            Array.map(entity.attributes, (attribute, attributeIndex) =>
+              attributeIndex === index
+                ? displaced
+                : attributeIndex === swapIndex
+                  ? moving
+                  : attribute,
             ),
           ),
         );
       }),
       Option.match({
         onNone: () => entity,
-        onSome: (properties) => ({ ...entity, properties }),
+        onSome: (attributes) => ({ ...entity, attributes }),
       }),
     ),
   );
@@ -435,61 +447,61 @@ export const sampleDocument: DomainModelDocument = {
       id: "e1",
       name: "User",
       description: "A registered author or reader.",
-      properties: [
+      attributes: [
         {
           id: "p2",
           name: "email",
           type: "String",
-          isOptional: false,
-          isNullable: false,
+          multiplicity: { min: 1, max: "one" },
+          unique: true,
         },
         {
           id: "p3",
           name: "displayName",
           type: "String",
-          isOptional: true,
-          isNullable: false,
+          multiplicity: { min: 0, max: "one" },
+          unique: false,
         },
         {
           id: "p4",
           name: "role",
           type: "Literal",
           literalOptions: ["reader", "author", "admin"],
-          isOptional: false,
-          isNullable: false,
+          multiplicity: { min: 1, max: "one" },
+          unique: false,
         },
       ],
     },
     {
       id: "e2",
       name: "Post",
-      properties: [
+      attributes: [
         {
           id: "p7",
           name: "title",
           type: "String",
-          isOptional: false,
-          isNullable: false,
+          multiplicity: { min: 1, max: "one" },
+          unique: false,
         },
         {
           id: "p8",
           name: "publishedAt",
-          type: "Date",
-          isOptional: false,
-          isNullable: true,
+          type: "DateTime",
+          multiplicity: { min: 0, max: "one" },
+          unique: false,
         },
       ],
     },
     {
       id: "e3",
       name: "Tag",
-      properties: [
+      attributes: [
         {
           id: "p10",
           name: "label",
           type: "String",
-          isOptional: false,
-          isNullable: false,
+          multiplicity: { min: 1, max: "one" },
+          unique: true,
         },
       ],
     },

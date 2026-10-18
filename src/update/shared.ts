@@ -72,10 +72,10 @@ export const reconcile = (model: Model): Model => {
     Idle: () => true,
     CreatingEntity: () => true,
     RenamingEntity: ({ entityId }) => hasEntity(entityId),
-    EditingProperty: ({ entityId, propertyId }) =>
+    EditingAttribute: ({ entityId, attributeId }) =>
       pipe(
         Doc.findEntity(document, entityId),
-        Option.flatMap((entity) => Doc.findProperty(entity, propertyId)),
+        Option.flatMap((entity) => Doc.findAttribute(entity, attributeId)),
         Option.isSome,
       ),
     ConnectingAssociation: ({ fromEntityId }) => hasEntity(fromEntityId),

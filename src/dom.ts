@@ -3,7 +3,7 @@
 
 export const CANVAS_ID = "canvas";
 export const ENTITY_NAME_INPUT_ID = "entity-name-input";
-export const PROPERTY_NAME_INPUT_ID = "property-name-input";
+export const ATTRIBUTE_NAME_INPUT_ID = "attribute-name-input";
 
 /** Marks elements that sit on the canvas but handle their own pointer input,
  *  so a press on them is not also treated as a press on empty canvas. */

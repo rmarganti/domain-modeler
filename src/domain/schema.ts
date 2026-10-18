@@ -2,43 +2,44 @@ import { Schema } from "effect";
 
 // AST
 
-export const PropertyType = Schema.Literals([
-  "String",
-  "Number",
-  "Boolean",
-  "Date",
-  "UUID",
-  "Literal",
-  "Json",
-]);
-export type PropertyType = typeof PropertyType.Type;
-
-export const PROPERTY_TYPES: ReadonlyArray<PropertyType> = PropertyType.literals;
-
-export const PropertyDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  type: PropertyType,
-  literalOptions: Schema.optional(Schema.Array(Schema.String)),
-  isOptional: Schema.Boolean,
-  isNullable: Schema.Boolean,
-  description: Schema.optional(Schema.String),
-});
-export type PropertyDefinition = typeof PropertyDefinition.Type;
-
-export const EntityDefinition = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  properties: Schema.Array(PropertyDefinition),
-});
-export type EntityDefinition = typeof EntityDefinition.Type;
-
 export const Multiplicity = Schema.Struct({
   min: Schema.Literals([0, 1]),
   max: Schema.Literals(["one", "many"]),
 });
 export type Multiplicity = typeof Multiplicity.Type;
+
+export const Primitive = Schema.Literals([
+  "String",
+  "Integer",
+  "Decimal",
+  "Boolean",
+  "Date",
+  "DateTime",
+  "Json",
+  "Literal", // temporary: removed in part 5
+]);
+export type Primitive = typeof Primitive.Type;
+
+export const PRIMITIVES: ReadonlyArray<Primitive> = Primitive.literals;
+
+export const AttributeDefinition = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  type: Primitive,
+  literalOptions: Schema.optional(Schema.Array(Schema.String)), // temporary: removed in part 5
+  multiplicity: Multiplicity,
+  unique: Schema.Boolean,
+});
+export type AttributeDefinition = typeof AttributeDefinition.Type;
+
+export const EntityDefinition = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  attributes: Schema.Array(AttributeDefinition),
+});
+export type EntityDefinition = typeof EntityDefinition.Type;
 
 export const AssociationEnd = Schema.Struct({
   entityId: Schema.String,

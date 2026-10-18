@@ -1,10 +1,10 @@
 import { Option, pipe } from "effect";
 
-import { ENTITY_NAME_INPUT_ID, PROPERTY_NAME_INPUT_ID } from "../dom";
+import { ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
 import * as Geometry from "../domain/geometry";
 import { EditorState, Selection, type Model } from "../model";
-import { draftFromProperty, finishEditing } from "./editing";
+import { draftFromAttribute, finishEditing } from "./editing";
 import {
   amendDocument,
   commitDocument,
@@ -73,49 +73,49 @@ export const updateDraftName = (model: Model, name: string): UpdateReturn => ({
   ),
 });
 
-// PROPERTIES
+// ATTRIBUTES
 
-export const startEditingProperty = (
+export const startEditingAttribute = (
   model: Model,
   entityId: string,
-  propertyId: string,
+  attributeId: string,
 ): UpdateReturn =>
   pipe(
     Doc.findEntity(present(model), entityId),
-    Option.flatMap((entity) => Doc.findProperty(entity, propertyId)),
+    Option.flatMap((entity) => Doc.findAttribute(entity, attributeId)),
     Option.match({
       onNone: () => ({ model }),
-      onSome: (property) => ({
+      onSome: (attribute) => ({
         model: {
           ...amendDocument(model, (document) => Doc.setExpanded(document, entityId, true)),
-          editor: EditorState.EditingProperty({
+          editor: EditorState.EditingAttribute({
             entityId,
-            propertyId,
-            draft: draftFromProperty(property),
+            attributeId,
+            draft: draftFromAttribute(attribute),
           }),
           selection: Selection.SelectedEntity({ entityId }),
         },
-        commands: [focus(PROPERTY_NAME_INPUT_ID)],
+        commands: [focus(ATTRIBUTE_NAME_INPUT_ID)],
       }),
     }),
   );
 
-export const addProperty = (model: Model, entityId: string): UpdateReturn =>
+export const addAttribute = (model: Model, entityId: string): UpdateReturn =>
   Option.match(Doc.findEntity(present(model), entityId), {
     onNone: () => ({ model }),
     onSome: (entity) => {
       const ready = finishEditing(model);
-      const propertyId = Doc.nextId(present(ready), "p");
-      const property = Doc.newProperty(propertyId, `field${entity.properties.length + 1}`);
-      return startEditingProperty(
-        commitDocument(ready, (document) => Doc.addProperty(document, entityId, property)),
+      const attributeId = Doc.nextId(present(ready), "p");
+      const attribute = Doc.newAttribute(attributeId, `field${entity.attributes.length + 1}`);
+      return startEditingAttribute(
+        commitDocument(ready, (document) => Doc.addAttribute(document, entityId, attribute)),
         entityId,
-        propertyId,
+        attributeId,
       );
     },
   });
 
-export const deleteProperty = (model: Model, entityId: string, propertyId: string): Model =>
+export const deleteAttribute = (model: Model, entityId: string, attributeId: string): Model =>
   reconcile(
-    commitDocument(model, (document) => Doc.deleteProperty(document, entityId, propertyId)),
+    commitDocument(model, (document) => Doc.deleteAttribute(document, entityId, attributeId)),
   );

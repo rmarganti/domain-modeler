@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
-import { DomainModelDocument, EndIndex, Multiplicity, PropertyType } from "./domain/schema";
+import { DomainModelDocument, EndIndex, Multiplicity, Primitive } from "./domain/schema";
 
 const PointerFields = {
   button: Schema.Number,
@@ -10,8 +10,6 @@ const PointerFields = {
 };
 
 export const MoveDirection = Schema.Literals(["Up", "Down"]);
-export const DraftFlag = Schema.Literals(["isOptional", "isNullable"]);
-export type DraftFlag = typeof DraftFlag.Type;
 export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
 
 export const Message = defineMessageUnion({
@@ -70,20 +68,21 @@ export const Message = defineMessageUnion({
   UpdatedEntityDraftName: { name: Schema.String },
   ClickedDeleteEntity: { entityId: Schema.String },
 
-  // Properties
-  ClickedAddProperty: { entityId: Schema.String },
-  ClickedEditProperty: { entityId: Schema.String, propertyId: Schema.String },
-  ClickedDeleteProperty: { entityId: Schema.String, propertyId: Schema.String },
-  ClickedMoveProperty: {
+  // Attributes
+  ClickedAddAttribute: { entityId: Schema.String },
+  ClickedEditAttribute: { entityId: Schema.String, attributeId: Schema.String },
+  ClickedDeleteAttribute: { entityId: Schema.String, attributeId: Schema.String },
+  ClickedMoveAttribute: {
     entityId: Schema.String,
-    propertyId: Schema.String,
+    attributeId: Schema.String,
     direction: MoveDirection,
   },
-  UpdatedPropertyDraftName: { name: Schema.String },
-  SelectedPropertyDraftType: { type: PropertyType },
-  ToggledPropertyDraftFlag: { flag: DraftFlag },
-  UpdatedPropertyDraftLiteralOptions: { text: Schema.String },
-  ClickedSaveProperty: {},
+  UpdatedAttributeDraftName: { name: Schema.String },
+  SelectedAttributeDraftType: { type: Primitive },
+  SelectedAttributeDraftMultiplicity: { multiplicity: Multiplicity },
+  ToggledAttributeDraftUnique: {},
+  UpdatedAttributeDraftLiteralOptions: { text: Schema.String },
+  ClickedSaveAttribute: {},
   ClickedCancelEdit: {},
 
   // Associations

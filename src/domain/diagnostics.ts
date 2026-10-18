@@ -14,11 +14,12 @@ import type {
 
 export type Diagnostic = Data.TaggedEnum<{
   DuplicateEntityName: { readonly entityId: string; readonly name: string };
-  DuplicatePropertyName: {
+  DuplicateAttributeName: {
     readonly entityId: string;
-    readonly propertyId: string;
+    readonly attributeId: string;
     readonly name: string;
   };
+  UniqueOnList: { readonly entityId: string; readonly attributeId: string };
   DanglingEntityReference: {
     readonly associationId: string;
     readonly endIndex: EndIndex;
@@ -54,15 +55,24 @@ const duplicateEntityNames = (document: DomainModelDocument): ReadonlyArray<Diag
     (entity) => Diagnostic.DuplicateEntityName({ entityId: entity.id, name: entity.name }),
   );
 
-const duplicatePropertyNames = (entity: EntityDefinition): ReadonlyArray<Diagnostic> =>
+const duplicateAttributeNames = (entity: EntityDefinition): ReadonlyArray<Diagnostic> =>
   Array.map(
-    duplicatesBy(entity.properties, (property) => property.name),
-    (property) =>
-      Diagnostic.DuplicatePropertyName({
+    duplicatesBy(entity.attributes, (attribute) => attribute.name),
+    (attribute) =>
+      Diagnostic.DuplicateAttributeName({
         entityId: entity.id,
-        propertyId: property.id,
-        name: property.name,
+        attributeId: attribute.id,
+        name: attribute.name,
       }),
+  );
+
+const uniqueOnLists = (entity: EntityDefinition): ReadonlyArray<Diagnostic> =>
+  pipe(
+    entity.attributes,
+    Array.filter((attribute) => attribute.unique && attribute.multiplicity.max === "many"),
+    Array.map((attribute) =>
+      Diagnostic.UniqueOnList({ entityId: entity.id, attributeId: attribute.id }),
+    ),
   );
 
 const END_INDEXES: ReadonlyArray<EndIndex> = [0, 1];
@@ -86,19 +96,19 @@ const danglingEntityReferences = (
     }),
   );
 
-/** A name an entity can be navigated by: one of its properties, or the role
+/** A name an entity can be navigated by: one of its attributes, or the role
  *  of the far end of an association touching it. */
 type Member =
-  | Readonly<{ _tag: "Property"; name: string }>
+  | Readonly<{ _tag: "Attribute"; name: string }>
   | Readonly<{ _tag: "Role"; name: string; associationId: string; endIndex: EndIndex }>;
 
 const members = (
   document: DomainModelDocument,
   entity: EntityDefinition,
 ): ReadonlyArray<Member> => [
-  ...Array.map(entity.properties, (property): Member => ({
-    _tag: "Property",
-    name: property.name,
+  ...Array.map(entity.attributes, (attribute): Member => ({
+    _tag: "Attribute",
+    name: attribute.name,
   })),
   ...Array.flatMap(document.associations, (association) =>
     Array.getSomes(
@@ -142,7 +152,8 @@ const roleClashes = (
 /** Live, non-blocking validation of a document. */
 export const diagnose = (document: DomainModelDocument): ReadonlyArray<Diagnostic> => [
   ...duplicateEntityNames(document),
-  ...Array.flatMap(document.entities, duplicatePropertyNames),
+  ...Array.flatMap(document.entities, duplicateAttributeNames),
+  ...Array.flatMap(document.entities, uniqueOnLists),
   ...Array.flatMap(document.associations, (association) =>
     danglingEntityReferences(document, association),
   ),
@@ -158,18 +169,21 @@ export const forEntity = (
   Array.filter(
     diagnostics,
     (diagnostic) =>
-      (diagnostic._tag === "DuplicateEntityName" || diagnostic._tag === "DuplicatePropertyName") &&
+      (diagnostic._tag === "DuplicateEntityName" ||
+        diagnostic._tag === "DuplicateAttributeName" ||
+        diagnostic._tag === "UniqueOnList") &&
       diagnostic.entityId === entityId,
   );
 
-export const forProperty = (
+export const forAttribute = (
   diagnostics: ReadonlyArray<Diagnostic>,
-  propertyId: string,
+  attributeId: string,
 ): ReadonlyArray<Diagnostic> =>
   Array.filter(
     diagnostics,
     (diagnostic) =>
-      diagnostic._tag === "DuplicatePropertyName" && diagnostic.propertyId === propertyId,
+      (diagnostic._tag === "DuplicateAttributeName" || diagnostic._tag === "UniqueOnList") &&
+      diagnostic.attributeId === attributeId,
   );
 
 export const forAssociation = (
@@ -186,7 +200,8 @@ export const forAssociation = (
 export const describe = (diagnostic: Diagnostic): string =>
   Diagnostic.$match(diagnostic, {
     DuplicateEntityName: ({ name }) => `Duplicate entity name “${name}”`,
-    DuplicatePropertyName: ({ name }) => `Duplicate property name “${name}”`,
+    DuplicateAttributeName: ({ name }) => `Duplicate field name “${name}”`,
+    UniqueOnList: () => "A list field can't be unique",
     DanglingEntityReference: ({ endIndex, entityId }) =>
       `Entity “${entityId}” at end ${endIndex + 1} does not exist`,
     RoleClash: ({ name, entityName }) => `Role “${name}” clashes on ${entityName}`,

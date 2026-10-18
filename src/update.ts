@@ -8,8 +8,9 @@ import * as Canvas from "./update/canvas";
 import {
   cancelEditing,
   finishEditing,
-  toggleDraftFlag,
-  updatePropertyDraft,
+  selectDraftMultiplicity,
+  toggleDraftUnique,
+  updateAttributeDraft,
 } from "./update/editing";
 import * as Entities from "./update/entities";
 import * as Associations from "./update/associations";
@@ -86,28 +87,29 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       }),
     }),
 
-    // Properties
+    // Attributes
 
-    ClickedAddProperty: ({ entityId }) => Entities.addProperty(model, entityId),
-    ClickedEditProperty: ({ entityId, propertyId }) =>
-      Entities.startEditingProperty(finishEditing(model), entityId, propertyId),
-    ClickedDeleteProperty: ({ entityId, propertyId }) => ({
-      model: Entities.deleteProperty(model, entityId, propertyId),
+    ClickedAddAttribute: ({ entityId }) => Entities.addAttribute(model, entityId),
+    ClickedEditAttribute: ({ entityId, attributeId }) =>
+      Entities.startEditingAttribute(finishEditing(model), entityId, attributeId),
+    ClickedDeleteAttribute: ({ entityId, attributeId }) => ({
+      model: Entities.deleteAttribute(model, entityId, attributeId),
     }),
-    ClickedMoveProperty: ({ entityId, propertyId, direction }) => ({
+    ClickedMoveAttribute: ({ entityId, attributeId, direction }) => ({
       model: commitDocument(model, (document) =>
-        Doc.moveProperty(document, entityId, propertyId, direction),
+        Doc.moveAttribute(document, entityId, attributeId, direction),
       ),
     }),
-    UpdatedPropertyDraftName: ({ name }) =>
-      updatePropertyDraft(model, (draft) => ({ ...draft, name })),
-    SelectedPropertyDraftType: ({ type }) =>
-      updatePropertyDraft(model, (draft) => ({ ...draft, type })),
-    ToggledPropertyDraftFlag: ({ flag }) =>
-      updatePropertyDraft(model, (draft) => toggleDraftFlag(draft, flag)),
-    UpdatedPropertyDraftLiteralOptions: ({ text }) =>
-      updatePropertyDraft(model, (draft) => ({ ...draft, literalOptions: text })),
-    ClickedSaveProperty: () => ({ model: finishEditing(model) }),
+    UpdatedAttributeDraftName: ({ name }) =>
+      updateAttributeDraft(model, (draft) => ({ ...draft, name })),
+    SelectedAttributeDraftType: ({ type }) =>
+      updateAttributeDraft(model, (draft) => ({ ...draft, type })),
+    SelectedAttributeDraftMultiplicity: ({ multiplicity }) =>
+      updateAttributeDraft(model, (draft) => selectDraftMultiplicity(draft, multiplicity)),
+    ToggledAttributeDraftUnique: () => updateAttributeDraft(model, toggleDraftUnique),
+    UpdatedAttributeDraftLiteralOptions: ({ text }) =>
+      updateAttributeDraft(model, (draft) => ({ ...draft, literalOptions: text })),
+    ClickedSaveAttribute: () => ({ model: finishEditing(model) }),
     ClickedCancelEdit: () => ({ model: cancelEditing(model) }),
 
     // Associations

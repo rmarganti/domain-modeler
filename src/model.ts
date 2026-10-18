@@ -2,29 +2,29 @@ import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { History } from "./domain/history";
-import { Point, PropertyType } from "./domain/schema";
+import { Multiplicity, Point, Primitive } from "./domain/schema";
 
 // EDITOR STATE MACHINE
 // The editor never tracks interaction with boolean flags: exactly one of these
 // states is active, and each carries only the data its interaction needs.
 
-export const PropertyDraft = Schema.Struct({
+export const AttributeDraft = Schema.Struct({
   name: Schema.String,
-  type: PropertyType,
+  type: Primitive,
   literalOptions: Schema.String,
-  isOptional: Schema.Boolean,
-  isNullable: Schema.Boolean,
+  multiplicity: Multiplicity,
+  unique: Schema.Boolean,
 });
-export type PropertyDraft = typeof PropertyDraft.Type;
+export type AttributeDraft = typeof AttributeDraft.Type;
 
 export const EditorState = defineTaggedUnion({
   Idle: {},
   CreatingEntity: { position: Point, draftName: Schema.String },
   RenamingEntity: { entityId: Schema.String, draftName: Schema.String },
-  EditingProperty: {
+  EditingAttribute: {
     entityId: Schema.String,
-    propertyId: Schema.String,
-    draft: PropertyDraft,
+    attributeId: Schema.String,
+    draft: AttributeDraft,
   },
   ConnectingAssociation: {
     fromEntityId: Schema.String,

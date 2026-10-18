@@ -20,7 +20,7 @@ const toKeyMode = (editor: EditorState): KeyMode =>
     EditingAssociation: () => "Normal",
     CreatingEntity: () => "Text",
     RenamingEntity: () => "Text",
-    EditingProperty: () => "Text",
+    EditingAttribute: () => "Text",
     ConnectingAssociation: () => "Pointer",
     DraggingNode: () => "Pointer",
     PanningCanvas: () => "Pointer",

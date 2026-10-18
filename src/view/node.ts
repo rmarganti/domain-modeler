@@ -1,37 +1,39 @@
 import { Array, Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
-import { ENTITY_ID_ATTRIBUTE, ENTITY_NAME_INPUT_ID, PROPERTY_NAME_INPUT_ID } from "../dom";
+import { ENTITY_ID_ATTRIBUTE, ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Diagnostics from "../domain/diagnostics";
 import * as Geometry from "../domain/geometry";
 import {
-  PROPERTY_TYPES,
+  PRIMITIVES,
   type EntityDefinition,
   type NodeLayout,
   type Point,
-  type PropertyDefinition,
+  type AttributeDefinition,
 } from "../domain/schema";
-import { Message, type DraftFlag } from "../message";
-import type { EditorState, PropertyDraft } from "../model";
+import { MULTIPLICITIES, multiplicityEquals, multiplicityLabel } from "../domain/multiplicity";
+import { Message } from "../message";
+import type { EditorState, AttributeDraft } from "../model";
 import { canvasItem, iconButton, onPress, px, warningBadge } from "./shared";
 
 export type NodeContext = Readonly<{
   editor: EditorState;
   isSelected: boolean;
   diagnostics: ReadonlyArray<Diagnostics.Diagnostic>;
-  maybeEditingPropertyId: Option.Option<string>;
+  maybeEditingAttributeId: Option.Option<string>;
 }>;
 
 const IGNORE_HEADER_PRESS = "button, input, select, [data-port]";
 
-const TYPE_COLORS: Record<PropertyDefinition["type"], string> = {
+const TYPE_COLORS: Record<AttributeDefinition["type"], string> = {
   String: "text-emerald-700",
-  Number: "text-sky-700",
+  Integer: "text-sky-700",
+  Decimal: "text-cyan-700",
   Boolean: "text-violet-700",
   Date: "text-orange-700",
-  UUID: "text-indigo-700",
-  Literal: "text-pink-700",
+  DateTime: "text-amber-700",
   Json: "text-slate-700",
+  Literal: "text-pink-700",
 };
 
 // PORTS
@@ -109,9 +111,9 @@ const headerView = (
           h.Class(
             "rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600",
           ),
-          h.Title(`${entity.properties.length} fields`),
+          h.Title(`${entity.attributes.length} fields`),
         ],
-        [String(entity.properties.length)],
+        [String(entity.attributes.length)],
       ),
       iconButton(h, {
         label: layout.isExpanded ? "Collapse" : "Expand",
@@ -122,7 +124,7 @@ const headerView = (
   );
 };
 
-// PROPERTY ROWS
+// ATTRIBUTE ROWS
 
 const badge = (h: HtmlBuilder<Message>, label: string, title: string, className: string): Html =>
   h.span(
@@ -132,58 +134,60 @@ const badge = (h: HtmlBuilder<Message>, label: string, title: string, className:
 
 const constraintBadges = (
   h: HtmlBuilder<Message>,
-  property: PropertyDefinition,
-): ReadonlyArray<Html> => [
-  ...(property.isNullable ? [badge(h, "NULL", "Nullable", "bg-slate-100 text-slate-600")] : []),
-  ...(property.isOptional ? [badge(h, "OPT", "Optional", "bg-slate-100 text-slate-600")] : []),
-];
+  attribute: AttributeDefinition,
+): ReadonlyArray<Html> => {
+  const label = multiplicityLabel(attribute.multiplicity);
+  return [
+    ...(label === "1"
+      ? []
+      : [badge(h, label, `Multiplicity ${label}`, "bg-slate-100 text-slate-600")]),
+    ...(attribute.unique ? [badge(h, "UQ", "Unique", "bg-indigo-50 text-indigo-700")] : []),
+  ];
+};
 
-const typeLabel = (property: PropertyDefinition): string =>
-  property.type === "Literal" && property.literalOptions !== undefined
-    ? property.literalOptions.map((option) => `'${option}'`).join(" | ") || "Literal"
-    : property.type;
+const typeLabel = (attribute: AttributeDefinition): string =>
+  attribute.type === "Literal" && attribute.literalOptions !== undefined
+    ? attribute.literalOptions.map((option) => `'${option}'`).join(" | ") || "Literal"
+    : attribute.type;
 
-const propertyRow = (
+const attributeRow = (
   h: HtmlBuilder<Message>,
   entity: EntityDefinition,
-  property: PropertyDefinition,
+  attribute: AttributeDefinition,
   index: number,
   context: NodeContext,
 ): Html => {
   const warnings = Array.map(
-    Diagnostics.forProperty(context.diagnostics, property.id),
+    Diagnostics.forAttribute(context.diagnostics, attribute.id),
     Diagnostics.describe,
   );
   const entityId = entity.id;
-  const propertyId = property.id;
+  const attributeId = attribute.id;
   return h.keyed("li")(
-    property.id,
+    attribute.id,
     [
       h.Class(
         "group/row flex cursor-pointer items-center gap-2 border-t border-slate-100 px-3 text-xs hover:bg-indigo-50/60",
       ),
-      h.Style({ height: px(Geometry.PROPERTY_ROW_HEIGHT) }),
-      h.OnClick(Message.ClickedEditProperty({ entityId, propertyId })),
-      h.Title(property.description ?? "Click to edit"),
+      h.Style({ height: px(Geometry.ATTRIBUTE_ROW_HEIGHT) }),
+      h.OnClick(Message.ClickedEditAttribute({ entityId, attributeId })),
+      h.Title(attribute.description ?? "Click to edit"),
     ],
     [
-      h.span(
-        [h.Class("min-w-0 truncate font-mono text-slate-800")],
-        [`${property.name}${property.isOptional ? "?" : ""}`],
-      ),
+      h.span([h.Class("min-w-0 truncate font-mono text-slate-800")], [attribute.name]),
       ...(Array.isReadonlyArrayNonEmpty(warnings) ? [warningBadge(h, warnings)] : []),
       h.span(
         [
           h.Class(
-            `ml-auto min-w-0 truncate font-mono ${TYPE_COLORS[property.type]} group-hover/row:hidden`,
+            `ml-auto min-w-0 truncate font-mono ${TYPE_COLORS[attribute.type]} group-hover/row:hidden`,
           ),
-          h.Title(typeLabel(property)),
+          h.Title(typeLabel(attribute)),
         ],
-        [typeLabel(property)],
+        [typeLabel(attribute)],
       ),
       h.span(
         [h.Class("flex shrink-0 gap-1 group-hover/row:hidden")],
-        constraintBadges(h, property),
+        constraintBadges(h, attribute),
       ),
       h.span(
         [h.Class("ml-auto hidden shrink-0 items-center gap-0.5 group-hover/row:flex")],
@@ -192,24 +196,24 @@ const propertyRow = (
             label: "Move up",
             icon: "↑",
             isDisabled: index === 0,
-            onClick: Message.ClickedMoveProperty({ entityId, propertyId, direction: "Up" }),
+            onClick: Message.ClickedMoveAttribute({ entityId, attributeId, direction: "Up" }),
           }),
           iconButton(h, {
             label: "Move down",
             icon: "↓",
-            isDisabled: index === entity.properties.length - 1,
-            onClick: Message.ClickedMoveProperty({ entityId, propertyId, direction: "Down" }),
+            isDisabled: index === entity.attributes.length - 1,
+            onClick: Message.ClickedMoveAttribute({ entityId, attributeId, direction: "Down" }),
           }),
           iconButton(h, {
             label: "Edit field",
             icon: "✎",
-            onClick: Message.ClickedEditProperty({ entityId, propertyId }),
+            onClick: Message.ClickedEditAttribute({ entityId, attributeId }),
           }),
           iconButton(h, {
             label: "Delete field",
             icon: "✕",
             className: "h-6 w-6 text-xs hover:!bg-rose-50 hover:!text-rose-600",
-            onClick: Message.ClickedDeleteProperty({ entityId, propertyId }),
+            onClick: Message.ClickedDeleteAttribute({ entityId, attributeId }),
           }),
         ],
       ),
@@ -217,44 +221,75 @@ const propertyRow = (
   );
 };
 
-const flagToggle = (
-  h: HtmlBuilder<Message>,
-  label: string,
-  isChecked: boolean,
-  flag: DraftFlag,
-): Html =>
-  h.label(
-    [h.Class("flex cursor-pointer items-center gap-1 text-[11px] text-slate-700")],
+const multiplicitySelect = (h: HtmlBuilder<Message>, draft: AttributeDraft): Html =>
+  h.select(
+    [
+      h.AriaLabel("Field multiplicity"),
+      h.OnChange((value) =>
+        Message.SelectedAttributeDraftMultiplicity({
+          multiplicity: Option.match(
+            Array.findFirst(MULTIPLICITIES, ({ label }) => label === value),
+            { onNone: () => draft.multiplicity, onSome: ({ multiplicity }) => multiplicity },
+          ),
+        }),
+      ),
+      h.Class(
+        "rounded border border-slate-300 bg-white px-1 py-0.5 font-mono text-[11px] outline-none focus:border-indigo-400",
+      ),
+    ],
+    Array.map(MULTIPLICITIES, ({ multiplicity, label }) =>
+      h.option(
+        [h.Value(label), h.Selected(multiplicityEquals(multiplicity, draft.multiplicity))],
+        [label],
+      ),
+    ),
+  );
+
+const uniqueToggle = (h: HtmlBuilder<Message>, draft: AttributeDraft): Html => {
+  const isList = draft.multiplicity.max === "many";
+  return h.label(
+    [
+      h.Class(
+        `flex items-center gap-1 text-[11px] ${isList ? "cursor-not-allowed text-slate-400" : "cursor-pointer text-slate-700"}`,
+      ),
+      h.Title(isList ? "A list field can't be unique" : "Unique"),
+    ],
     [
       h.input([
         h.Type("checkbox"),
-        h.Checked(isChecked),
-        h.OnChange(() => Message.ToggledPropertyDraftFlag({ flag })),
+        h.Checked(draft.unique),
+        h.Disabled(isList),
+        h.OnChange(() => Message.ToggledAttributeDraftUnique()),
         h.Class("h-3.5 w-3.5 accent-indigo-600"),
       ]),
-      label,
+      "Unique",
     ],
   );
+};
 
-const propertyEditor = (h: HtmlBuilder<Message>, propertyId: string, draft: PropertyDraft): Html =>
+const attributeEditor = (
+  h: HtmlBuilder<Message>,
+  attributeId: string,
+  draft: AttributeDraft,
+): Html =>
   h.keyed("li")(
-    propertyId,
+    attributeId,
     [
       h.Class("flex flex-col gap-1.5 border-y border-indigo-200 bg-indigo-50/70 px-3 py-2"),
-      h.Style({ height: px(Geometry.PROPERTY_EDITOR_HEIGHT) }),
+      h.Style({ height: px(Geometry.ATTRIBUTE_EDITOR_HEIGHT) }),
     ],
     [
       h.div(
         [h.Class("flex gap-1.5")],
         [
           h.input([
-            h.Id(PROPERTY_NAME_INPUT_ID),
+            h.Id(ATTRIBUTE_NAME_INPUT_ID),
             h.Value(draft.name),
             h.AriaLabel("Field name"),
             h.Placeholder("fieldName"),
             h.Autocomplete("off"),
             h.Spellcheck(false),
-            h.OnInput((name) => Message.UpdatedPropertyDraftName({ name })),
+            h.OnInput((name) => Message.UpdatedAttributeDraftName({ name })),
             h.Class(
               "min-w-0 flex-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200",
             ),
@@ -263,9 +298,9 @@ const propertyEditor = (h: HtmlBuilder<Message>, propertyId: string, draft: Prop
             [
               h.AriaLabel("Field type"),
               h.OnChange((value) =>
-                Message.SelectedPropertyDraftType({
+                Message.SelectedAttributeDraftType({
                   type: Option.getOrElse(
-                    Array.findFirst(PROPERTY_TYPES, (type) => type === value),
+                    Array.findFirst(PRIMITIVES, (type) => type === value),
                     () => draft.type,
                   ),
                 }),
@@ -274,18 +309,15 @@ const propertyEditor = (h: HtmlBuilder<Message>, propertyId: string, draft: Prop
                 "rounded border border-slate-300 bg-white px-1 py-0.5 text-xs outline-none focus:border-indigo-400",
               ),
             ],
-            Array.map(PROPERTY_TYPES, (type) =>
+            Array.map(PRIMITIVES, (type) =>
               h.option([h.Value(type), h.Selected(type === draft.type)], [type]),
             ),
           ),
         ],
       ),
       h.div(
-        [h.Class("flex gap-3")],
-        [
-          flagToggle(h, "Nullable", draft.isNullable, "isNullable"),
-          flagToggle(h, "Optional", draft.isOptional, "isOptional"),
-        ],
+        [h.Class("flex items-center gap-3")],
+        [multiplicitySelect(h, draft), uniqueToggle(h, draft)],
       ),
       h.input([
         h.Value(draft.literalOptions),
@@ -294,7 +326,7 @@ const propertyEditor = (h: HtmlBuilder<Message>, propertyId: string, draft: Prop
           draft.type === "Literal" ? "option-a, option-b" : "Literal options (Literal type only)",
         ),
         h.Disabled(draft.type !== "Literal"),
-        h.OnInput((text) => Message.UpdatedPropertyDraftLiteralOptions({ text })),
+        h.OnInput((text) => Message.UpdatedAttributeDraftLiteralOptions({ text })),
         h.Class(
           "rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-[11px] outline-none focus:border-indigo-400 disabled:bg-slate-100 disabled:text-slate-400",
         ),
@@ -317,7 +349,7 @@ const propertyEditor = (h: HtmlBuilder<Message>, propertyId: string, draft: Prop
           h.button(
             [
               h.Type("button"),
-              h.OnClick(Message.ClickedSaveProperty()),
+              h.OnClick(Message.ClickedSaveAttribute()),
               h.Class(
                 "rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-700",
               ),
@@ -339,7 +371,7 @@ const footerView = (h: HtmlBuilder<Message>, entity: EntityDefinition): Html =>
       h.button(
         [
           h.Type("button"),
-          h.OnClick(Message.ClickedAddProperty({ entityId: entity.id })),
+          h.OnClick(Message.ClickedAddAttribute({ entityId: entity.id })),
           h.Class("rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"),
         ],
         ["+ Add field"],
@@ -367,7 +399,7 @@ export const nodeView = (
   context: NodeContext,
 ): Html => {
   const position = nodePosition(entity, layout, context.editor);
-  const rect = Geometry.nodeRect(entity, layout, context.maybeEditingPropertyId);
+  const rect = Geometry.nodeRect(entity, layout, context.maybeEditingAttributeId);
   const isDragging =
     context.editor._tag === "DraggingNode" && context.editor.entityId === entity.id;
   const hasWarnings = Array.isReadonlyArrayNonEmpty(
@@ -405,11 +437,11 @@ export const nodeView = (
             ? [
                 h.ul(
                   [],
-                  Array.map(entity.properties, (property, index) =>
-                    context.editor._tag === "EditingProperty" &&
-                    context.editor.propertyId === property.id
-                      ? propertyEditor(h, property.id, context.editor.draft)
-                      : propertyRow(h, entity, property, index, context),
+                  Array.map(entity.attributes, (attribute, index) =>
+                    context.editor._tag === "EditingAttribute" &&
+                    context.editor.attributeId === attribute.id
+                      ? attributeEditor(h, attribute.id, context.editor.draft)
+                      : attributeRow(h, entity, attribute, index, context),
                   ),
                 ),
                 footerView(h, entity),

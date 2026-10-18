@@ -75,7 +75,7 @@ export const statusPill = (editor: EditorState): StatusPill =>
       className: "bg-indigo-600 text-white",
       hint: "Enter commit · Esc cancel",
     }),
-    EditingProperty: () => ({
+    EditingAttribute: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
       hint: "Enter commit · Esc cancel",

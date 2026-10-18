@@ -241,34 +241,64 @@ describe("entities", () => {
   });
 });
 
-describe("properties", () => {
+describe("attributes", () => {
   test("adding a field opens it for editing and saving applies the draft", () => {
     story(
       update,
       given(baseModel),
-      message(Message.ClickedAddProperty({ entityId: "e3" })),
+      message(Message.ClickedAddAttribute({ entityId: "e3" })),
       focused,
       model((m) => {
-        expect(m.editor._tag).toBe("EditingProperty");
+        expect(m.editor._tag).toBe("EditingAttribute");
         expect(m.history.present.layout.nodes["e3"]?.isExpanded).toBe(true);
       }),
-      message(Message.UpdatedPropertyDraftName({ name: "kind" })),
-      message(Message.SelectedPropertyDraftType({ type: "Literal" })),
-      message(Message.UpdatedPropertyDraftLiteralOptions({ text: "a, b, , a" })),
-      message(Message.ToggledPropertyDraftFlag({ flag: "isNullable" })),
+      message(Message.UpdatedAttributeDraftName({ name: "kind" })),
+      message(Message.SelectedAttributeDraftType({ type: "Literal" })),
+      message(Message.UpdatedAttributeDraftLiteralOptions({ text: "a, b, , a" })),
+      message(Message.SelectedAttributeDraftMultiplicity({ multiplicity: { min: 0, max: "one" } })),
+      message(Message.ToggledAttributeDraftUnique()),
       message(Message.PressedEnterKey()),
       model((m) => {
         const tag = Option.getOrThrow(Doc.findEntity(m.history.present, "e3"));
-        expect(tag.properties.at(-1)).toEqual({
+        expect(tag.attributes.at(-1)).toEqual({
           id: "p11",
           name: "kind",
           type: "Literal",
           literalOptions: ["a", "b"],
-          isOptional: false,
-          isNullable: true,
+          multiplicity: { min: 0, max: "one" },
+          unique: true,
         });
         // One snapshot for adding the field, one for saving the edit.
         expect(m.history.past).toHaveLength(2);
+      }),
+    );
+  });
+
+  test("choosing a list multiplicity clears unique", () => {
+    story(
+      update,
+      given(baseModel),
+      message(Message.ClickedEditAttribute({ entityId: "e1", attributeId: "p2" })),
+      focused,
+      model((m) => expect(m.editor).toMatchObject({ draft: { unique: true } })),
+      message(
+        Message.SelectedAttributeDraftMultiplicity({ multiplicity: { min: 0, max: "many" } }),
+      ),
+      model((m) =>
+        expect(m.editor).toMatchObject({
+          draft: { multiplicity: { min: 0, max: "many" }, unique: false },
+        }),
+      ),
+      // Unique stays off while the multiplicity is a list.
+      message(Message.ToggledAttributeDraftUnique()),
+      model((m) => expect(m.editor).toMatchObject({ draft: { unique: false } })),
+      message(Message.PressedEnterKey()),
+      model((m) => {
+        const user = Option.getOrThrow(Doc.findEntity(m.history.present, "e1"));
+        expect(Option.getOrThrow(Doc.findAttribute(user, "p2"))).toMatchObject({
+          multiplicity: { min: 0, max: "many" },
+          unique: false,
+        });
       }),
     );
   });
@@ -277,9 +307,9 @@ describe("properties", () => {
     story(
       update,
       given(baseModel),
-      message(Message.ClickedEditProperty({ entityId: "e1", propertyId: "p2" })),
+      message(Message.ClickedEditAttribute({ entityId: "e1", attributeId: "p2" })),
       focused,
-      message(Message.UpdatedPropertyDraftName({ name: "mail" })),
+      message(Message.UpdatedAttributeDraftName({ name: "mail" })),
       message(Message.PressedEscapeKey()),
       model((m) => {
         expect(m.history.present).toEqual(baseModel.history.present);
