@@ -217,15 +217,17 @@ export const boundingRect = (rects: ReadonlyArray<Rect>): Option.Option<Rect> =>
     },
   });
 
-/** A viewport showing `bounds` centered in `screen`, never zooming past 100%. */
-export const fitViewport = (bounds: Rect, screen: Size): ViewportLayout => {
+/**
+ * Center bounds with the shared fit padding; fit-all defaults to at most 100%.
+ */
+export const fitViewport = (bounds: Rect, screen: Size, maximumZoom = 1): ViewportLayout => {
   const availableWidth = Math.max(screen.width - FIT_PADDING * 2, 1);
   const availableHeight = Math.max(screen.height - FIT_PADDING * 2, 1);
   const zoom = clampZoom(
     Math.min(
       availableWidth / Math.max(bounds.width, 1),
       availableHeight / Math.max(bounds.height, 1),
-      1,
+      maximumZoom,
     ),
   );
   return {

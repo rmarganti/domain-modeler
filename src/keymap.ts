@@ -25,6 +25,7 @@ type KeymapEntry = Readonly<{
   id: string;
   keys: ReadonlyArray<Dom.KeySequence>;
   description: string;
+  displayKeys?: ReadonlyArray<Dom.KeySequence>;
   group: string;
   modes: ReadonlyArray<KeyMode>;
   mapEvent: (event: KeyboardEvent) => Message;
@@ -183,6 +184,53 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     modes: ["Normal", "Choosing", "Pointer"],
     mapEvent: () => Message.PressedSpace(),
   },
+  {
+    id: "zoomIn",
+    keys: ["Mod+=", "Mod+Plus", "Mod+Shift+Plus"],
+    displayKeys: ["Mod+Equal", "Mod+Plus"],
+    description: "Zoom in",
+    group: "View",
+    modes: ["Normal", "Text"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.ClickedZoomIn(),
+  },
+  {
+    id: "zoomOut",
+    keys: ["Mod+-"],
+    description: "Zoom out",
+    group: "View",
+    modes: ["Normal", "Text"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.ClickedZoomOut(),
+  },
+  {
+    id: "resetView",
+    keys: ["Mod+0"],
+    description: "Reset view to 100%",
+    group: "View",
+    modes: ["Normal", "Text"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.ClickedResetView(),
+  },
+  // Foldkit matches event.key, not code: US Shift+1/2 produce !/@.
+  {
+    id: "fitToScreen",
+    keys: ["Shift+1", "Shift+!"],
+    displayKeys: ["Shift+1"],
+    description: "Fit to screen",
+    group: "View",
+    modes: ["Normal"],
+    mapEvent: () => Message.ClickedFitToScreen(),
+  },
+  {
+    id: "zoomToSelection",
+    keys: ["Shift+2", "Shift+@"],
+    displayKeys: ["Shift+2"],
+    description: "Zoom to selection",
+    group: "View",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedZoomToSelectionKey(),
+  },
   // Foldkit compares shiftKey exactly. Both literal and shifted ? events work.
   {
     id: "shortcuts",
@@ -244,7 +292,9 @@ export const formatKeys = (
   ).join(" / ");
 
 export const shortcutFor = (id: string): string =>
-  formatKeys(KEYMAP.filter((entry) => entry.id === id).flatMap((entry) => entry.keys));
+  formatKeys(
+    KEYMAP.filter((entry) => entry.id === id).flatMap((entry) => entry.displayKeys ?? entry.keys),
+  );
 
 export const shortcutTitle = (label: string, id: string): string => {
   const shortcut = shortcutFor(id);

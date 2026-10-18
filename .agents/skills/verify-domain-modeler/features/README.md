@@ -40,6 +40,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
+- [Zoom and fit](./zoom.md) covers keyboard/HUD zoom, fit-all, fit-selection, text-mode behavior, and history preservation.
 - [Keyboard shortcuts](./shortcuts.md) covers the `?` overlay, context/group listing, toolbar titles, cancellation, and selection/history preservation.
 - [New chooser](./new-chooser.md) covers `c`, Entity/Enum selection, cancellation, text input, and `Meta+n` for a new model.
 - [Create an entity](./create-entity.md) covers keyboard and toolbar creation, cancel, delete, and undo.

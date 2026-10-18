@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import { ConfirmCloseWindow, FocusInput, ForgetActiveFile, OpenFile, SaveFile } from "./command";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
+import * as Geometry from "./domain/geometry";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
 import { EditorState, Selection, type Model } from "./model";
@@ -150,6 +151,128 @@ describe("canvas", () => {
       message(Message.PressedCanvas(press)),
       model((m) => expect(m.selection).toEqual(Selection.NoSelection())),
     );
+  });
+});
+
+describe("zoom shortcuts", () => {
+  test("each registered zoom key has the same update as its HUD action without history", () => {
+    const actions = [
+      ["Mod+=", Message.ClickedZoomIn()],
+      ["Mod+Plus", Message.ClickedZoomIn()],
+      ["Mod+Shift+Plus", Message.ClickedZoomIn()],
+      ["Mod+-", Message.ClickedZoomOut()],
+      ["Mod+0", Message.ClickedResetView()],
+      ["Shift+1", Message.ClickedFitToScreen()],
+      ["Shift+!", Message.ClickedFitToScreen()],
+    ] as const;
+    const initial: Model = {
+      ...baseModel,
+      history: Option.getOrThrow(
+        History.undo(History.commit(baseModel.history, (doc) => Doc.renameDocument(doc, "Next"))),
+      ),
+    };
+    for (const [keys, hud] of actions) {
+      const binding = bindingsFor("Normal").find((entry) => entry.keys === keys)!;
+      const result = update(initial, binding.mapEvent(new KeyboardEvent("keydown")));
+      expect(result).toEqual(update(initial, hud));
+      expect(result.model.history.past).toEqual(initial.history.past);
+      expect(result.model.history.future).toEqual(initial.history.future);
+      expect(result.model.saveStatus).toBe("Clean");
+    }
+  });
+
+  test("zoom and reset keep the world point under the viewport center fixed", () => {
+    const initial = {
+      ...baseModel,
+      history: History.init(
+        Doc.setViewport(Doc.sampleDocument, { pan: { x: -90, y: 120 }, zoom: 0.5 }),
+      ),
+    };
+    const center = { x: 600, y: 400 };
+    const before = Geometry.screenToWorld(initial.history.present.layout.viewport, center);
+    for (const action of [
+      Message.ClickedZoomIn(),
+      Message.ClickedZoomOut(),
+      Message.ClickedResetView(),
+    ]) {
+      const after = update(initial, action).model.history.present.layout.viewport;
+      expect(Geometry.screenToWorld(after, center)).toEqual(before);
+    }
+  });
+
+  test.each([
+    Selection.SelectedEntity({ entityId: "e2" }),
+    Selection.SelectedEnum({ typeId: "t1" }),
+    Selection.SelectedAssociation({ associationId: "r1" }),
+  ])("zoom to $_tag centers the selected cards with shared padding", (selection) => {
+    const initial = { ...baseModel, selection };
+    const nodeIds =
+      selection._tag === "SelectedEntity"
+        ? ["e2"]
+        : selection._tag === "SelectedEnum"
+          ? ["t1"]
+          : ["e1", "e2"];
+    const document = baseModel.history.present;
+    const rects = Geometry.cardRects({
+      ...document,
+      entities: document.entities.filter((entity) => nodeIds.includes(entity.id)),
+      types: document.types.filter((definition) => nodeIds.includes(definition.id)),
+    });
+    const bounds = Option.getOrThrow(Geometry.boundingRect(rects));
+    const result = update(initial, Message.PressedZoomToSelectionKey()).model;
+    const viewport = result.history.present.layout.viewport;
+    expect(viewport).toEqual(Geometry.fitViewport(bounds, initial.screen, Geometry.MAX_ZOOM));
+    const center = Geometry.worldToScreen(viewport, {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    });
+    expect(center.x).toBeCloseTo(initial.screen.width / 2);
+    expect(center.y).toBeCloseTo(initial.screen.height / 2);
+    expect(viewport.zoom).toBeLessThanOrEqual(Geometry.MAX_ZOOM);
+    expect(result.selection).toEqual(selection);
+    expect(result.editor).toEqual(initial.editor);
+    expect(result.history.past).toEqual(initial.history.past);
+    expect(result.history.future).toEqual(initial.history.future);
+    expect(result.saveStatus).toBe("Clean");
+  });
+
+  test("zoom to a small collapsed card stops at max zoom", () => {
+    const result = update(
+      {
+        ...baseModel,
+        screen: { width: 4000, height: 3000 },
+        selection: Selection.SelectedEnum({ typeId: "t1" }),
+      },
+      Message.PressedZoomToSelectionKey(),
+    ).model;
+    expect(result.history.present.layout.viewport.zoom).toBe(Geometry.MAX_ZOOM);
+  });
+
+  test.each([
+    Selection.NoSelection(),
+    Selection.SelectedEntity({ entityId: "missing" }),
+    Selection.SelectedEnum({ typeId: "missing" }),
+    Selection.SelectedAssociation({ associationId: "missing" }),
+  ])("no selectable cards leaves the entire model unchanged", (selection) => {
+    const initial = { ...baseModel, selection };
+    expect(update(initial, Message.PressedZoomToSelectionKey()).model).toBe(initial);
+  });
+
+  test("fit-all includes enum cards and retains the HUD's 100% cap and empty reset", () => {
+    const result = update(baseModel, Message.ClickedFitToScreen()).model;
+    const bounds = Option.getOrThrow(Geometry.documentBounds(Doc.sampleDocument));
+    expect(result.history.present.layout.viewport).toEqual(
+      Geometry.fitViewport(bounds, baseModel.screen),
+    );
+    const empty = {
+      ...baseModel,
+      history: History.init(
+        Doc.setViewport(Doc.emptyDocument("Empty"), { pan: { x: 30, y: 40 }, zoom: 2 }),
+      ),
+    };
+    expect(
+      update(empty, Message.ClickedFitToScreen()).model.history.present.layout.viewport,
+    ).toEqual(Doc.DEFAULT_VIEWPORT);
   });
 });
 

@@ -208,8 +208,31 @@ export const zoomBy = (model: Model, factor: number): Model =>
 export const resetView = (model: Model): Model =>
   setViewport(model, Geometry.resetViewport(viewport(model), model.screen));
 
-export const fitToScreen = (model: Model): Model =>
-  Option.match(Geometry.documentBounds(present(model)), {
+const fitCards = (model: Model, rects: ReadonlyArray<Geometry.Rect>, maximumZoom = 1): Model =>
+  Option.match(Geometry.boundingRect(rects), {
     onNone: () => setViewport(model, Doc.DEFAULT_VIEWPORT),
-    onSome: (bounds) => setViewport(model, Geometry.fitViewport(bounds, model.screen)),
+    onSome: (bounds) => setViewport(model, Geometry.fitViewport(bounds, model.screen, maximumZoom)),
   });
+
+export const fitToScreen = (model: Model): Model =>
+  fitCards(model, Geometry.cardRects(present(model)));
+
+export const zoomToSelection = (model: Model): Model => {
+  const document = present(model);
+  const nodeIds = Selection.match<ReadonlyArray<string>>(model.selection, {
+    NoSelection: () => [],
+    SelectedEntity: ({ entityId }) => [entityId],
+    SelectedEnum: ({ typeId }) => [typeId],
+    SelectedAssociation: ({ associationId }) =>
+      Option.match(Doc.findAssociation(document, associationId), {
+        onNone: () => [],
+        onSome: (association) => association.ends.map((end) => end.entityId),
+      }),
+  });
+  const rects = Geometry.cardRects({
+    ...document,
+    entities: document.entities.filter((entity) => nodeIds.includes(entity.id)),
+    types: document.types.filter((definition) => nodeIds.includes(definition.id)),
+  });
+  return rects.length === 0 ? model : fitCards(model, rects, Geometry.MAX_ZOOM);
+};

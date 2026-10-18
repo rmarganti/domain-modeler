@@ -35,7 +35,7 @@ const contextView = (h: HtmlBuilder<Message>, mode: KeyMode, label: string): Htm
                             "shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-800",
                           ),
                         ],
-                        [formatKeys(entry.keys)],
+                        [formatKeys(entry.displayKeys ?? entry.keys)],
                       ),
                     ],
                   ),

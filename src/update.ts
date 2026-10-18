@@ -40,6 +40,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     // Keyboard
 
     PressedNewKey: () => ({ model: Chooser.open(model) }),
+    PressedZoomToSelectionKey: () => ({ model: Canvas.zoomToSelection(model) }),
     PressedShortcutsKey: () =>
       model.editor._tag === "ViewingShortcuts" ? { model: toIdle(model) } : showShortcuts(model),
     PressedNewDocumentKey: () => Session.newDocument(model),

@@ -81,9 +81,54 @@ describe("keybinding registry", () => {
     expect(bindingsFor("Help").map((binding) => binding.keys)).toEqual(["Escape", "?", "Shift+?"]);
   });
 
-  test("titles derive from the registry and unbound HUD actions have no shortcut suffix", () => {
+  test("zoom bindings reuse HUD messages and allow typing only for Mod zoom", () => {
+    const actions = [
+      ["Mod+=", "ClickedZoomIn"],
+      ["Mod+Plus", "ClickedZoomIn"],
+      ["Mod+Shift+Plus", "ClickedZoomIn"],
+      ["Mod+-", "ClickedZoomOut"],
+      ["Mod+0", "ClickedResetView"],
+      ["Shift+1", "ClickedFitToScreen"],
+      ["Shift+!", "ClickedFitToScreen"],
+      ["Shift+2", "PressedZoomToSelectionKey"],
+      ["Shift+@", "PressedZoomToSelectionKey"],
+    ];
+    for (const [keys, tag] of actions) {
+      const normal = bindingsFor("Normal").find((binding) => binding.keys === keys);
+      expect(normal?.mapEvent(new KeyboardEvent("keydown"))._tag).toBe(tag);
+      const text = bindingsFor("Text").find((binding) => binding.keys === keys);
+      if (keys?.startsWith("Mod+")) {
+        expect(text?.mapEvent(new KeyboardEvent("keydown"))._tag).toBe(tag);
+        expect(text?.whileTyping).toBe("Allow");
+        expect(normal?.whileTyping).toBe("Allow");
+      } else {
+        expect(text).toBeUndefined();
+      }
+      for (const mode of ["Choosing", "Pointer", "Help"] as const) {
+        expect(bindingsFor(mode).some((binding) => binding.keys === keys)).toBe(false);
+      }
+    }
+  });
+
+  test("zoom display keys hide layout aliases on both platforms", () => {
+    const display = (id: string, platform: "Apple" | "Other") => {
+      const entry = KEYMAP.find((entry) => entry.id === id)!;
+      return formatKeys(entry.displayKeys ?? entry.keys, platform);
+    };
+    expect(display("zoomIn", "Apple")).toBe("⌘= / ⌘+");
+    expect(display("zoomIn", "Other")).toBe("Ctrl+= / Ctrl++");
+    expect(display("fitToScreen", "Apple")).toBe("⇧1");
+    expect(display("zoomToSelection", "Other")).toBe("Shift+2");
+  });
+
+  test("titles derive from the registry", () => {
     expect(shortcutTitle("Undo", "undo")).toMatch(/^Undo \(u \/ (⌘Z|Ctrl\+Z)\)$/);
     expect(shortcutTitle("Keyboard shortcuts", "shortcuts")).toBe("Keyboard shortcuts (?)");
-    expect(shortcutTitle("Zoom in", "zoomIn")).toBe("Zoom in");
+    expect(shortcutTitle("Zoom in", "zoomIn")).toMatch(
+      /^Zoom in \((⌘= \/ ⌘\+|Ctrl\+= \/ Ctrl\+\+)\)$/,
+    );
+    expect(shortcutTitle("Fit to screen", "fitToScreen")).toMatch(
+      /^Fit to screen \((⇧1|Shift\+1)\)$/,
+    );
   });
 });
