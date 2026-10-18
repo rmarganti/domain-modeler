@@ -9,7 +9,7 @@ Find an entity or enum with Command+K on Apple or Ctrl+Shift+K elsewhere, then f
 - `navigate`: arrows and Control+N/P wrap; query changes reset to the first result; active results scroll into view.
 - `focus`: Enter or clicking an option selects Title and centers its card at the current zoom and expansion.
 - `cancel`: Escape/outside click preserve the prior cursor and viewport; no-match Enter does nothing.
-- `discover`: the shortcut overlay lists Find card and the Card picker context.
+- `discover`: the shortcut overlay lists Find card under Move around and picker keys under In menus.
 
 ## How to get to it (user POV)
 
@@ -31,7 +31,7 @@ Preconditions: the Blog baseline from the feature index, with Undo and Redo disa
 - **Expanded card:** pick User using Enter. Its expanded size and zoom stay unchanged; center is within 20px of the canvas center. Undo remains disabled.
 - **Typing isolation:** open and fill `coOJK?ud`; these characters stay in the query, with no cards created/deleted or help opened. Clear the query and cancel.
 - **Text mode:** select a title and `ab press i` to rename; `ab press Meta+k` must leave EDITING, not FIND. Escape cancels.
-- **Discovery:** `ab press ?`, then `ab get text '[role="dialog"][aria-label="Keyboard shortcuts"]'` includes Find card and Card picker. Escape closes help.
+- **Discovery:** `ab press ?`, then `ab get text '[role="dialog"][aria-label="Keyboard shortcuts"]'` includes Find a card and In menus. Escape closes help.
 - **Finish:** collect `ab errors` (empty), run doctor and cleanup.
 
 ## Gotchas

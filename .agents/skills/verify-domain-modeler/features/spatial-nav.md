@@ -9,7 +9,7 @@ Move between entity and enum cards with Ctrl+h/j/k/l, selecting the title withou
 - `reveal`: visible targets do not pan; offscreen targets pan minimally with a 24px margin, preserving zoom.
 - `preserve`: expansion, fields/values, dirty status and undo/redo history stay unchanged. The new cursor is Title.
 - `isolation`: plain h/l stay unbound, plain j/k move rows, Ctrl+r stays redo, and spatial keys are not active while typing or in other modes.
-- `discover`: all four directions appear in the shortcut overlay's Canvas / Navigate group.
+- `discover`: all four directions appear as the Nearby card row in the shortcut overlay's Move around section.
 
 ## How to get to it (user POV)
 

@@ -7,7 +7,7 @@ import { searchCards } from "./domain/card-search";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
-import { bindingsFor, KEYMAP } from "./keymap";
+import { bindingsFor, helpSectionOf, KEYMAP } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./model";
 import { toKeyMode } from "./subscription";
@@ -255,10 +255,8 @@ describe("keyboard connection picker", () => {
   });
 
   test("registry separates plain r from redo and suppresses it outside Normal or while typing", () => {
-    expect(KEYMAP.find(({ id }) => id === "connect")).toMatchObject({
-      group: "Create",
-      modes: ["Normal"],
-    });
+    expect(KEYMAP.find(({ id }) => id === "connect")?.modes).toEqual(["Normal"]);
+    expect(helpSectionOf("connect")).toBe("Build");
     for (const platform of ["Apple", "Other"] as const) {
       const normal = bindingsFor("Normal", platform);
       const binding = normal.find(({ keys }) => keys === "R");

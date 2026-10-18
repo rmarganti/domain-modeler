@@ -3,14 +3,8 @@ import type { Dom } from "foldkit";
 
 import { Message } from "./message";
 
-export const KeyMode = Schema.Literals([
-  "Normal",
-  "Text",
-  "Choosing",
-  "Picking",
-  "Pointer",
-  "Help",
-]);
+export const KEY_MODES = ["Normal", "Text", "Choosing", "Picking", "Pointer", "Help"] as const;
+export const KeyMode = Schema.Literals(KEY_MODES);
 export type KeyMode = typeof KeyMode.Type;
 export type KeyPlatform = "Apple" | "Other";
 
@@ -20,22 +14,12 @@ export const keyPlatform: KeyPlatform =
     ? "Apple"
     : "Other";
 
-export const KEY_CONTEXTS: ReadonlyArray<Readonly<{ mode: KeyMode; label: string }>> = [
-  { mode: "Normal", label: "Canvas" },
-  { mode: "Text", label: "Editing text" },
-  { mode: "Choosing", label: "New… chooser" },
-  { mode: "Picking", label: "Card picker" },
-  { mode: "Pointer", label: "Dragging / connecting" },
-  { mode: "Help", label: "Keyboard shortcuts" },
-];
-
 type KeymapEntry = Readonly<{
   id: string;
   keys: ReadonlyArray<Dom.KeySequence>;
   description: string;
   displayKeys?: ReadonlyArray<Dom.KeySequence>;
   otherKeys?: ReadonlyArray<Dom.KeySequence>;
-  group: string;
   modes: ReadonlyArray<KeyMode>;
   mapEvent: (event: KeyboardEvent) => Message;
   whileTyping?: Dom.WhileTyping;
@@ -47,7 +31,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "newDocument",
     keys: ["Mod+N"],
     description: "New model",
-    group: "File",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedNewDocumentKey(),
@@ -56,7 +39,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "open",
     keys: ["Mod+O"],
     description: "Open",
-    group: "File",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedOpenKey(),
@@ -65,7 +47,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "save",
     keys: ["Mod+S"],
     description: "Save",
-    group: "File",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedSaveKey(),
@@ -74,7 +55,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "saveAs",
     keys: ["Mod+Shift+S"],
     description: "Save as",
-    group: "File",
     modes: ["Normal", "Text", "Choosing"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedSaveAsKey(),
@@ -83,7 +63,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "create",
     keys: ["C"],
     description: "Create entity or enum",
-    group: "Create",
     modes: ["Normal"],
     mapEvent: () => Message.PressedNewKey(),
   },
@@ -91,7 +70,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "connect",
     keys: ["R"],
     description: "Connect selected entity to…",
-    group: "Create",
     modes: ["Normal"],
     mapEvent: () => Message.PressedConnectKey(),
   },
@@ -99,7 +77,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "delete",
     keys: ["D", "Delete", "Backspace"],
     description: "Delete current row / card / relationship",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.PressedDeleteKey(),
   },
@@ -107,7 +84,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "undo",
     keys: ["U", "Mod+Z"],
     description: "Undo",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.PressedUndoKey(),
   },
@@ -115,7 +91,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "redo",
     keys: ["Control+R", "Mod+Shift+Z"],
     description: "Redo",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.PressedRedoKey(),
   },
@@ -125,7 +100,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     // Ctrl+K is spatial-up on non-Apple platforms.
     otherKeys: ["Mod+Shift+K"],
     description: "Find card",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.PressedFindCardKey(),
   },
@@ -133,7 +107,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "cardLeft",
     keys: ["Control+H"],
     description: "Select card to the left",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.NavigatedCard({ direction: "Left" }),
   },
@@ -141,7 +114,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "cardDown",
     keys: ["Control+J"],
     description: "Select card below",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.NavigatedCard({ direction: "Down" }),
   },
@@ -149,7 +121,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "cardUp",
     keys: ["Control+K"],
     description: "Select card above",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.NavigatedCard({ direction: "Up" }),
   },
@@ -157,7 +128,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "cardRight",
     keys: ["Control+L"],
     description: "Select card to the right",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.NavigatedCard({ direction: "Right" }),
   },
@@ -165,7 +135,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "pickNext",
     keys: ["ArrowDown", "Control+N"],
     description: "Next card (wrap)",
-    group: "Navigate",
     modes: ["Picking"],
     whileTyping: "Allow",
     mapEvent: () => Message.MovedCardHighlight({ direction: "Down" }),
@@ -174,7 +143,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "pickPrevious",
     keys: ["ArrowUp", "Control+P"],
     description: "Previous card (wrap)",
-    group: "Navigate",
     modes: ["Picking"],
     whileTyping: "Allow",
     mapEvent: () => Message.MovedCardHighlight({ direction: "Up" }),
@@ -183,7 +151,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "pickCard",
     keys: ["Enter"],
     description: "Pick highlighted card (focus / connect)",
-    group: "Navigate",
     modes: ["Picking"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedEnterKey(),
@@ -192,7 +159,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "nextRow",
     keys: ["J", "ArrowDown"],
     description: "Next row (expand card)",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.MovedCardRow({ motion: "Next" }),
   },
@@ -200,7 +166,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "previousRow",
     keys: ["K", "ArrowUp"],
     description: "Previous row",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.MovedCardRow({ motion: "Previous" }),
   },
@@ -208,7 +173,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "firstRow",
     keys: [["G", "G"]],
     description: "Title row",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.MovedCardRow({ motion: "First" }),
   },
@@ -216,7 +180,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "lastRow",
     keys: ["Shift+G"],
     description: "Last row",
-    group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.MovedCardRow({ motion: "Last" }),
   },
@@ -224,7 +187,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "insertRowBelow",
     keys: ["O"],
     description: "Add row below (first on title)",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.InsertedCardRow({ position: "Below" }),
   },
@@ -232,7 +194,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "insertRowAbove",
     keys: ["Shift+O"],
     description: "Add row above (first on title)",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.InsertedCardRow({ position: "Above" }),
   },
@@ -240,7 +201,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "reorderRowDown",
     keys: ["Shift+J"],
     description: "Move current row down",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.ReorderedCardRow({ direction: "Down" }),
   },
@@ -248,7 +208,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "reorderRowUp",
     keys: ["Shift+K"],
     description: "Move current row up",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.ReorderedCardRow({ direction: "Up" }),
   },
@@ -256,7 +215,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "edit",
     keys: ["I"],
     description: "Edit current row",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.PressedEditKey(),
   },
@@ -264,7 +222,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "enter",
     keys: ["Enter"],
     description: "Edit current row / close inspector",
-    group: "Edit",
     modes: ["Normal"],
     mapEvent: () => Message.PressedEnterKey(),
   },
@@ -272,7 +229,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "commit",
     keys: ["Enter"],
     description: "Commit edit",
-    group: "Edit",
     modes: ["Text"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedEnterKey(),
@@ -281,7 +237,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "chooseDown",
     keys: ["ArrowDown"],
     description: "Next option (wrap)",
-    group: "Create",
     modes: ["Choosing"],
     mapEvent: () => Message.MovedChooserHighlight({ direction: "Down" }),
   },
@@ -289,7 +244,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "chooseUp",
     keys: ["ArrowUp"],
     description: "Previous option (wrap)",
-    group: "Create",
     modes: ["Choosing"],
     mapEvent: () => Message.MovedChooserHighlight({ direction: "Up" }),
   },
@@ -297,7 +251,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "chooseEntity",
     keys: ["1"],
     description: "Create entity",
-    group: "Create",
     modes: ["Choosing"],
     mapEvent: () => Message.PickedNew({ kind: "Entity" }),
   },
@@ -305,7 +258,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "chooseEnum",
     keys: ["2"],
     description: "Create enum",
-    group: "Create",
     modes: ["Choosing"],
     mapEvent: () => Message.PickedNew({ kind: "Enum" }),
   },
@@ -313,7 +265,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "choose",
     keys: ["Enter"],
     description: "Pick highlighted option",
-    group: "Create",
     modes: ["Choosing"],
     mapEvent: () => Message.PressedEnterKey(),
   },
@@ -321,7 +272,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "escape",
     keys: ["Escape"],
     description: "Cancel / deselect / close",
-    group: "Navigate",
     modes: ["Normal", "Text", "Choosing", "Picking", "Pointer", "Help"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedEscapeKey(),
@@ -330,7 +280,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "pan",
     keys: ["Space"],
     description: "Hold and drag to pan",
-    group: "View",
     modes: ["Normal", "Choosing", "Pointer"],
     mapEvent: () => Message.PressedSpace(),
   },
@@ -339,7 +288,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     keys: ["Mod+=", "Mod+Plus", "Mod+Shift+Plus"],
     displayKeys: ["Mod+Equal", "Mod+Plus"],
     description: "Zoom in",
-    group: "View",
     modes: ["Normal", "Text"],
     whileTyping: "Allow",
     mapEvent: () => Message.ClickedZoomIn(),
@@ -348,7 +296,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "zoomOut",
     keys: ["Mod+-"],
     description: "Zoom out",
-    group: "View",
     modes: ["Normal", "Text"],
     whileTyping: "Allow",
     mapEvent: () => Message.ClickedZoomOut(),
@@ -357,7 +304,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "resetView",
     keys: ["Mod+0"],
     description: "Reset view to 100%",
-    group: "View",
     modes: ["Normal", "Text"],
     whileTyping: "Allow",
     mapEvent: () => Message.ClickedResetView(),
@@ -368,7 +314,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     keys: ["Shift+1", "Shift+!"],
     displayKeys: ["Shift+1"],
     description: "Fit to screen",
-    group: "View",
     modes: ["Normal"],
     mapEvent: () => Message.ClickedFitToScreen(),
   },
@@ -377,7 +322,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     keys: ["Shift+2", "Shift+@"],
     displayKeys: ["Shift+2"],
     description: "Zoom to selection",
-    group: "View",
     modes: ["Normal"],
     mapEvent: () => Message.PressedZoomToSelectionKey(),
   },
@@ -386,7 +330,6 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     id: "shortcuts",
     keys: ["?", "Shift+?"],
     description: "Keyboard shortcuts",
-    group: "View",
     modes: ["Normal", "Help"],
     mapEvent: () => Message.PressedShortcutsKey(),
   },
@@ -405,6 +348,12 @@ const namedKeys: Readonly<Record<string, string>> = {
   Minus: "-",
 };
 
+// Mac keyboards label these with glyphs.
+const appleNamedKeys: Readonly<Record<string, string>> = {
+  Backspace: "⌫",
+  Delete: "⌦",
+};
+
 const formatPress = (press: string, platform: KeyPlatform): string => {
   const parts = press.split("+");
   const key = parts[parts.length - 1] ?? "";
@@ -412,6 +361,7 @@ const formatPress = (press: string, platform: KeyPlatform): string => {
   const hasCommandModifier = modifiers.some((modifier) => modifier !== "Shift");
   const isLetter = /^[a-z]$/i.test(key);
   const label =
+    (platform === "Apple" ? appleNamedKeys[key] : undefined) ??
     namedKeys[key] ??
     (isLetter ? (modifiers.length > 0 ? key.toUpperCase() : key.toLowerCase()) : key);
   const visibleModifiers = modifiers.filter(
@@ -470,3 +420,165 @@ export const bindingsFor = (
       ...(entry.whileTyping === undefined ? {} : { whileTyping: entry.whileTyping }),
     })),
   );
+
+// HELP LAYOUT
+// The `?` dialog is organized by task, not by key mode. Items name registry
+// ids, so keys are never repeated here.
+
+export type HelpItem = Readonly<{
+  label: string;
+  /** Registry entries whose keys this item shows. None: plain text. */
+  ids?: ReadonlyArray<string>;
+  /** Zip the entries' alternatives ("j k" or "↓ ↑") instead of listing each. */
+  paired?: boolean;
+  /** Entries bound to the same keys in another mode, documented by this item. */
+  covers?: ReadonlyArray<string>;
+  /** A pointer gesture, shown instead of keys. */
+  gesture?: string;
+}>;
+
+export type HelpSection = Readonly<{
+  title: string;
+  column: 0 | 1 | 2;
+  /** Runs of related items, separated by a divider. */
+  groups: ReadonlyArray<ReadonlyArray<HelpItem>>;
+}>;
+
+export const HELP_SECTIONS: ReadonlyArray<HelpSection> = [
+  {
+    title: "Move around",
+    column: 0,
+    groups: [
+      [
+        { label: "Find a card", ids: ["findCard"] },
+        {
+          label: "Nearby card",
+          ids: ["cardLeft", "cardDown", "cardUp", "cardRight"],
+          paired: true,
+        },
+      ],
+      [
+        { label: "Next / previous row", ids: ["nextRow", "previousRow"], paired: true },
+        { label: "First / last row", ids: ["firstRow", "lastRow"], paired: true },
+        { label: "Deselect or close", ids: ["escape"] },
+      ],
+    ],
+  },
+  {
+    title: "File",
+    column: 0,
+    groups: [
+      [
+        { label: "New model", ids: ["newDocument"] },
+        { label: "Open", ids: ["open"] },
+        { label: "Save / save as", ids: ["save", "saveAs"], paired: true },
+      ],
+    ],
+  },
+  {
+    title: "Build",
+    column: 1,
+    groups: [
+      [
+        { label: "New entity or enum", ids: ["create"] },
+        { label: "Connect entity to…", ids: ["connect"] },
+      ],
+      [
+        { label: "Edit row", ids: ["edit", "enter"] },
+        { label: "Add row below / above", ids: ["insertRowBelow", "insertRowAbove"], paired: true },
+        { label: "Move row down / up", ids: ["reorderRowDown", "reorderRowUp"], paired: true },
+        { label: "Delete selection", ids: ["delete"] },
+      ],
+      [
+        { label: "Undo", ids: ["undo"] },
+        { label: "Redo", ids: ["redo"] },
+      ],
+    ],
+  },
+  {
+    title: "View",
+    column: 2,
+    groups: [
+      [
+        { label: "Zoom in / out", ids: ["zoomIn", "zoomOut"], paired: true },
+        { label: "Actual size", ids: ["resetView"] },
+        { label: "Fit all cards", ids: ["fitToScreen"] },
+        { label: "Fit selection", ids: ["zoomToSelection"] },
+        { label: "Pan (hold and drag)", ids: ["pan"] },
+      ],
+    ],
+  },
+  {
+    title: "Mouse",
+    column: 2,
+    groups: [
+      [
+        { label: "Move a card", gesture: "Drag header" },
+        { label: "Connect entities", gesture: "Drag a port" },
+        { label: "Rename", gesture: "Double-click" },
+        { label: "Edit relationship", gesture: "Click its line" },
+        { label: "Zoom", gesture: "Wheel or pinch" },
+        { label: "Pan", gesture: "Scroll or middle-drag" },
+      ],
+    ],
+  },
+];
+
+/** The title of the section that documents a binding, if any. */
+export const helpSectionOf = (id: string): string | undefined =>
+  HELP_SECTIONS.find((section) => section.groups.flat().some((item) => item.ids?.includes(id)))
+    ?.title;
+
+/** One-line references for the short-lived modes, below the sections. */
+export const HELP_NOTES: ReadonlyArray<
+  Readonly<{ title: string; items: ReadonlyArray<HelpItem> }>
+> = [
+  {
+    title: "While typing",
+    items: [
+      { label: "save", ids: ["commit"] },
+      { label: "cancel", ids: ["escape"] },
+      { label: "File and zoom keys still work" },
+    ],
+  },
+  {
+    title: "In menus",
+    items: [
+      {
+        label: "move",
+        ids: ["pickNext", "pickPrevious"],
+        paired: true,
+        covers: ["chooseDown", "chooseUp"],
+      },
+      { label: "pick", ids: ["pickCard"], covers: ["choose"] },
+      { label: "entity / enum", ids: ["chooseEntity", "chooseEnum"], paired: true },
+    ],
+  },
+];
+
+/** Closes the dialog; shown in its header. */
+export const HELP_CLOSE: HelpItem = { label: "close", ids: ["escape", "shortcuts"] };
+
+/**
+ * The key chips a help item shows, as alternatives of one or more chips.
+ */
+export const helpChips = (
+  item: HelpItem,
+  platform: KeyPlatform = keyPlatform,
+): ReadonlyArray<ReadonlyArray<string>> => {
+  const perEntry = (item.ids ?? []).map((id) => {
+    const entry = KEYMAP.find((entry) => entry.id === id);
+    return entry === undefined
+      ? []
+      : Array.dedupe(
+          (entry.displayKeys ?? keysFor(entry, platform)).map((keys) =>
+            formatKeys([keys], platform),
+          ),
+        );
+  });
+  if (item.paired !== true) return Array.dedupe(perEntry.flat()).map((chip) => [chip]);
+  const length = Math.min(...perEntry.map((alternatives) => alternatives.length));
+  return (perEntry[0] ?? [])
+    .slice(0, length)
+    .map((_, index) => perEntry.map((alternatives) => alternatives[index] ?? ""));
+};

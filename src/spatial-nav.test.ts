@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
-import { bindingsFor, formatKeys, KEYMAP, keysFor } from "./keymap";
+import { bindingsFor, formatKeys, helpSectionOf, KEYMAP, keysFor } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, Selection, type Model } from "./model";
 import { update } from "./update";
@@ -392,6 +392,6 @@ describe("spatial card navigation", () => {
       ).toEqual(Message.PressedFindCardKey());
     }
     for (const id of ["cardLeft", "cardDown", "cardUp", "cardRight"])
-      expect(KEYMAP.find((entry) => entry.id === id)?.group).toBe("Navigate");
+      expect(helpSectionOf(id)).toBe("Move around");
   });
 });

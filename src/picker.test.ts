@@ -6,7 +6,7 @@ import { FocusInput, RevealCardOption } from "./command";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
-import { bindingsFor, KEYMAP } from "./keymap";
+import { bindingsFor, helpSectionOf } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./model";
 import { toKeyMode } from "./subscription";
@@ -193,7 +193,7 @@ describe("card picker", () => {
   });
 
   test("registry restricts Find card to Normal and allows picker controls while typing", () => {
-    expect(KEYMAP.find(({ id }) => id === "findCard")?.group).toBe("Navigate");
+    expect(helpSectionOf("findCard")).toBe("Move around");
     for (const [platform, shortcut] of [
       ["Apple", "Mod+K"],
       ["Other", "Mod+Shift+K"],

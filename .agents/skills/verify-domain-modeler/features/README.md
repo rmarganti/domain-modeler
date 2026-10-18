@@ -44,7 +44,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Card picker](./card-picker.md) covers Command+K (Ctrl+Shift+K elsewhere) fuzzy entity/enum search, ranking/highlights, keyboard/mouse picking, centering without resize/zoom, and cancellation.
 - [Row cursor](./row-cursor.md) covers title/field/value selection, j/k and gg/G motion, row-aware edit/delete, o/O insertion, J/K reorder, and undo/redo safety.
 - [Zoom and fit](./zoom.md) covers keyboard/HUD zoom, fit-all, fit-selection, text-mode behavior, and history preservation.
-- [Keyboard shortcuts](./shortcuts.md) covers the `?` overlay, context/group listing, toolbar titles, cancellation, and selection/history preservation.
+- [Keyboard shortcuts](./shortcuts.md) covers the `?` overlay, task-based sections, toolbar titles, cancellation, and selection/history preservation.
 - [New chooser](./new-chooser.md) covers `c`, Entity/Enum selection, cancellation, text input, and `Meta+n` for a new model.
 - [Create an entity](./create-entity.md) covers keyboard and toolbar creation, cancel, delete, and undo.
 - [Edit fields](./edit-fields.md) covers adding, editing, and cancelling fields on an entity, including typing a field by an enum and "New enum…".

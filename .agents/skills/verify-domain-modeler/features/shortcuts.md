@@ -1,11 +1,11 @@
 # Keyboard shortcuts
 
-The shortcut reference opens with `?` or the toolbar button, lists bindings by context and group, and closes without changing selection or history. Shortcut labels follow the platform: Command on Apple platforms and Ctrl elsewhere.
+The shortcut reference opens with `?` or the toolbar button, lists bindings in task-based sections, and closes without changing selection or history. Shortcut labels follow the platform: Command on Apple platforms and Ctrl elsewhere.
 
 ## Sub-features
 
 - `shortcuts-open`: keyboard and toolbar entry points show the dialog and HELP mode.
-- `shortcuts-reference`: Canvas, Editing text, New… chooser, Dragging / connecting, and Help contexts list grouped bindings; toolbar titles match.
+- `shortcuts-reference`: Move around, File, Build, View, and Mouse sections plus `While typing` and `In menus` notes list every binding once; toolbar titles match.
 - `shortcuts-close`: Escape, `?`, the close button, and outside clicks return to Normal without history changes or lost selection.
 - `shortcuts-text`: `?` types normally in inputs; toolbar help abandons an unfinished draft without committing it.
 
@@ -18,7 +18,7 @@ The shortcut reference opens with `?` or the toolbar button, lists bindings by c
 
 Preconditions: baseline from the README; doctor reports OK. Save snapshots and screenshots under `.verify/latest/evidence/shortcuts/` before and after each transition.
 
-- **Keyboard open:** `ab press ?`; `ab get attr '[aria-label^="Mode:"]' aria-label` returns `Mode: HELP`. `ab snapshot -c -s '[role="dialog"][aria-label="Keyboard shortcuts"]'` lists Canvas, File/Edit/Create/View groups, Undo with `u / ⌘Z` on Apple (`u / Ctrl+Z` elsewhere), and the other contexts. Scroll inside the dialog if needed to see the lower sections.
+- **Keyboard open:** `ab press ?`; `ab get attr '[aria-label^="Mode:"]' aria-label` returns `Mode: HELP`. `ab snapshot -c -s '[role="dialog"][aria-label="Keyboard shortcuts"]'` lists regions `Move around`, `File`, `Build`, `View`, `Mouse`, `While typing`, and `In menus`; the Undo row shows chips `u` or `⌘Z` on Apple (`u` or `Ctrl+Z` elsewhere). At desktop size the whole dialog fits without scrolling.
 - **Escape:** `ab press Escape`; mode returns to NORMAL, `ab get count '[role="dialog"][aria-label="Keyboard shortcuts"]'` is `0`, and `ab is enabled '[aria-label="Undo"]'` is `false`.
 - **Toolbar:** `ab click '[aria-label="Keyboard shortcuts"]'`; the dialog reopens. `ab mouse move 10 10`, `ab mouse down`, `ab mouse up` clicks its backdrop and closes it. Undo remains disabled.
 - **Titles:** `ab get attr '[aria-label="Undo"]' title` returns `Undo (u / ⌘Z)` on Apple (`Undo (u / Ctrl+Z)` elsewhere). `ab get attr '[aria-label="Keyboard shortcuts"]' title` returns `Keyboard shortcuts (?)`. Open/Save/New titles use the same platform's modifiers.

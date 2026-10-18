@@ -1,7 +1,20 @@
 import { Dom } from "foldkit";
 import { describe, expect, test } from "vitest";
 
-import { KEYMAP, KEY_CONTEXTS, bindingsFor, formatKeys, keysFor, shortcutTitle } from "./keymap";
+import {
+  HELP_CLOSE,
+  HELP_NOTES,
+  HELP_SECTIONS,
+  KEYMAP,
+  KEY_MODES,
+  bindingsFor,
+  formatKeys,
+  helpChips,
+  helpSectionOf,
+  keysFor,
+  shortcutTitle,
+  type HelpItem,
+} from "./keymap";
 
 describe("formatKeys", () => {
   test("modifiers match Apple and non-Apple conventions", () => {
@@ -36,6 +49,7 @@ describe("formatKeys", () => {
     expect(formatKeys(["Space", "Backspace", "Delete"], "Other")).toBe(
       "Space / Backspace / Delete",
     );
+    expect(formatKeys(["D", "Delete", "Backspace"], "Apple")).toBe("d / ⌦ / ⌫");
   });
 });
 
@@ -44,14 +58,13 @@ describe("keybinding registry", () => {
     expect(new Set(KEYMAP.map((entry) => entry.id)).size).toBe(KEYMAP.length);
     for (const entry of KEYMAP) {
       expect(entry.description.trim()).not.toBe("");
-      expect(entry.group.trim()).not.toBe("");
       expect(entry.modes.length).toBeGreaterThan(0);
       expect(entry.keys.length).toBeGreaterThan(0);
     }
   });
 
   test("all mode tables compile without duplicate or overlapping bindings on either platform", () => {
-    for (const { mode } of KEY_CONTEXTS) {
+    for (const mode of KEY_MODES) {
       for (const modKey of ["Meta", "Control"] as const) {
         expect(() =>
           Dom.streamFromKeyBindings({
@@ -85,7 +98,7 @@ describe("keybinding registry", () => {
     expect(bindingsFor("Help").map((binding) => binding.keys)).toEqual(["Escape", "?", "Shift+?"]);
   });
 
-  test("row verbs are Normal-only Edit bindings, distinct from row navigation", () => {
+  test("row verbs are Normal-only Build bindings, distinct from row navigation", () => {
     const actions = [
       ["O", { _tag: "InsertedCardRow", position: "Below" }],
       ["Shift+O", { _tag: "InsertedCardRow", position: "Above" }],
@@ -103,7 +116,7 @@ describe("keybinding registry", () => {
       }
     }
     for (const id of ["insertRowBelow", "insertRowAbove", "reorderRowDown", "reorderRowUp"]) {
-      expect(KEYMAP.find((entry) => entry.id === id)?.group).toBe("Edit");
+      expect(helpSectionOf(id)).toBe("Build");
     }
   });
 
@@ -156,5 +169,48 @@ describe("keybinding registry", () => {
     expect(shortcutTitle("Fit to screen", "fitToScreen")).toMatch(
       /^Fit to screen \((⇧1|Shift\+1)\)$/,
     );
+  });
+});
+
+describe("help layout", () => {
+  const items: ReadonlyArray<HelpItem> = [
+    ...HELP_SECTIONS.flatMap((section) => section.groups.flat()),
+    ...HELP_NOTES.flatMap((note) => note.items),
+    HELP_CLOSE,
+  ];
+
+  test("documents every binding exactly where it names a real entry", () => {
+    const ids = new Set(KEYMAP.map((entry) => entry.id));
+    const shown = new Set(items.flatMap((item) => [...(item.ids ?? []), ...(item.covers ?? [])]));
+    for (const id of shown) expect(ids).toContain(id);
+    for (const id of ids) expect(shown).toContain(id);
+  });
+
+  test("covered entries use keys their item already shows", () => {
+    for (const platform of ["Apple", "Other"] as const) {
+      for (const item of items.filter((item) => item.covers !== undefined)) {
+        const chips = new Set(helpChips(item, platform).flat());
+        for (const id of item.covers ?? []) {
+          const entry = KEYMAP.find((entry) => entry.id === id)!;
+          for (const keys of keysFor(entry, platform))
+            expect(chips).toContain(formatKeys([keys], platform));
+        }
+      }
+    }
+  });
+
+  test("paired items zip alternatives; others list each alternative once", () => {
+    const chips = (ids: ReadonlyArray<string>, paired?: boolean) =>
+      helpChips({ label: "", ids, ...(paired ? { paired } : {}) }, "Apple");
+    expect(chips(["nextRow", "previousRow"], true)).toEqual([
+      ["j", "k"],
+      ["↓", "↑"],
+    ]);
+    expect(chips(["zoomIn", "zoomOut"], true)).toEqual([["⌘=", "⌘-"]]);
+    expect(chips(["firstRow", "lastRow"], true)).toEqual([["g g", "G"]]);
+    expect(chips(["edit", "enter"])).toEqual([["i"], ["↵"]]);
+    expect(chips(["undo"])).toEqual([["u"], ["⌘Z"]]);
+    expect(chips(["shortcuts"])).toEqual([["?"]]);
+    expect(helpChips({ label: "Find", ids: ["findCard"] }, "Other")).toEqual([["Ctrl+Shift+K"]]);
   });
 });
