@@ -23,9 +23,9 @@ Preconditions:
 
 - Web mode, baseline sample.
 
-- **Web refusal.** Click `Open`. Run `agent-browser click '[aria-label="Open"]'`. `agent-browser get text '[role="alert"]'` contains `Files can only be opened and saved in the desktop app.`
-- **Dirty marker.** Make any edit (create an entity). The status dot title reads `Unsaved changes`: `agent-browser get attr '[title="Unsaved changes"]' title`.
-- **Proof.** Save the alert text and a screenshot to `$VERIFY_EVIDENCE/file-web-refusal/`.
+- **Web refusal.** Click `Open`. Run `ab click '[aria-label="Open"]'`. `ab get text '[role="alert"]'` contains `Files can only be opened and saved in the desktop app.`
+- **Dirty marker.** Make any edit (create an entity). The status dot title reads `Unsaved changes`: `ab get attr '[title="Unsaved changes"]' title`.
+- **Proof.** Save the alert text and a screenshot to `.verify/latest/evidence/file-web-refusal/`.
 
 Desktop file paths have no scripted driver. Launch with `verify.sh launch desktop` and prove only that the shell boots (`verify.sh doctor` shows window `Blog — Domain Modeler`). Report `file-open`, `file-save-as`, `file-save`, and `file-close-guard` as **unverified** unless a human drives them.
 

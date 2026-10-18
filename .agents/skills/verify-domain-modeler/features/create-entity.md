@@ -22,16 +22,16 @@ Preconditions:
 - Baseline `Blog` sample; mode `Mode: NORMAL`.
 - No entity named `Comment` exists.
 
-- **Open draft by key.** Press `c`. Run `agent-browser press c`. Mode becomes `Mode: CREATING` and `agent-browser snapshot -i` shows textbox `New entity name`.
-- **Name and commit.** Type `Comment` and press Enter. Run `agent-browser keyboard type "Comment"` and `agent-browser press Enter`. Mode returns to `Mode: NORMAL`, a group `Entity Comment` exists, and `Undo` is enabled.
-- **Proof.** Run `agent-browser screenshot $VERIFY_EVIDENCE/entity-create-key/created.png` and `agent-browser snapshot -c > $VERIFY_EVIDENCE/entity-create-key/created.aria.txt`. The snapshot lists `group "Entity Comment"` beside `User`, `Post`, `Tag`.
-- **Cancel draft.** Click `+ Entity`. Run `agent-browser find title "Create entity (c)" click`, then `agent-browser keyboard type "Discard"` and `agent-browser press Escape`. Mode returns to `Mode: NORMAL` and `agent-browser get count '[aria-label="Entity Discard"]'` is `0`.
-- **Delete.** Expand and delete `Comment`. Run `agent-browser click '[aria-label="Entity Comment"] [aria-label="Expand"]'` and `agent-browser click '[aria-label="Delete Comment"]'`. `agent-browser get count '[aria-label="Entity Comment"]'` is `0`; pressing `u` brings it back.
+- **Open draft by key.** Press `c`. Run `ab press c`. Mode becomes `Mode: CREATING` and `ab snapshot -i` shows textbox `New entity name`.
+- **Name and commit.** Type `Comment` and press Enter. Run `ab keyboard type "Comment"` and `ab press Enter`. Mode returns to `Mode: NORMAL`, a group `Entity Comment` exists, and `Undo` is enabled.
+- **Proof.** Run `ab screenshot .verify/latest/evidence/entity-create-key/created.png` and `ab snapshot -c > .verify/latest/evidence/entity-create-key/created.aria.txt`. The snapshot lists `group "Entity Comment"` beside `User`, `Post`, `Tag`.
+- **Cancel draft.** Click `+ Entity`. Run `ab find title "Create entity (c)" click`, then `ab keyboard type "Discard"` and `ab press Escape`. Mode returns to `Mode: NORMAL` and `ab get count '[aria-label="Entity Discard"]'` is `0`.
+- **Delete.** Expand and delete `Comment`. Run `ab click '[aria-label="Entity Comment"] [aria-label="Expand"]'` and `ab click '[aria-label="Delete Comment"]'`. `ab get count '[aria-label="Entity Comment"]'` is `0`; pressing `u` brings it back.
 
 ## Gotchas
 
 - `c` only creates in Normal mode. If a text input has focus, `c` types a letter instead.
 - The new entity appears at the viewport center and can overlap existing cards; measure boxes before pointer gestures.
 - `Delete <Name>` only exists while the card is expanded. A collapsed card shows only `Expand`.
-- On 2026-10-17, one run's `Delete Comment` click (right after `Expand`) left the entity in place; four replays could not reproduce it. Assert the count after every delete. If it happens again, capture `agent-browser screenshot` and the card's box before the click, and report it as a failure rather than retrying until it passes.
+- On 2026-10-17, one run's `Delete Comment` click (right after `Expand`) left the entity in place; four replays could not reproduce it. Assert the count after every delete. If it happens again, capture `ab screenshot` and the card's box before the click, and report it as a failure rather than retrying until it passes.
 - `+ Entity` has no aria-label; match it by its title `Create entity (c)`, not by a CSS aria selector.

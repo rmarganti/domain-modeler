@@ -18,15 +18,15 @@ A user steps backward and forward through discrete model edits with toolbar butt
 
 Preconditions:
 
-- Baseline `Blog` sample; mode `Mode: NORMAL`; `Undo` and `Redo` disabled (`agent-browser is enabled '[aria-label="Undo"]'` prints false).
+- Baseline `Blog` sample; mode `Mode: NORMAL`; `Undo` and `Redo` disabled (`ab is enabled '[aria-label="Undo"]'` prints false).
 
 - **Make an edit.** Create entity `Comment` (see [create-entity](./create-entity.md)). `Undo` becomes enabled.
-- **Undo by key.** Run `agent-browser press u`. `agent-browser get count '[aria-label="Entity Comment"]'` is `0`; `Redo` is enabled.
-- **Redo by key.** Run `agent-browser press Control+r`. The count is `1` again.
-- **Undo by button.** Run `agent-browser click '[aria-label="Undo"]'`. The count is `0`.
-- **Redo by button.** Run `agent-browser click '[aria-label="Redo"]'`. The count is `1`.
-- **New edit clears redo.** Run `agent-browser press u`, then create entity `Other`. `Redo` is disabled.
-- **Proof.** Save `agent-browser snapshot -c` after each step to `$VERIFY_EVIDENCE/history/<step>.aria.txt`, plus a final screenshot.
+- **Undo by key.** Run `ab press u`. `ab get count '[aria-label="Entity Comment"]'` is `0`; `Redo` is enabled.
+- **Redo by key.** Run `ab press Control+r`. The count is `1` again.
+- **Undo by button.** Run `ab click '[aria-label="Undo"]'`. The count is `0`.
+- **Redo by button.** Run `ab click '[aria-label="Redo"]'`. The count is `1`.
+- **New edit clears redo.** Run `ab press u`, then create entity `Other`. `Redo` is disabled.
+- **Proof.** Save `ab snapshot -c` after each step to `.verify/latest/evidence/history/<step>.aria.txt`, plus a final screenshot.
 
 ## Gotchas
 

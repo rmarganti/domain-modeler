@@ -4,26 +4,26 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 ## Baseline preconditions
 
-- Launch with `eval "$(.agents/skills/verify-domain-modeler/scripts/verify.sh launch)"` (web mode unless the feature says otherwise).
-- `verify.sh doctor` reports `doctor: OK`.
+- Launch with `.agents/skills/verify-domain-modeler/scripts/verify.sh launch` (web mode unless the feature says otherwise).
+- `.agents/skills/verify-domain-modeler/scripts/verify.sh doctor` reports `doctor: OK`.
 - The canvas shows the `Blog` sample: entities `User`, `Post`, `Tag`; edges `Relationship writes 1:N` and `Relationship tagged N:M`; `Undo` and `Redo` disabled.
-- `AGENT_BROWSER_SESSION` is set by launch, so bare `agent-browser` commands hit this run.
+- `ab …` in every recipe means `.agents/skills/verify-domain-modeler/scripts/verify.sh ab …`, which aims `agent-browser` at the latest run's session.
 - Never drive an instance this run did not launch (in particular nothing on port 1420).
 
 ## Driving conventions
 
-- Start every recipe from the baseline. `agent-browser reload` restores it (the app keeps no state across reloads).
-- Assert the mode pill after every step that changes mode: `agent-browser get attr '[aria-label^="Mode:"]' aria-label`.
-- Prefer aria labels and roles. For unlabeled or repeated buttons, take a ref from `agent-browser snapshot -i -s '<card selector>'`.
-- Treat every command as literal. Keep quoted names unchanged.
-- Move the mouse off the canvas items (`agent-browser mouse move 5 5`) before `get text` on a card: hovering a field row hides its type and badges.
+- Start every recipe from the baseline. `ab reload` restores it (the app keeps no state across reloads).
+- Assert the mode pill after every step that changes mode: `ab get attr '[aria-label^="Mode:"]' aria-label`.
+- Prefer aria labels and roles. For unlabeled or repeated buttons, take a ref from `ab snapshot -i -s '<card selector>'`.
+- Treat every command as literal apart from expanding `ab`. Keep quoted names unchanged.
+- Move the mouse off the canvas items (`ab mouse move 5 5`) before `get text` on a card: hovering a field row hides its type and badges.
 
 ## Proof and skip reporting
 
-- Save artifacts to `$VERIFY_EVIDENCE/<feature-id>/`.
+- Save artifacts to `.verify/latest/evidence/<feature-id>/`. Run `mkdir -p .verify/latest/evidence/<feature-id>` first; `ab screenshot` creates it, but a shell `>` redirect does not.
 - UI proof is an ARIA snapshot (`snapshot -c`) plus a screenshot, for both the action and the resulting state.
 - Mutation proof includes a second view: re-expand, undo/redo, or a different element that reflects the change.
-- Finish with `agent-browser errors > $VERIFY_EVIDENCE/<feature-id>/errors.txt`; it must be empty.
+- Finish with `ab errors > .verify/latest/evidence/<feature-id>/errors.txt`; it must be empty.
 - Report an unreachable path with the attempted command and the unmet precondition.
 - Do not report a skipped entry point (for example, a desktop-only path) as verified through a different one.
 

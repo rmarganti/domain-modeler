@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Launch, check, and tear down an isolated Domain Modeler instance for verification.
+# Launch, drive, check, and tear down an isolated Domain Modeler instance for verification.
 #
-#   eval "$(verify.sh launch [web|desktop])"   start an instance, export VERIFY_* vars
-#   verify.sh doctor                           read-only health check of $VERIFY_RUN
-#   verify.sh cleanup                          stop what launch started, keep evidence
+#   verify.sh launch [web|desktop]   start an instance; it becomes the latest run
+#   verify.sh ab <agent-browser args> run agent-browser against the run's browser session
+#   verify.sh doctor                  read-only health check
+#   verify.sh cleanup                 stop what launch started, keep evidence
 #
-# State lives in .verify/<run>/state (removed by cleanup); evidence lives in
-# .verify/<run>/evidence (kept). Never touches port 1420, which `pnpm app:dev` owns.
+# Every command except launch acts on $VERIFY_RUN if set, else on .verify/latest, so
+# no shell variables are needed. State lives in .verify/<run>/state (removed by cleanup);
+# evidence lives in .verify/<run>/evidence (kept), also reachable as .verify/latest/evidence.
+# Never touches port 1420, which `pnpm app:dev` owns.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -45,9 +48,14 @@ wait_for_log() {
 }
 
 require_run() {
-  [[ -n "${VERIFY_RUN:-}" ]] || die "VERIFY_RUN is not set; run: eval \"\$(verify.sh launch)\""
-  STATE="$VERIFY_ROOT/$VERIFY_RUN/state"
-  [[ -d "$STATE" ]] || die "no state for run $VERIFY_RUN at $STATE"
+  local run="${VERIFY_RUN:-}"
+  if [[ -z "$run" ]]; then
+    [[ -L "$VERIFY_ROOT/latest" ]] || die "no run found; start one with: verify.sh launch"
+    run="$(basename "$(readlink "$VERIFY_ROOT/latest")")"
+  fi
+  RUN="$run"
+  STATE="$VERIFY_ROOT/$RUN/state"
+  [[ -d "$STATE" ]] || die "run $RUN is not active (no $STATE); start one with: verify.sh launch"
   MODE="$(cat "$STATE/mode")"
   PORT="$(cat "$STATE/port")"
   PID="$(cat "$STATE/pid")"
@@ -65,6 +73,7 @@ launch() {
   evidence="$VERIFY_ROOT/$run/evidence"
   session="verify-$run"
   mkdir -p "$state" "$evidence"
+  ln -sfn "$run" "$VERIFY_ROOT/latest"
   echo "$mode" >"$state/mode"
   echo "$port" >"$state/port"
   git -C "$REPO" rev-parse --short HEAD >"$state/rev"
@@ -99,12 +108,32 @@ launch() {
     done
   fi
 
-  log "run $run ready ($mode) on port $port"
+  log "run $run ready ($mode) at http://localhost:$port; evidence goes in .verify/latest/evidence"
+  # Optional for callers that can eval; every other command finds the run via .verify/latest.
   echo "export VERIFY_RUN=$run"
   echo "export VERIFY_URL=http://localhost:$port"
   echo "export VERIFY_EVIDENCE=$evidence"
   [[ "$mode" == web ]] && echo "export AGENT_BROWSER_SESSION=$session"
   return 0
+}
+
+# agent-browser saves a relative screenshot/pdf path somewhere under ~/.agent-browser
+# instead of the caller's directory, so make those paths absolute (and create the dir).
+ab() {
+  require_run
+  [[ "$MODE" == web ]] || die "run $RUN is a desktop run; it cannot be driven"
+  [[ $# -gt 0 ]] || die "usage: verify.sh ab <agent-browser args>"
+  local args=("$@")
+  if [[ "${args[0]}" == screenshot || "${args[0]}" == pdf ]]; then
+    local i
+    for ((i = 1; i < ${#args[@]}; i++)); do
+      if [[ "${args[i]}" != -* && "${args[i]}" != @* && "${args[i]}" == *.* ]]; then
+        [[ "${args[i]}" == /* ]] || args[i]="$PWD/${args[i]}"
+        mkdir -p "$(dirname "${args[i]}")"
+      fi
+    done
+  fi
+  exec agent-browser --session "$(cat "$STATE/session")" "${args[@]}"
 }
 
 # Prints the on-screen window title owned by any process in the tree rooted at $1.
@@ -123,9 +152,15 @@ owns_port() {
 
 doctor() {
   require_run
-  local ok=0 owner title
-  echo "run:      $VERIFY_RUN ($MODE)"
-  echo "build:    $(cat "$STATE/rev") (HEAD is $(git -C "$REPO" rev-parse --short HEAD))"
+  local ok=0 owner title dirty=""
+  echo "run:      $RUN ($MODE)"
+  [[ -n "$(git -C "$REPO" status --porcelain --untracked-files=no)" ]] && dirty=" + uncommitted changes"
+  if [[ "$MODE" == web ]]; then
+    # Vite serves the working tree live, so HEAD alone does not identify what is running.
+    echo "build:    working tree at $(git -C "$REPO" rev-parse --short HEAD)$dirty (served live)"
+  else
+    echo "build:    launched at $(cat "$STATE/rev"); now $(git -C "$REPO" rev-parse --short HEAD)$dirty"
+  fi
 
   if kill -0 "$PID" 2>/dev/null; then echo "process:  up (pid $PID)"; else echo "process:  DOWN (pid $PID)"; ok=1; fi
 
@@ -155,6 +190,7 @@ doctor() {
     if [[ "$title" == *"Domain Modeler"* ]]; then echo "window:   \"$title\""; else echo "window:   NOT FOUND"; ok=1; fi
   fi
 
+  echo "evidence: .verify/$RUN/evidence"
   [[ $ok -eq 0 ]] && echo "doctor:   OK" || echo "doctor:   FAILED"
   return $ok
 }
@@ -164,12 +200,13 @@ cleanup() {
   [[ "$MODE" == web ]] && agent-browser --session "$(cat "$STATE/session")" close >/dev/null 2>&1 || true
   kill_tree "$PID"
   rm -rf "$STATE"
-  log "stopped run $VERIFY_RUN; evidence kept at $VERIFY_ROOT/$VERIFY_RUN/evidence"
+  log "stopped run $RUN; evidence kept at $VERIFY_ROOT/$RUN/evidence"
 }
 
 case "${1:-}" in
   launch) shift; launch "$@" ;;
+  ab) shift; ab "$@" ;;
   doctor) doctor ;;
   cleanup) cleanup ;;
-  *) die "usage: verify.sh launch [web|desktop] | doctor | cleanup" ;;
+  *) die "usage: verify.sh launch [web|desktop] | ab <agent-browser args> | doctor | cleanup" ;;
 esac

@@ -22,11 +22,11 @@ Preconditions:
 - Baseline `Blog` sample; mode `Mode: NORMAL`.
 - `Tag` is collapsed and has no edge to `User`.
 
-- **Measure.** Run `agent-browser get box '[aria-label="Entity User"] [data-port]'` and `agent-browser get box '[aria-label="Entity Tag"]'`. Take the centers as `(px, py)` and `(tx, ty)`.
-- **Drag.** Run `agent-browser mouse move px py`, `agent-browser mouse down`, `agent-browser mouse move <midpoint>`. Mode reads `Mode: CONNECTING`.
-- **Release on target.** Run `agent-browser mouse move tx ty` and `agent-browser mouse up`. Mode reads `Mode: EDITING`, dialog `Relationship inspector` is open, and radio `1:N` is checked.
-- **Configure.** Run `agent-browser fill '[aria-label="Relationship name"]' "follows"` and `agent-browser click '[role="radio"]:has-text("N:M")'` (or the `N:M` radio's ref from `snapshot -i`). The `N:M` radio is checked.
-- **Proof.** Run `agent-browser press Escape`, `agent-browser snapshot -c > $VERIFY_EVIDENCE/rel-connect/edges.aria.txt`, and `agent-browser screenshot $VERIFY_EVIDENCE/rel-connect/edges.png`. The snapshot lists a third edge button after `Relationship writes 1:N` and `Relationship tagged N:M`, with the new name and cardinality.
+- **Measure.** Run `ab get box '[aria-label="Entity User"] [data-port]'` and `ab get box '[aria-label="Entity Tag"]'`. Take the centers as `(px, py)` and `(tx, ty)`.
+- **Drag.** Run `ab mouse move px py`, `ab mouse down`, `ab mouse move <midpoint>`. Mode reads `Mode: CONNECTING`.
+- **Release on target.** Run `ab mouse move tx ty` and `ab mouse up`. Mode reads `Mode: EDITING`, dialog `Relationship inspector` is open, and radio `1:N` is checked.
+- **Configure.** Run `ab fill '[aria-label="Relationship name"]' "follows"` and `ab click '[role="radio"]:has-text("N:M")'` (or the `N:M` radio's ref from `snapshot -i`). The `N:M` radio is checked.
+- **Proof.** Run `ab press Escape`, `ab snapshot -c > .verify/latest/evidence/rel-connect/edges.aria.txt`, and `ab screenshot .verify/latest/evidence/rel-connect/edges.png`. The snapshot lists a third edge button after `Relationship writes 1:N` and `Relationship tagged N:M`, with the new name and cardinality.
 - **Delete.** Click the new edge button, press `Delete`. Its button is gone and the two sample edges remain.
 
 ## Gotchas

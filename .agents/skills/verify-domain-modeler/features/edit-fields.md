@@ -22,12 +22,12 @@ Preconditions:
 - Baseline `Blog` sample; mode `Mode: NORMAL`.
 - `Post` is expanded (it is in the sample) with fields `id`, `authorId`, `title`, `publishedAt`.
 
-- **Add a field.** Click `+ Add field` on `Post`. Run `agent-browser snapshot -i -s '[aria-label="Entity Post"]'`, then `agent-browser click @<ref of "+ Add field">`. Mode becomes `Mode: EDITING` and textbox `Field name` appears with a default name like `field5`.
-- **Name and type it.** Run `agent-browser fill '[aria-label="Field name"]' "body"` and `agent-browser select '[aria-label="Field type"]' String`.
-- **Commit.** Press Enter. Run `agent-browser press Enter`. Mode returns to `Mode: NORMAL`.
-- **Proof.** Run `agent-browser mouse move 5 5`, then `agent-browser get text '[aria-label="Entity Post"]' > $VERIFY_EVIDENCE/field-add/post.txt` and `agent-browser screenshot $VERIFY_EVIDENCE/field-add/post.png`. The text contains `body` followed by `String`, and the field count badge reads `5`.
-- **Second view.** Collapse and re-expand. Run `agent-browser click '[aria-label="Entity Post"] [aria-label="Collapse"]'` and `agent-browser click '[aria-label="Entity Post"] [aria-label="Expand"]'`. `body String` is still listed.
-- **Cancel.** Add another field, type `scratch`, press `Escape`. Run the add step, `agent-browser fill '[aria-label="Field name"]' "scratch"`, `agent-browser press Escape`. The card text does not contain `scratch`.
+- **Add a field.** Click `+ Add field` on `Post`. Run `ab snapshot -i -s '[aria-label="Entity Post"]'`, then `ab click @<ref of "+ Add field">`. Mode becomes `Mode: EDITING` and textbox `Field name` appears with a default name like `field5`.
+- **Name and type it.** Run `ab fill '[aria-label="Field name"]' "body"` and `ab select '[aria-label="Field type"]' String`.
+- **Commit.** Press Enter. Run `ab press Enter`. Mode returns to `Mode: NORMAL`.
+- **Proof.** Run `ab mouse move 5 5`, then `ab get text '[aria-label="Entity Post"]' > .verify/latest/evidence/field-add/post.txt` and `ab screenshot .verify/latest/evidence/field-add/post.png`. The text contains `body` followed by `String`, and the field count badge reads `5`.
+- **Second view.** Collapse and re-expand. Run `ab click '[aria-label="Entity Post"] [aria-label="Collapse"]'` and `ab click '[aria-label="Entity Post"] [aria-label="Expand"]'`. `body String` is still listed.
+- **Cancel.** Add another field, type `scratch`, press `Escape`. Run the add step, `ab fill '[aria-label="Field name"]' "scratch"`, `ab press Escape`. The card text does not contain `scratch`.
 
 ## Gotchas
 
