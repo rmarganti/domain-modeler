@@ -1,7 +1,9 @@
+import { Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { CARD_QUERY_INPUT_ID } from "../dom";
 import { searchCards, type CardMatch } from "../domain/card-search";
+import * as Doc from "../domain/document";
 import { shortcutFor } from "../keymap";
 import { Message } from "../message";
 import type { Model } from "../model";
@@ -48,7 +50,18 @@ export const pickerView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray
   if (editor._tag !== "PickingCard") {
     return [];
   }
-  const matches = searchCards(model.history.present, editor.query);
+  const source =
+    editor.purpose._tag === "Connect"
+      ? Option.getOrUndefined(Doc.findEntity(model.history.present, editor.purpose.sourceEntityId))
+      : undefined;
+  const connecting = editor.purpose._tag === "Connect";
+  const label = connecting ? `Connect ${source?.name ?? "entity"} to` : "Find card";
+  const action = connecting ? "connect" : "focus";
+  const matches = searchCards(
+    model.history.present,
+    editor.query,
+    connecting ? "Entity" : undefined,
+  );
   return [
     h.div(
       [h.Class("fixed inset-0 z-50 bg-slate-900/10"), h.OnClick(Message.ClickedCancelEdit())],
@@ -57,7 +70,7 @@ export const pickerView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray
     h.div(
       [
         h.Role("dialog"),
-        h.AriaLabel("Find card"),
+        h.AriaLabel(label),
         h.AriaModal(true),
         h.Class(
           "fixed left-1/2 top-[15vh] z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-xl backdrop-blur",
@@ -67,7 +80,7 @@ export const pickerView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray
         h.input([
           h.Id(CARD_QUERY_INPUT_ID),
           h.Role("combobox"),
-          h.AriaLabel("Find card"),
+          h.AriaLabel(label),
           h.AriaAutocomplete("list"),
           h.AriaExpanded(true),
           h.AriaControls("card-options"),
@@ -76,7 +89,7 @@ export const pickerView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray
             : [h.AriaActiveDescendant(optionId(editor.highlighted))]),
           h.Type("text"),
           h.Autocomplete("off"),
-          h.Placeholder("Find an entity or enum…"),
+          h.Placeholder(connecting ? `${label}…` : "Find an entity or enum…"),
           h.Value(editor.query),
           h.OnInput((query) => Message.UpdatedCardQuery({ query })),
           h.Class(
@@ -87,7 +100,7 @@ export const pickerView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray
           [
             h.Id("card-options"),
             h.Role("listbox"),
-            h.AriaLabel("Cards"),
+            h.AriaLabel(connecting ? "Entities" : "Cards"),
             h.Class("mt-2 max-h-[50vh] space-y-1 overflow-y-auto"),
           ],
           matches.map((match, index) => optionView(h, match, index, editor.highlighted)),
@@ -96,14 +109,14 @@ export const pickerView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray
           ? [
               h.p(
                 [h.Role("status"), h.Class("px-3 py-6 text-center text-sm text-slate-500")],
-                ["No cards match"],
+                [connecting ? "No entities match" : "No cards match"],
               ),
             ]
           : []),
         h.p(
           [h.Class("px-3 pb-1 pt-2 text-[11px] text-slate-400")],
           [
-            `${shortcutFor("pickNext")} / ${shortcutFor("pickPrevious")} choose · ${shortcutFor("pickCard")} focus · ${shortcutFor("escape")} cancel`,
+            `${shortcutFor("pickNext")} / ${shortcutFor("pickPrevious")} choose · ${shortcutFor("pickCard")} ${action} · ${shortcutFor("escape")} cancel`,
           ],
         ),
       ],

@@ -43,6 +43,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     PressedNewKey: () => ({ model: Chooser.open(model) }),
     PressedFindCardKey: () => Picker.open(model),
+    PressedConnectKey: () => Picker.openConnect(model),
     UpdatedCardQuery: ({ query }) => Picker.changeQuery(model, query),
     MovedCardHighlight: ({ direction }) => Picker.moveHighlight(model, direction),
     PickedCard: ({ nodeId }) => ({ model: Picker.pick(model, nodeId) }),

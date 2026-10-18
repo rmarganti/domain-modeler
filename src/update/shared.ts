@@ -7,7 +7,7 @@ import * as Geometry from "../domain/geometry";
 import * as History from "../domain/history";
 import type { DomainModelDocument, Point, ViewportLayout } from "../domain/schema";
 import type { Message } from "../message";
-import { CardRow, EditorState, Selection, type Model } from "../model";
+import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "../model";
 
 export type UpdateReturn = Update.Return<Model, Message>;
 
@@ -106,7 +106,11 @@ export const reconcile = (model: Model): Model => {
   const isEditorValid = EditorState.match(model.editor, {
     Idle: () => true,
     ChoosingNew: () => true,
-    PickingCard: () => true,
+    PickingCard: ({ purpose }) =>
+      PickerPurpose.match(purpose, {
+        Focus: () => true,
+        Connect: ({ sourceEntityId }) => hasEntity(sourceEntityId),
+      }),
     ViewingShortcuts: () => true,
     CreatingEntity: () => true,
     RenamingEntity: ({ entityId }) => hasEntity(entityId),

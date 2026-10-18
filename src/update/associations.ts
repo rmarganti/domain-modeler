@@ -17,6 +17,27 @@ export const inspect = (model: Model, associationId: string): Model => ({
   selection: Selection.SelectedAssociation({ associationId }),
 });
 
+/**
+ * Create and inspect an association in one undo step, for either input path.
+ */
+export const create = (model: Model, fromEntityId: string, toEntityId: string): Model => {
+  const document = present(model);
+  if (
+    Option.isNone(Doc.findEntity(document, fromEntityId)) ||
+    Option.isNone(Doc.findEntity(document, toEntityId))
+  ) {
+    return model;
+  }
+  const associationId = Doc.nextId(document, "r");
+  return {
+    ...commitDocument(model, (current) =>
+      Doc.addAssociation(current, Doc.newAssociation(associationId, fromEntityId, toEntityId)),
+    ),
+    editor: EditorState.EditingAssociation({ associationId }),
+    selection: Selection.SelectedAssociation({ associationId }),
+  };
+};
+
 /** Completes a port drag: dropping on an entity creates an association and
  *  opens it in the inspector; dropping anywhere else cancels. */
 export const connect = (
@@ -35,15 +56,6 @@ export const connect = (
   );
   return Option.match(maybeValidTarget, {
     onNone: () => toIdle(model),
-    onSome: (toEntityId) => {
-      const associationId = Doc.nextId(present(model), "r");
-      return {
-        ...commitDocument(model, (document) =>
-          Doc.addAssociation(document, Doc.newAssociation(associationId, fromEntityId, toEntityId)),
-        ),
-        editor: EditorState.EditingAssociation({ associationId }),
-        selection: Selection.SelectedAssociation({ associationId }),
-      };
-    },
+    onSome: (toEntityId) => create(toIdle(model), fromEntityId, toEntityId),
   });
 };

@@ -90,11 +90,15 @@ export const matchCards = (cards: ReadonlyArray<SearchCard>, query: string): Car
     .map(({ card, indices }) => ({ card, indices }));
 };
 
-export const searchCards = (document: DomainModelDocument, query: string): CardMatch[] =>
+export const searchCards = (
+  document: DomainModelDocument,
+  query: string,
+  kind?: SearchCard["kind"],
+): CardMatch[] =>
   matchCards(
     [
       ...document.entities.map(({ id, name }) => ({ nodeId: id, name, kind: "Entity" as const })),
       ...document.types.map(({ id, name }) => ({ nodeId: id, name, kind: "Enum" as const })),
-    ],
+    ].filter((card) => kind === undefined || card.kind === kind),
     query,
   );

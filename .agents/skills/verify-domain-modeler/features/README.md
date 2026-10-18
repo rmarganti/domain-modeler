@@ -49,6 +49,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Create an entity](./create-entity.md) covers keyboard and toolbar creation, cancel, delete, and undo.
 - [Edit fields](./edit-fields.md) covers adding, editing, and cancelling fields on an entity, including typing a field by an enum and "New enum…".
 - [Enums](./enums.md) covers enum cards: create, rename, values, reorder, drag, delete, undo, and "used by" highlighting.
-- [Connect entities](./connect-entities.md) covers port-drag relationship creation and the relationship inspector.
+- [Connect entities](./connect-entities.md) covers `r` and the entity-only connection picker, cancellation/self relationships/history, port-drag creation, and the relationship inspector.
 - [Undo and redo](./undo-redo.md) covers toolbar and keyboard history across discrete edits.
 - [Open and save files](./files.md) covers native file dialogs. Desktop only; web mode can only prove the refusal notice.

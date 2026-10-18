@@ -88,6 +88,14 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     mapEvent: () => Message.PressedNewKey(),
   },
   {
+    id: "connect",
+    keys: ["R"],
+    description: "Connect selected entity to…",
+    group: "Create",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedConnectKey(),
+  },
+  {
     id: "delete",
     keys: ["D", "Delete", "Backspace"],
     description: "Delete current row / card / relationship",
@@ -174,7 +182,7 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
   {
     id: "pickCard",
     keys: ["Enter"],
-    description: "Focus highlighted card",
+    description: "Pick highlighted card (focus / connect)",
     group: "Navigate",
     modes: ["Picking"],
     whileTyping: "Allow",

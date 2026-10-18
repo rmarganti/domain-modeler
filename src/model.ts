@@ -32,7 +32,10 @@ export type EnumValueSave = typeof EnumValueSave.Type;
 export const NewKind = Schema.Literals(["Entity", "Enum"]);
 export type NewKind = typeof NewKind.Type;
 
-export const PickerPurpose = defineTaggedUnion({ Focus: {} });
+export const PickerPurpose = defineTaggedUnion({
+  Focus: {},
+  Connect: { sourceEntityId: Schema.String },
+});
 export type PickerPurpose = typeof PickerPurpose.Type;
 
 export const EditorState = defineTaggedUnion({

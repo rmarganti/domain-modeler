@@ -18,6 +18,7 @@ export const Message = defineMessageUnion({
   // Keyboard
   PressedNewKey: {},
   PressedFindCardKey: {},
+  PressedConnectKey: {},
   PressedShortcutsKey: {},
   PressedZoomToSelectionKey: {},
   PressedNewDocumentKey: {},
