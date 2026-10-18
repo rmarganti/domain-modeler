@@ -342,6 +342,90 @@ describe("key bindings", () => {
   });
 });
 
+describe("keyboard shortcuts overlay", () => {
+  const selected: Model = { ...baseModel, selection: Selection.SelectedEntity({ entityId: "e1" }) };
+
+  test("question mark opens Help; Escape closes without changing selection, document or history", () => {
+    story(
+      update,
+      given(selected),
+      message(Message.PressedShortcutsKey()),
+      focused,
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.ViewingShortcuts());
+        expect(toKeyMode(m.editor)).toBe("Help");
+        expect(m.history).toBe(selected.history);
+        expect(m.selection).toEqual(selected.selection);
+        expect(m.saveStatus).toBe("Clean");
+      }),
+      message(Message.PressedEscapeKey()),
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.Idle());
+        expect(m.history).toBe(selected.history);
+        expect(m.selection).toEqual(selected.selection);
+      }),
+    );
+  });
+
+  test("toolbar opens help; question mark, outside click and close button cancel it", () => {
+    for (const close of [Message.PressedShortcutsKey(), Message.ClickedCancelEdit()]) {
+      story(
+        update,
+        given(selected),
+        message(Message.ClickedShowShortcuts()),
+        focused,
+        model((m) => expect(m.editor).toEqual(EditorState.ViewingShortcuts())),
+        message(close),
+        model((m) => {
+          expect(m.editor).toEqual(EditorState.Idle());
+          expect(m.selection).toEqual(selected.selection);
+          expect(m.history).toBe(selected.history);
+        }),
+      );
+    }
+  });
+
+  test("opening from the inspector keeps its selected relationship", () => {
+    const inspecting: Model = {
+      ...baseModel,
+      selection: Selection.SelectedAssociation({ associationId: "r1" }),
+      editor: EditorState.EditingAssociation({ associationId: "r1" }),
+    };
+    story(
+      update,
+      given(inspecting),
+      message(Message.PressedShortcutsKey()),
+      focused,
+      message(Message.PressedEscapeKey()),
+      model((m) => {
+        expect(m.editor).toEqual(EditorState.Idle());
+        expect(m.selection).toEqual(inspecting.selection);
+        expect(m.history).toBe(inspecting.history);
+      }),
+    );
+  });
+
+  test("toolbar help does not commit an unfinished draft or leave Space held", () => {
+    const drafting: Model = {
+      ...selected,
+      panKey: "Held",
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "Uncommitted" }),
+    };
+    story(
+      update,
+      given(drafting),
+      message(Message.ClickedShowShortcuts()),
+      focused,
+      message(Message.PressedEscapeKey()),
+      model((m) => {
+        expect(m.history).toBe(selected.history);
+        expect(m.selection).toEqual(selected.selection);
+        expect(m.panKey).toBe("Released");
+      }),
+    );
+  });
+});
+
 describe("entities", () => {
   test("c, typing, and Enter create a selected entity", () => {
     story(

@@ -1,5 +1,6 @@
 import { Option } from "effect";
 
+import { FocusInput } from "./command";
 import * as Doc from "./domain/document";
 import { ZOOM_STEP } from "./domain/geometry";
 import { Message } from "./message";
@@ -26,6 +27,11 @@ import {
   type UpdateReturn,
 } from "./update/shared";
 
+const showShortcuts = (model: Model): UpdateReturn => ({
+  model: { ...model, editor: EditorState.ViewingShortcuts(), panKey: "Released" },
+  commands: [FocusInput({ selector: "#keyboard-shortcuts" })],
+});
+
 // Every Message is handled here, so exhaustiveness is checked in one place.
 // Handlers with any logic live in the area modules under ./update/.
 
@@ -34,6 +40,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     // Keyboard
 
     PressedNewKey: () => ({ model: Chooser.open(model) }),
+    PressedShortcutsKey: () =>
+      model.editor._tag === "ViewingShortcuts" ? { model: toIdle(model) } : showShortcuts(model),
     PressedNewDocumentKey: () => Session.newDocument(model),
     PressedDeleteKey: () => ({ model: Session.deleteSelection(model) }),
     PressedUndoKey: () => ({ model: Session.undo(model) }),
@@ -84,6 +92,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     // Toolbar
 
     ClickedNewDocument: () => Session.newDocument(model),
+    ClickedShowShortcuts: () => showShortcuts(model),
     ClickedOpen: () => Session.open(model),
     ClickedSave: () => Session.save(model),
     ClickedSaveAs: () => Session.saveAs(model),

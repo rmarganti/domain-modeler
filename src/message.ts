@@ -16,6 +16,7 @@ export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
 export const Message = defineMessageUnion({
   // Keyboard
   PressedNewKey: {},
+  PressedShortcutsKey: {},
   PressedNewDocumentKey: {},
   PressedDeleteKey: {},
   PressedUndoKey: {},
@@ -61,6 +62,7 @@ export const Message = defineMessageUnion({
 
   // Toolbar
   ClickedNewDocument: {},
+  ClickedShowShortcuts: {},
   ClickedOpen: {},
   ClickedSave: {},
   ClickedSaveAs: {},

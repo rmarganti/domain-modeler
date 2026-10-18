@@ -1,0 +1,261 @@
+import { Array, Schema } from "effect";
+import type { Dom } from "foldkit";
+
+import { Message } from "./message";
+
+export const KeyMode = Schema.Literals(["Normal", "Text", "Choosing", "Pointer", "Help"]);
+export type KeyMode = typeof KeyMode.Type;
+export type KeyPlatform = "Apple" | "Other";
+
+// Match Foldkit's Mod resolution (navigator.userAgent, not navigator.platform).
+export const keyPlatform: KeyPlatform =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
+    ? "Apple"
+    : "Other";
+
+export const KEY_CONTEXTS: ReadonlyArray<Readonly<{ mode: KeyMode; label: string }>> = [
+  { mode: "Normal", label: "Canvas" },
+  { mode: "Text", label: "Editing text" },
+  { mode: "Choosing", label: "New… chooser" },
+  { mode: "Pointer", label: "Dragging / connecting" },
+  { mode: "Help", label: "Keyboard shortcuts" },
+];
+
+type KeymapEntry = Readonly<{
+  id: string;
+  keys: ReadonlyArray<Dom.KeySequence>;
+  description: string;
+  group: string;
+  modes: ReadonlyArray<KeyMode>;
+  mapEvent: (event: KeyboardEvent) => Message;
+  whileTyping?: Dom.WhileTyping;
+}>;
+
+// Each keys array contains alternatives; a nested array is a key sequence.
+export const KEYMAP: ReadonlyArray<KeymapEntry> = [
+  {
+    id: "newDocument",
+    keys: ["Mod+N"],
+    description: "New model",
+    group: "File",
+    modes: ["Normal", "Text", "Choosing"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedNewDocumentKey(),
+  },
+  {
+    id: "open",
+    keys: ["Mod+O"],
+    description: "Open",
+    group: "File",
+    modes: ["Normal", "Text", "Choosing"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedOpenKey(),
+  },
+  {
+    id: "save",
+    keys: ["Mod+S"],
+    description: "Save",
+    group: "File",
+    modes: ["Normal", "Text", "Choosing"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedSaveKey(),
+  },
+  {
+    id: "saveAs",
+    keys: ["Mod+Shift+S"],
+    description: "Save as",
+    group: "File",
+    modes: ["Normal", "Text", "Choosing"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedSaveAsKey(),
+  },
+  {
+    id: "create",
+    keys: ["C"],
+    description: "Create entity or enum",
+    group: "Create",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedNewKey(),
+  },
+  {
+    id: "delete",
+    keys: ["D", "Delete", "Backspace"],
+    description: "Delete selection",
+    group: "Edit",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedDeleteKey(),
+  },
+  {
+    id: "undo",
+    keys: ["U", "Mod+Z"],
+    description: "Undo",
+    group: "Edit",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedUndoKey(),
+  },
+  {
+    id: "redo",
+    keys: ["Control+R", "Mod+Shift+Z"],
+    description: "Redo",
+    group: "Edit",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedRedoKey(),
+  },
+  {
+    id: "edit",
+    keys: ["I"],
+    description: "Expand and edit selection",
+    group: "Edit",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedEditKey(),
+  },
+  {
+    id: "enter",
+    keys: ["Enter"],
+    description: "Edit selection / close inspector",
+    group: "Edit",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedEnterKey(),
+  },
+  {
+    id: "commit",
+    keys: ["Enter"],
+    description: "Commit edit",
+    group: "Edit",
+    modes: ["Text"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedEnterKey(),
+  },
+  {
+    id: "chooseDown",
+    keys: ["ArrowDown"],
+    description: "Next option (wrap)",
+    group: "Create",
+    modes: ["Choosing"],
+    mapEvent: () => Message.MovedChooserHighlight({ direction: "Down" }),
+  },
+  {
+    id: "chooseUp",
+    keys: ["ArrowUp"],
+    description: "Previous option (wrap)",
+    group: "Create",
+    modes: ["Choosing"],
+    mapEvent: () => Message.MovedChooserHighlight({ direction: "Up" }),
+  },
+  {
+    id: "chooseEntity",
+    keys: ["1"],
+    description: "Create entity",
+    group: "Create",
+    modes: ["Choosing"],
+    mapEvent: () => Message.PickedNew({ kind: "Entity" }),
+  },
+  {
+    id: "chooseEnum",
+    keys: ["2"],
+    description: "Create enum",
+    group: "Create",
+    modes: ["Choosing"],
+    mapEvent: () => Message.PickedNew({ kind: "Enum" }),
+  },
+  {
+    id: "choose",
+    keys: ["Enter"],
+    description: "Pick highlighted option",
+    group: "Create",
+    modes: ["Choosing"],
+    mapEvent: () => Message.PressedEnterKey(),
+  },
+  {
+    id: "escape",
+    keys: ["Escape"],
+    description: "Cancel / deselect / close",
+    group: "Navigate",
+    modes: ["Normal", "Text", "Choosing", "Pointer", "Help"],
+    whileTyping: "Allow",
+    mapEvent: () => Message.PressedEscapeKey(),
+  },
+  {
+    id: "pan",
+    keys: ["Space"],
+    description: "Hold and drag to pan",
+    group: "View",
+    modes: ["Normal", "Choosing", "Pointer"],
+    mapEvent: () => Message.PressedSpace(),
+  },
+  // Foldkit compares shiftKey exactly. Both literal and shifted ? events work.
+  {
+    id: "shortcuts",
+    keys: ["?", "Shift+?"],
+    description: "Keyboard shortcuts",
+    group: "View",
+    modes: ["Normal", "Help"],
+    mapEvent: () => Message.PressedShortcutsKey(),
+  },
+];
+
+const namedKeys: Readonly<Record<string, string>> = {
+  Escape: "Esc",
+  ArrowDown: "↓",
+  ArrowUp: "↑",
+  ArrowLeft: "←",
+  ArrowRight: "→",
+  Enter: "↵",
+  Space: "Space",
+  Equal: "=",
+  Plus: "+",
+  Minus: "-",
+};
+
+const formatPress = (press: string, platform: KeyPlatform): string => {
+  const parts = press.split("+");
+  const key = parts[parts.length - 1] ?? "";
+  const modifiers = parts.slice(0, -1);
+  const hasCommandModifier = modifiers.some((modifier) => modifier !== "Shift");
+  const isLetter = /^[a-z]$/i.test(key);
+  const label =
+    namedKeys[key] ??
+    (isLetter ? (modifiers.length > 0 ? key.toUpperCase() : key.toLowerCase()) : key);
+  const visibleModifiers = modifiers.filter(
+    (modifier) => modifier !== "Shift" || hasCommandModifier || (!isLetter && key !== "?"),
+  );
+  const modifierLabels: Readonly<Record<string, string>> =
+    platform === "Apple"
+      ? { Mod: "⌘", Meta: "⌘", Control: "⌃", Shift: "⇧", Alt: "⌥" }
+      : { Mod: "Ctrl", Meta: "Meta", Control: "Ctrl", Shift: "Shift", Alt: "Alt" };
+  return [...visibleModifiers.map((modifier) => modifierLabels[modifier] ?? modifier), label].join(
+    platform === "Apple" ? "" : "+",
+  );
+};
+
+/**
+ * Format alternatives, with nested arrays for sequences: ["U", "Mod+Z"], [["G", "G"]].
+ */
+export const formatKeys = (
+  keys: ReadonlyArray<Dom.KeySequence>,
+  platform: KeyPlatform = keyPlatform,
+): string =>
+  Array.dedupe(
+    keys.map((alternative) =>
+      typeof alternative === "string"
+        ? formatPress(alternative, platform)
+        : alternative.map((press) => formatPress(press, platform)).join(" "),
+    ),
+  ).join(" / ");
+
+export const shortcutFor = (id: string): string =>
+  formatKeys(KEYMAP.filter((entry) => entry.id === id).flatMap((entry) => entry.keys));
+
+export const shortcutTitle = (label: string, id: string): string => {
+  const shortcut = shortcutFor(id);
+  return shortcut === "" ? label : `${label} (${shortcut})`;
+};
+
+export const bindingsFor = (mode: KeyMode): ReadonlyArray<Dom.KeyBinding<Message>> =>
+  KEYMAP.filter((entry) => entry.modes.includes(mode)).flatMap((entry) =>
+    entry.keys.map((keys): Dom.KeyBinding<Message> => ({
+      ...(typeof keys === "string" ? { keys } : { keys }),
+      mapEvent: entry.mapEvent,
+      ...(entry.whileTyping === undefined ? {} : { whileTyping: entry.whileTyping }),
+    })),
+  );

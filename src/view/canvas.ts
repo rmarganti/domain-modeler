@@ -5,6 +5,7 @@ import { CANVAS_ID, CANVAS_ITEM_ATTRIBUTE } from "../dom";
 import * as Diagnostics from "../domain/diagnostics";
 import { bezierRouter, type EdgeRouter } from "../domain/edgeRouter";
 import type { DomainModelDocument } from "../domain/schema";
+import { shortcutFor } from "../keymap";
 import { Message } from "../message";
 import type { Model } from "../model";
 import {
@@ -206,7 +207,9 @@ const emptyState = (h: HtmlBuilder<Message>): Html =>
           h.p([h.Class("text-sm font-semibold text-slate-700")], ["An empty domain"]),
           h.p(
             [h.Class("mt-1 text-xs text-slate-500")],
-            ["Press C to create an entity or enum, or open an existing model with ⌘O."],
+            [
+              `Press ${shortcutFor("create")} to create an entity or enum, or open an existing model with ${shortcutFor("open")}.`,
+            ],
           ),
         ],
       ),

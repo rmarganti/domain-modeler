@@ -15,6 +15,7 @@ import type {
   NodeLayout,
   Point,
 } from "../domain/schema";
+import { shortcutFor } from "../keymap";
 import { Message } from "../message";
 import type { EditorState } from "../model";
 import { canvasItem, iconButton, px, warningBadge } from "./shared";
@@ -402,7 +403,10 @@ export const inspectorView = (
             ),
           ]
         : []),
-      h.p([h.Class("text-[10px] text-slate-400")], ["Delete / Backspace removes · Esc closes"]),
+      h.p(
+        [h.Class("text-[10px] text-slate-400")],
+        [`${shortcutFor("delete")} removes · ${shortcutFor("escape")} closes`],
+      ),
     ],
   );
 };

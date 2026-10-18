@@ -6,6 +6,7 @@ import type { Model } from "../model";
 import { canvasView } from "./canvas";
 import { chooserView } from "./chooser";
 import { hudView, noticeView, toolbarView } from "./chrome";
+import { shortcutsView } from "./shortcuts";
 
 export const windowTitle = (model: Model): string =>
   `${model.saveStatus === "Dirty" ? "• " : ""}${model.history.present.name} — Domain Modeler`;
@@ -20,11 +21,17 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
     body: h.main(
       [h.Class("fixed inset-0 overflow-hidden font-sans text-slate-900 antialiased")],
       [
-        canvasView(model, diagnostics, h),
-        hudView(model, h),
-        ...noticeView(model, h),
-        toolbarView(model, diagnostics, h),
-        ...chooserView(model, h),
+        h.div(
+          [h.Inert(model.editor._tag === "ViewingShortcuts")],
+          [
+            canvasView(model, diagnostics, h),
+            hudView(model, h),
+            ...noticeView(model, h),
+            toolbarView(model, diagnostics, h),
+            ...chooserView(model, h),
+          ],
+        ),
+        ...shortcutsView(model, h),
       ],
     ),
   };

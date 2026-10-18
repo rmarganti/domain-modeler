@@ -3,22 +3,23 @@ import { Dom, Subscription } from "foldkit";
 
 import { CANVAS_ID, ENTITY_ID_ATTRIBUTE } from "./dom";
 import { classifyWheel } from "./domain/geometry";
+import { bindingsFor, KeyMode } from "./keymap";
 import { Message } from "./message";
 import { EditorState, type Model } from "./model";
 import * as AppWindow from "./platform/window";
 import { windowTitle } from "./view";
 
+export { bindingsFor } from "./keymap";
+
 // KEYBINDING MODES
 // Each editor state activates one binding table, per the keybinding matrix.
-
-const KeyMode = Schema.Literals(["Normal", "Text", "Choosing", "Pointer"]);
-type KeyMode = typeof KeyMode.Type;
 
 export const toKeyMode = (editor: EditorState): KeyMode =>
   EditorState.match<KeyMode>(editor, {
     Idle: () => "Normal",
     EditingAssociation: () => "Normal",
     ChoosingNew: () => "Choosing",
+    ViewingShortcuts: () => "Help",
     CreatingEntity: () => "Text",
     RenamingEntity: () => "Text",
     EditingAttribute: () => "Text",
@@ -29,65 +30,6 @@ export const toKeyMode = (editor: EditorState): KeyMode =>
     DraggingNode: () => "Pointer",
     PanningCanvas: () => "Pointer",
   });
-
-const fileBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
-  { keys: "Mod+N", whileTyping: "Allow", mapEvent: () => Message.PressedNewDocumentKey() },
-  { keys: "Mod+S", whileTyping: "Allow", mapEvent: () => Message.PressedSaveKey() },
-  { keys: "Mod+Shift+S", whileTyping: "Allow", mapEvent: () => Message.PressedSaveAsKey() },
-  { keys: "Mod+O", whileTyping: "Allow", mapEvent: () => Message.PressedOpenKey() },
-];
-
-const escapeBinding: Dom.KeyBinding<Message> = {
-  keys: "Escape",
-  whileTyping: "Allow",
-  mapEvent: () => Message.PressedEscapeKey(),
-};
-
-const normalBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
-  { keys: "C", mapEvent: () => Message.PressedNewKey() },
-  { keys: "D", mapEvent: () => Message.PressedDeleteKey() },
-  { keys: "Delete", mapEvent: () => Message.PressedDeleteKey() },
-  { keys: "Backspace", mapEvent: () => Message.PressedDeleteKey() },
-  { keys: "U", mapEvent: () => Message.PressedUndoKey() },
-  { keys: "Mod+Z", mapEvent: () => Message.PressedUndoKey() },
-  { keys: "Control+R", mapEvent: () => Message.PressedRedoKey() },
-  { keys: "Mod+Shift+Z", mapEvent: () => Message.PressedRedoKey() },
-  { keys: "Enter", mapEvent: () => Message.PressedEnterKey() },
-  { keys: "I", mapEvent: () => Message.PressedEditKey() },
-  escapeBinding,
-  ...fileBindings,
-];
-
-const textBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
-  { keys: "Enter", whileTyping: "Allow", mapEvent: () => Message.PressedEnterKey() },
-  escapeBinding,
-  ...fileBindings,
-];
-
-const choosingBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [
-  { keys: "ArrowDown", mapEvent: () => Message.MovedChooserHighlight({ direction: "Down" }) },
-  { keys: "ArrowUp", mapEvent: () => Message.MovedChooserHighlight({ direction: "Up" }) },
-  { keys: "1", mapEvent: () => Message.PickedNew({ kind: "Entity" }) },
-  { keys: "2", mapEvent: () => Message.PickedNew({ kind: "Enum" }) },
-  { keys: "Enter", mapEvent: () => Message.PressedEnterKey() },
-  escapeBinding,
-  ...fileBindings,
-];
-
-const pointerBindings: ReadonlyArray<Dom.KeyBinding<Message>> = [escapeBinding];
-
-export const bindingsFor = (mode: KeyMode): ReadonlyArray<Dom.KeyBinding<Message>> => {
-  switch (mode) {
-    case "Normal":
-      return normalBindings;
-    case "Text":
-      return textBindings;
-    case "Choosing":
-      return choosingBindings;
-    case "Pointer":
-      return pointerBindings;
-  }
-};
 
 // POINTER
 
@@ -148,20 +90,6 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
       modelToDependencies: (model) => ({ mode: toKeyMode(model.editor) }),
       dependenciesToStream: ({ mode }) =>
         Dom.streamFromKeyBindings<Message>({ bindings: bindingsFor(mode) }),
-    },
-  ),
-
-  spaceDown: entry(
-    { isNormalMode: Schema.Boolean },
-    {
-      modelToDependencies: (model) => ({ isNormalMode: toKeyMode(model.editor) !== "Text" }),
-      dependenciesToStream: ({ isNormalMode }) =>
-        Stream.when(
-          Dom.streamFromKeyBindings<Message>({
-            bindings: [{ keys: "Space", mapEvent: () => Message.PressedSpace() }],
-          }),
-          Effect.sync(() => isNormalMode),
-        ),
     },
   ),
 

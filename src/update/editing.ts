@@ -194,6 +194,7 @@ export const finishEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
     Idle: () => model,
     ChoosingNew: () => toIdle(model),
+    ViewingShortcuts: () => toIdle(model),
     CreatingEntity: ({ position, draftName }) => commitCreateEntity(model, position, draftName),
     RenamingEntity: ({ entityId, draftName }) => commitRenameEntity(model, entityId, draftName),
     EditingAttribute: ({ entityId, attributeId, draft }) =>
@@ -213,6 +214,7 @@ export const cancelEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
     Idle: () => deselect(model),
     ChoosingNew: () => toIdle(model),
+    ViewingShortcuts: () => toIdle(model),
     CreatingEntity: () => toIdle(model),
     RenamingEntity: () => toIdle(model),
     EditingAttribute: () => toIdle(model),

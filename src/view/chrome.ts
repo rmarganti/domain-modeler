@@ -3,6 +3,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import * as Diagnostics from "../domain/diagnostics";
 import * as History from "../domain/history";
+import { shortcutFor, shortcutTitle } from "../keymap";
 import { Message } from "../message";
 import { EditorState, type Model } from "../model";
 
@@ -13,12 +14,13 @@ const hudButton = (
   label: string,
   content: string,
   onClick: Message,
+  shortcutId: string,
 ): Html =>
   h.button(
     [
       h.Type("button"),
       h.AriaLabel(label),
-      h.Title(label),
+      h.Title(shortcutTitle(label, shortcutId)),
       h.OnClick(onClick),
       h.Class(
         "rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900",
@@ -38,7 +40,7 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
       ),
     ],
     [
-      hudButton(h, "Zoom out", "−", Message.ClickedZoomOut()),
+      hudButton(h, "Zoom out", "−", Message.ClickedZoomOut(), "zoomOut"),
       h.span(
         [
           h.Class("w-12 text-center text-xs font-semibold tabular-nums text-slate-700"),
@@ -46,10 +48,10 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
         ],
         [`${Math.round(zoom * 100)}%`],
       ),
-      hudButton(h, "Zoom in", "+", Message.ClickedZoomIn()),
+      hudButton(h, "Zoom in", "+", Message.ClickedZoomIn(), "zoomIn"),
       h.span([h.Class("mx-1 h-4 w-px bg-slate-200")], []),
-      hudButton(h, "Reset view to 100%", "100%", Message.ClickedResetView()),
-      hudButton(h, "Fit to screen", "Fit", Message.ClickedFitToScreen()),
+      hudButton(h, "Reset view to 100%", "100%", Message.ClickedResetView(), "resetView"),
+      hudButton(h, "Fit to screen", "Fit", Message.ClickedFitToScreen(), "fitToScreen"),
     ],
   );
 };
@@ -63,52 +65,57 @@ export const statusPill = (editor: EditorState): StatusPill =>
     Idle: () => ({
       label: "NORMAL",
       className: "bg-slate-800 text-white",
-      hint: "c create · d delete · i edit · u undo · ⌃r redo · space+drag pan",
+      hint: `${shortcutFor("create")} create · ${shortcutFor("edit")} edit · ${shortcutFor("undo")} undo · ${shortcutFor("shortcuts")} shortcuts`,
+    }),
+    ViewingShortcuts: () => ({
+      label: "HELP",
+      className: "bg-slate-800 text-white",
+      hint: `${shortcutFor("escape")} / ${shortcutFor("shortcuts")} close`,
     }),
     ChoosingNew: () => ({
       label: "NEW",
       className: "bg-emerald-600 text-white",
-      hint: "↑↓ choose · Enter pick · 1 entity · 2 enum · Esc cancel",
+      hint: `${shortcutFor("chooseUp")}${shortcutFor("chooseDown")} choose · ${shortcutFor("choose")} pick · ${shortcutFor("chooseEntity")} entity · ${shortcutFor("chooseEnum")} enum · ${shortcutFor("escape")} cancel`,
     }),
     CreatingEntity: () => ({
       label: "CREATING",
       className: "bg-emerald-600 text-white",
-      hint: "Enter create · Esc cancel",
+      hint: `${shortcutFor("commit")} create · ${shortcutFor("escape")} cancel`,
     }),
     RenamingEntity: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: "Enter commit · Esc cancel",
+      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     EditingAttribute: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: "Enter commit · Esc cancel",
+      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     CreatingEnum: () => ({
       label: "CREATING",
       className: "bg-emerald-600 text-white",
-      hint: "Enter create · Esc cancel",
+      hint: `${shortcutFor("commit")} create · ${shortcutFor("escape")} cancel`,
     }),
     RenamingEnum: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: "Enter commit · Esc cancel",
+      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     EditingEnumValue: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: "Enter commit · Esc cancel",
+      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     EditingAssociation: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: "Delete remove edge · Esc close",
+      hint: `${shortcutFor("delete")} remove edge · ${shortcutFor("escape")} close`,
     }),
     ConnectingAssociation: () => ({
       label: "CONNECTING",
       className: "bg-violet-600 text-white",
-      hint: "Release on an entity to connect · Esc cancel",
+      hint: `Release on an entity to connect · ${shortcutFor("escape")} cancel`,
     }),
     DraggingNode: () => ({
       label: "MOVING",
@@ -129,7 +136,7 @@ const toolbarButton = (
   config: Readonly<{
     label: string;
     content: string;
-    shortcut?: string;
+    shortcutId?: string;
     onClick: Message;
     isDisabled?: boolean;
   }>,
@@ -139,7 +146,9 @@ const toolbarButton = (
       h.Type("button"),
       h.AriaLabel(config.label),
       h.Title(
-        config.shortcut === undefined ? config.label : `${config.label} (${config.shortcut})`,
+        config.shortcutId === undefined
+          ? config.label
+          : shortcutTitle(config.label, config.shortcutId),
       ),
       h.Disabled(config.isDisabled ?? false),
       h.OnClick(config.onClick),
@@ -173,25 +182,25 @@ export const toolbarView = (
       toolbarButton(h, {
         label: "New model",
         content: "New",
-        shortcut: "⌘N",
+        shortcutId: "newDocument",
         onClick: Message.ClickedNewDocument(),
       }),
       toolbarButton(h, {
         label: "Open",
         content: "Open",
-        shortcut: "⌘O",
+        shortcutId: "open",
         onClick: Message.ClickedOpen(),
       }),
       toolbarButton(h, {
         label: "Save",
         content: "Save",
-        shortcut: "⌘S",
+        shortcutId: "save",
         onClick: Message.ClickedSave(),
       }),
       toolbarButton(h, {
         label: "Save as",
         content: "Save As…",
-        shortcut: "⌘⇧S",
+        shortcutId: "saveAs",
         onClick: Message.ClickedSaveAs(),
       }),
       divider(h),
@@ -224,14 +233,14 @@ export const toolbarView = (
       toolbarButton(h, {
         label: "Undo",
         content: "↶ Undo",
-        shortcut: "u / ⌘Z",
+        shortcutId: "undo",
         isDisabled: !History.canUndo(model.history),
         onClick: Message.ClickedUndo(),
       }),
       toolbarButton(h, {
         label: "Redo",
         content: "↷ Redo",
-        shortcut: "⌃r / ⌘⇧Z",
+        shortcutId: "redo",
         isDisabled: !History.canRedo(model.history),
         onClick: Message.ClickedRedo(),
       }),
@@ -239,7 +248,7 @@ export const toolbarView = (
       h.button(
         [
           h.Type("button"),
-          h.Title("Create entity (c)"),
+          h.Title(shortcutTitle("Create entity", "create")),
           h.OnClick(Message.ClickedAddEntity()),
           h.Class(
             "rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700",
@@ -251,7 +260,7 @@ export const toolbarView = (
         [
           h.Type("button"),
           h.AriaLabel("Create enum"),
-          h.Title("Create enum (c)"),
+          h.Title(shortcutTitle("Create enum", "create")),
           h.OnClick(Message.ClickedAddEnum()),
           h.Class(
             "rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-violet-700",
@@ -259,6 +268,12 @@ export const toolbarView = (
         ],
         ["+ Enum"],
       ),
+      toolbarButton(h, {
+        label: "Keyboard shortcuts",
+        content: "?",
+        shortcutId: "shortcuts",
+        onClick: Message.ClickedShowShortcuts(),
+      }),
       h.div(
         [h.Class("ml-auto flex min-w-0 items-center gap-3")],
         [

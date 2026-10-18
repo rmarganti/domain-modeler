@@ -34,6 +34,7 @@ export type NewKind = typeof NewKind.Type;
 
 export const EditorState = defineTaggedUnion({
   Idle: {},
+  ViewingShortcuts: {},
   /** The "New…" chooser is open; picking creates a card at `position`. */
   ChoosingNew: { position: Point, highlighted: NewKind },
   CreatingEntity: { position: Point, draftName: Schema.String },

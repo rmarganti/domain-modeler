@@ -3,6 +3,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import * as Geometry from "../domain/geometry";
 import type { NodeLayout, Point } from "../domain/schema";
+import { shortcutFor } from "../keymap";
 import { Message } from "../message";
 import type { EditorState } from "../model";
 import { canvasItem, iconButton, onPress, px, warningBadge, type PointerPress } from "./shared";
@@ -188,7 +189,10 @@ export const editorActions = (h: HtmlBuilder<Message>, onSave: Message): Html =>
   h.div(
     [h.Class("flex items-center justify-end gap-1.5")],
     [
-      h.span([h.Class("mr-auto text-[10px] text-slate-500")], ["Enter to save · Esc to cancel"]),
+      h.span(
+        [h.Class("mr-auto text-[10px] text-slate-500")],
+        [`${shortcutFor("commit")} to save · ${shortcutFor("escape")} to cancel`],
+      ),
       h.button(
         [
           h.Type("button"),
