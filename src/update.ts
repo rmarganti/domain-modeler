@@ -55,6 +55,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     PressedUndoKey: () => ({ model: Session.undo(model) }),
     PressedRedoKey: () => ({ model: Session.redo(model) }),
     PressedEditKey: () => Rows.edit(model),
+    NavigatedCard: ({ direction }) => ({ model: Canvas.navigateCards(model, direction) }),
     MovedCardRow: ({ motion }) => ({ model: Rows.move(model, motion) }),
     InsertedCardRow: ({ position }) => Rows.insert(model, position),
     ReorderedCardRow: ({ direction }) => ({ model: Rows.reorder(model, direction) }),

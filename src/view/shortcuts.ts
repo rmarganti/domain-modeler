@@ -1,7 +1,7 @@
 import { Array } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
-import { KEYMAP, KEY_CONTEXTS, formatKeys, shortcutTitle, type KeyMode } from "../keymap";
+import { KEYMAP, KEY_CONTEXTS, formatKeys, keysFor, shortcutTitle, type KeyMode } from "../keymap";
 import { Message } from "../message";
 import type { Model } from "../model";
 
@@ -35,7 +35,7 @@ const contextView = (h: HtmlBuilder<Message>, mode: KeyMode, label: string): Htm
                             "shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-800",
                           ),
                         ],
-                        [formatKeys(entry.displayKeys ?? entry.keys)],
+                        [formatKeys(entry.displayKeys ?? keysFor(entry))],
                       ),
                     ],
                   ),

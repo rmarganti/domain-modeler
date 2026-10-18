@@ -1,4 +1,4 @@
-import { Array, Number, Option, Order, pipe } from "effect";
+import { Array, Number, Option, Order, Schema, pipe } from "effect";
 
 import type {
   DomainModelDocument,
@@ -243,21 +243,89 @@ export const fitViewport = (bounds: Rect, screen: Size, maximumZoom = 1): Viewpo
 export const resetViewport = (viewport: ViewportLayout, screen: Size): ViewportLayout =>
   zoomAround(viewport, { x: screen.width / 2, y: screen.height / 2 }, 1);
 
-/** The rects of every card in the document, entities and enums alike, with
- *  no inline editor open. */
-export const cardRects = (document: DomainModelDocument): ReadonlyArray<Rect> =>
+export type CardBounds = Readonly<{ nodeId: string; rect: Rect }>;
+
+/**
+ * Persisted card bounds, with no inline editor open. Ignore orphan/missing layouts.
+ */
+export const cardBounds = (document: DomainModelDocument): ReadonlyArray<CardBounds> =>
   Array.getSomes([
     ...Array.map(document.entities, (entity) =>
-      Option.map(Option.fromNullishOr(document.layout.nodes[entity.id]), (layout) =>
-        nodeRect(entity, layout, Option.none()),
-      ),
+      Option.map(Option.fromNullishOr(document.layout.nodes[entity.id]), (layout) => ({
+        nodeId: entity.id,
+        rect: nodeRect(entity, layout, Option.none()),
+      })),
     ),
     ...Array.map(document.types, (definition) =>
-      Option.map(Option.fromNullishOr(document.layout.nodes[definition.id]), (layout) =>
-        enumRect(definition, layout, Option.none()),
-      ),
+      Option.map(Option.fromNullishOr(document.layout.nodes[definition.id]), (layout) => ({
+        nodeId: definition.id,
+        rect: enumRect(definition, layout, Option.none()),
+      })),
     ),
   ]);
+
+export const cardRects = (document: DomainModelDocument): ReadonlyArray<Rect> =>
+  Array.map(cardBounds(document), ({ rect }) => rect);
+
+// SPATIAL NAVIGATION
+
+export const SpatialDirection = Schema.Literals(["Left", "Down", "Up", "Right"]);
+export type SpatialDirection = typeof SpatialDirection.Type;
+export const NAVIGATION_MARGIN = 24;
+
+export const rectCenter = (rect: Rect): Point => ({
+  x: rect.x + rect.width / 2,
+  y: rect.y + rect.height / 2,
+});
+
+/**
+ * Without a direction, choose the closest center. Otherwise use an inclusive
+ * 90-degree cone and axis + 2 * perpendicular distance. ID breaks score ties.
+ */
+export const nearestCard = (
+  cards: ReadonlyArray<CardBounds>,
+  origin: Point,
+  direction?: SpatialDirection,
+): Option.Option<CardBounds> => {
+  let best: CardBounds | undefined;
+  let bestScore = Infinity;
+  for (const card of cards) {
+    const center = rectCenter(card.rect);
+    const dx = center.x - origin.x;
+    const dy = center.y - origin.y;
+    const horizontal = direction === "Left" || direction === "Right";
+    const axis = (horizontal ? dx : dy) * (direction === "Left" || direction === "Up" ? -1 : 1);
+    const perpendicular = Math.abs(horizontal ? dy : dx);
+    if (direction !== undefined && (axis <= 0 || perpendicular > axis)) continue;
+    const score = direction === undefined ? distance(center, origin) : axis + 2 * perpendicular;
+    if (
+      score < bestScore ||
+      (score === bestScore && best !== undefined && card.nodeId < best.nodeId)
+    ) {
+      best = card;
+      bestScore = score;
+    }
+  }
+  return Option.fromNullishOr(best);
+};
+
+/**
+ * Minimum screen-space pan to reveal a card with a margin, without zooming.
+ * Oversized cards cover the available axis instead; an already spanning card
+ * stays put, avoiding oscillation between its two impossible-to-fit edges.
+ */
+export const revealRect = (viewport: ViewportLayout, rect: Rect, screen: Size): ViewportLayout => {
+  const start = worldToScreen(viewport, rect);
+  const shift = (position: number, size: number, extent: number): number => {
+    const margin = Math.min(NAVIGATION_MARGIN, extent / 2);
+    const a = margin - position;
+    const b = extent - margin - (position + size * viewport.zoom);
+    return Number.clamp(0, { minimum: Math.min(a, b), maximum: Math.max(a, b) });
+  };
+  const dx = shift(start.x, rect.width, screen.width);
+  const dy = shift(start.y, rect.height, screen.height);
+  return dx === 0 && dy === 0 ? viewport : panBy(viewport, { x: dx, y: dy });
+};
 
 export const documentBounds = (document: DomainModelDocument): Option.Option<Rect> =>
   boundingRect(cardRects(document));

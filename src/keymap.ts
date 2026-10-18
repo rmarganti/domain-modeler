@@ -34,6 +34,7 @@ type KeymapEntry = Readonly<{
   keys: ReadonlyArray<Dom.KeySequence>;
   description: string;
   displayKeys?: ReadonlyArray<Dom.KeySequence>;
+  otherKeys?: ReadonlyArray<Dom.KeySequence>;
   group: string;
   modes: ReadonlyArray<KeyMode>;
   mapEvent: (event: KeyboardEvent) => Message;
@@ -113,10 +114,44 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
   {
     id: "findCard",
     keys: ["Mod+K"],
+    // Ctrl+K is spatial-up on non-Apple platforms.
+    otherKeys: ["Mod+Shift+K"],
     description: "Find card",
     group: "Navigate",
     modes: ["Normal"],
     mapEvent: () => Message.PressedFindCardKey(),
+  },
+  {
+    id: "cardLeft",
+    keys: ["Control+H"],
+    description: "Select card to the left",
+    group: "Navigate",
+    modes: ["Normal"],
+    mapEvent: () => Message.NavigatedCard({ direction: "Left" }),
+  },
+  {
+    id: "cardDown",
+    keys: ["Control+J"],
+    description: "Select card below",
+    group: "Navigate",
+    modes: ["Normal"],
+    mapEvent: () => Message.NavigatedCard({ direction: "Down" }),
+  },
+  {
+    id: "cardUp",
+    keys: ["Control+K"],
+    description: "Select card above",
+    group: "Navigate",
+    modes: ["Normal"],
+    mapEvent: () => Message.NavigatedCard({ direction: "Up" }),
+  },
+  {
+    id: "cardRight",
+    keys: ["Control+L"],
+    description: "Select card to the right",
+    group: "Navigate",
+    modes: ["Normal"],
+    mapEvent: () => Message.NavigatedCard({ direction: "Right" }),
   },
   {
     id: "pickNext",
@@ -398,9 +433,17 @@ export const formatKeys = (
     ),
   ).join(" / ");
 
+export const keysFor = (
+  entry: KeymapEntry,
+  platform: KeyPlatform = keyPlatform,
+): ReadonlyArray<Dom.KeySequence> =>
+  platform === "Other" ? (entry.otherKeys ?? entry.keys) : entry.keys;
+
 export const shortcutFor = (id: string): string =>
   formatKeys(
-    KEYMAP.filter((entry) => entry.id === id).flatMap((entry) => entry.displayKeys ?? entry.keys),
+    KEYMAP.filter((entry) => entry.id === id).flatMap(
+      (entry) => entry.displayKeys ?? keysFor(entry),
+    ),
   );
 
 export const shortcutTitle = (label: string, id: string): string => {
@@ -408,9 +451,12 @@ export const shortcutTitle = (label: string, id: string): string => {
   return shortcut === "" ? label : `${label} (${shortcut})`;
 };
 
-export const bindingsFor = (mode: KeyMode): ReadonlyArray<Dom.KeyBinding<Message>> =>
+export const bindingsFor = (
+  mode: KeyMode,
+  platform: KeyPlatform = keyPlatform,
+): ReadonlyArray<Dom.KeyBinding<Message>> =>
   KEYMAP.filter((entry) => entry.modes.includes(mode)).flatMap((entry) =>
-    entry.keys.map((keys): Dom.KeyBinding<Message> => ({
+    keysFor(entry, platform).map((keys): Dom.KeyBinding<Message> => ({
       ...(typeof keys === "string" ? { keys } : { keys }),
       mapEvent: entry.mapEvent,
       ...(entry.whileTyping === undefined ? {} : { whileTyping: entry.whileTyping }),

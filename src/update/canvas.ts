@@ -247,6 +247,45 @@ export const focusCard = (model: Model, nodeId: string): Model => {
   );
 };
 
+/**
+ * Select spatially without invoking header gestures or changing expansion.
+ */
+export const navigateCards = (model: Model, direction: Geometry.SpatialDirection): Model => {
+  if (model.editor._tag !== "Idle" && model.editor._tag !== "EditingAssociation") return model;
+  const document = present(model);
+  const cards = Geometry.cardBounds(document);
+  const selectedId = Selection.match<Option.Option<string>>(model.selection, {
+    NoSelection: () => Option.none(),
+    SelectedEntity: ({ entityId }) => Option.some(entityId),
+    SelectedEnum: ({ typeId }) => Option.some(typeId),
+    SelectedAssociation: () => Option.none(),
+  });
+  const selected = cards.find(({ nodeId }) => Option.contains(selectedId, nodeId));
+  const origin =
+    selected === undefined
+      ? Geometry.screenToWorld(viewport(model), {
+          x: model.screen.width / 2,
+          y: model.screen.height / 2,
+        })
+      : Geometry.rectCenter(selected.rect);
+  return Option.match(
+    Geometry.nearestCard(cards, origin, selected === undefined ? undefined : direction),
+    {
+      onNone: () => model,
+      onSome: ({ nodeId, rect }) => {
+        const next = {
+          ...toIdle(model),
+          selection: Option.isSome(Doc.findEntity(document, nodeId))
+            ? Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() })
+            : Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() }),
+        };
+        const camera = Geometry.revealRect(viewport(model), rect, model.screen);
+        return camera === viewport(model) ? next : setViewport(next, camera);
+      },
+    },
+  );
+};
+
 export const resetView = (model: Model): Model =>
   setViewport(model, Geometry.resetViewport(viewport(model), model.screen));
 

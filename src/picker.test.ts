@@ -192,15 +192,20 @@ describe("card picker", () => {
     expect(step(end, Message.CompletedRevealCardOption())).toBe(end);
   });
 
-  test("registry restricts Mod+K to Normal and allows picker controls while typing", () => {
+  test("registry restricts Find card to Normal and allows picker controls while typing", () => {
     expect(KEYMAP.find(({ id }) => id === "findCard")?.group).toBe("Navigate");
-    expect(
-      bindingsFor("Normal")
-        .find(({ keys }) => keys === "Mod+K")
-        ?.mapEvent(new KeyboardEvent("keydown")),
-    ).toEqual(Message.PressedFindCardKey());
-    for (const mode of ["Text", "Choosing", "Picking", "Pointer", "Help"] as const) {
-      expect(bindingsFor(mode).some(({ keys }) => keys === "Mod+K")).toBe(false);
+    for (const [platform, shortcut] of [
+      ["Apple", "Mod+K"],
+      ["Other", "Mod+Shift+K"],
+    ] as const) {
+      expect(
+        bindingsFor("Normal", platform)
+          .find(({ keys }) => keys === shortcut)
+          ?.mapEvent(new KeyboardEvent("keydown")),
+      ).toEqual(Message.PressedFindCardKey());
+      for (const mode of ["Text", "Choosing", "Picking", "Pointer", "Help"] as const) {
+        expect(bindingsFor(mode, platform).some(({ keys }) => keys === shortcut)).toBe(false);
+      }
     }
     const bindings = bindingsFor("Picking");
     expect(bindings.map(({ keys }) => keys).sort()).toEqual([

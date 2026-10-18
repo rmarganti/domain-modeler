@@ -3,6 +3,7 @@ import { defineMessageUnion } from "foldkit/message";
 
 import { AttributeType, DomainModelDocument, EndIndex, Multiplicity } from "./domain/schema";
 import { NewKind } from "./model";
+import { SpatialDirection } from "./domain/geometry";
 
 const PointerFields = {
   button: Schema.Number,
@@ -24,6 +25,7 @@ export const Message = defineMessageUnion({
   PressedUndoKey: {},
   PressedRedoKey: {},
   PressedEditKey: {},
+  NavigatedCard: { direction: SpatialDirection },
   MovedCardRow: { motion: Schema.Literals(["Next", "Previous", "First", "Last"]) },
   InsertedCardRow: { position: Schema.Literals(["Above", "Below"]) },
   ReorderedCardRow: { direction: MoveDirection },

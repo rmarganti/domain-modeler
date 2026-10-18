@@ -1,7 +1,7 @@
 import { Dom } from "foldkit";
 import { describe, expect, test } from "vitest";
 
-import { KEYMAP, KEY_CONTEXTS, bindingsFor, formatKeys, shortcutTitle } from "./keymap";
+import { KEYMAP, KEY_CONTEXTS, bindingsFor, formatKeys, keysFor, shortcutTitle } from "./keymap";
 
 describe("formatKeys", () => {
   test("modifiers match Apple and non-Apple conventions", () => {
@@ -54,11 +54,15 @@ describe("keybinding registry", () => {
     for (const { mode } of KEY_CONTEXTS) {
       for (const modKey of ["Meta", "Control"] as const) {
         expect(() =>
-          Dom.streamFromKeyBindings({ bindings: bindingsFor(mode), modKey }),
+          Dom.streamFromKeyBindings({
+            bindings: bindingsFor(mode, modKey === "Meta" ? "Apple" : "Other"),
+            modKey,
+          }),
         ).not.toThrow();
       }
       expect(bindingsFor(mode)).toHaveLength(
-        KEYMAP.filter((entry) => entry.modes.includes(mode)).flatMap((entry) => entry.keys).length,
+        KEYMAP.filter((entry) => entry.modes.includes(mode)).flatMap((entry) => keysFor(entry))
+          .length,
       );
     }
   });

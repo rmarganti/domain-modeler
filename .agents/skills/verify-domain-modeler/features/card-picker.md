@@ -1,10 +1,10 @@
 # Card picker
 
-Find an entity or enum with Mod+K, then focus its title at the center of the canvas without changing its size, zoom, or undo history.
+Find an entity or enum with Command+K on Apple or Ctrl+Shift+K elsewhere, then focus its title at the center of the canvas without changing its size, zoom, or undo history.
 
 ## Sub-features
 
-- `open`: Normal-mode Mod+K opens FIND with the search input focused.
+- `open`: the Normal-mode Find card shortcut opens FIND with the search input focused.
 - `match`: case-insensitive fuzzy subsequences, ranked exact > prefix > word/camel starts > other, then shorter names and alphabetical order; matched characters highlighted.
 - `navigate`: arrows and Control+N/P wrap; query changes reset to the first result; active results scroll into view.
 - `focus`: Enter or clicking an option selects Title and centers its card at the current zoom and expansion.
@@ -13,9 +13,9 @@ Find an entity or enum with Mod+K, then focus its title at the center of the can
 
 ## How to get to it (user POV)
 
-- Press Mod+K on the canvas, with any selection or the relationship inspector open. Mod means Command on macOS and Control elsewhere.
+- Press Command+K on Apple or Ctrl+Shift+K elsewhere on the canvas, with any selection or the relationship inspector open. Ctrl+K is reserved for spatial-up navigation.
 - Type a card name or subsequence. Choose with Enter or click its option.
-- Mod+K is not bound in text, help, chooser, pointer, or picker modes. It searches cards, not commands, fields, or relationships.
+- Find card is not bound in text, help, chooser, pointer, or picker modes. It searches cards, not commands, fields, or relationships.
 
 ## Driving it with agent-browser
 
@@ -39,5 +39,5 @@ Preconditions: the Blog baseline from the feature index, with Undo and Redo disa
 - `Find card` names both the modal and input: scope fill/focus assertions to `input[aria-label="Find card"]`, and list assertions to the Cards listbox.
 - Query results include enums (Role in the sample), not only the three entities. Query changes always reset the first result; arrows wrap, unlike row-cursor j/k.
 - The pointer is independent: picking does not simulate a header click and never toggles expansion. Use explicit Expand/Collapse buttons to establish a known card size.
-- `ab reload` resets camera, selection and history before repeating the full journey. Mod+K uses platform Mod; use Control+k when testing on non-Apple platforms.
+- `ab reload` resets camera, selection and history before repeating the full journey. Use Control+Shift+k instead of Meta+k on non-Apple platforms; Control+k selects spatially upward, not Find card.
 - Web verification does not prove native Tauri-window keyboard handling or file dialogs.
