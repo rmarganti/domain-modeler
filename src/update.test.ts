@@ -1184,6 +1184,214 @@ describe("enum-typed fields", () => {
   });
 });
 
+describe("keyboard row verbs", () => {
+  const fields = (m: Model) =>
+    Option.getOrThrow(Doc.findEntity(m.history.present, "e1")).attributes;
+  const values = (m: Model) => Option.getOrThrow(Doc.findEnum(m.history.present, "t1")).values;
+  const entityCursor = (row: CardRow): Selection =>
+    Selection.SelectedEntity({ entityId: "e1", row });
+  const enumCursor = (row: CardRow): Selection => Selection.SelectedEnum({ typeId: "t1", row });
+
+  for (const kind of ["Entity", "Enum"] as const) {
+    const rows = kind === "Entity" ? fields : values;
+    const select = kind === "Entity" ? entityCursor : enumCursor;
+    const row = (id: string) =>
+      kind === "Entity" ? CardRow.Attribute({ attributeId: id }) : CardRow.Value({ valueId: id });
+    const ids = kind === "Entity" ? ["p2", "p3", "p4"] : ["v1", "v2", "v3"];
+    const newId = kind === "Entity" ? "p11" : "v4";
+    const nodeId = kind === "Entity" ? "e1" : "t1";
+    const defaultName = kind === "Entity" ? "field4" : "value4";
+
+    for (const position of ["Above", "Below"] as const) {
+      for (const onTitle of [false, true]) {
+        test(`${kind}: ${position} inserts ${onTitle ? "first on Title" : "next to the first row"} and focuses its editor`, () => {
+          const selected = {
+            ...baseModel,
+            selection: select(onTitle ? CardRow.Title() : row(ids[0]!)),
+          };
+          const result = update(selected, Message.InsertedCardRow({ position }));
+          const m = result.model;
+          const index = onTitle || position === "Above" ? 0 : 1;
+          expect(rows(m).map(({ id }) => id)).toEqual([
+            ...ids.slice(0, index),
+            newId,
+            ...ids.slice(index),
+          ]);
+          expect(rows(m)[index]).toEqual(
+            kind === "Entity"
+              ? Doc.newAttribute(newId, defaultName)
+              : { id: newId, name: defaultName },
+          );
+          expect(m.selection).toEqual(select(row(newId)));
+          expect(m.editor).toMatchObject(
+            kind === "Entity"
+              ? {
+                  _tag: "EditingAttribute",
+                  entityId: nodeId,
+                  attributeId: newId,
+                  draft: { name: defaultName },
+                }
+              : {
+                  _tag: "EditingEnumValue",
+                  typeId: nodeId,
+                  valueId: newId,
+                  draft: { name: defaultName },
+                  save: "Commit",
+                },
+          );
+          expect(m.history.present.layout.nodes[nodeId]?.isExpanded).toBe(true);
+          expect(m.history.past).toHaveLength(1);
+          story(
+            update,
+            given(selected),
+            message(Message.InsertedCardRow({ position })),
+            Command.expectHas(FocusInput),
+            focused,
+          );
+        });
+      }
+    }
+
+    test(`${kind}: insertion explicitly expands a collapsed card without losing its cursor position`, () => {
+      const selected = {
+        ...baseModel,
+        history: History.init(Doc.setExpanded(Doc.sampleDocument, nodeId, false)),
+        selection: select(row(ids[1]!)),
+      };
+      const m = update(selected, Message.InsertedCardRow({ position: "Below" })).model;
+      expect(rows(m).map(({ id }) => id)).toEqual([ids[0], ids[1], newId, ids[2]]);
+      expect(m.history.present.layout.nodes[nodeId]?.isExpanded).toBe(true);
+      expect(m.selection).toEqual(select(row(newId)));
+      expect(m.history.past).toHaveLength(1);
+    });
+
+    test(`${kind}: both insertions work on an empty card`, () => {
+      const document = ids.reduce(
+        (document, id) =>
+          kind === "Entity"
+            ? Doc.deleteAttribute(document, nodeId, id)
+            : Doc.deleteEnumValue(document, nodeId, id),
+        Doc.sampleDocument,
+      );
+      for (const position of ["Above", "Below"] as const) {
+        const m = update(
+          { ...baseModel, history: History.init(document), selection: select(CardRow.Title()) },
+          Message.InsertedCardRow({ position }),
+        ).model;
+        expect(rows(m)).toHaveLength(1);
+        expect(rows(m)[0]?.name).toBe(kind === "Entity" ? "field1" : "value1");
+        expect(m.history.present.layout.nodes[nodeId]?.isExpanded).toBe(true);
+      }
+    });
+
+    test(`${kind}: Escape keeps the inserted default row just like the footer action`, () => {
+      const selected = { ...baseModel, selection: select(CardRow.Title()) };
+      let inserted = update(selected, Message.InsertedCardRow({ position: "Below" })).model;
+      inserted = update(
+        inserted,
+        kind === "Entity"
+          ? Message.UpdatedAttributeDraftName({ name: "" })
+          : Message.UpdatedEnumValueDraftName({ name: "" }),
+      ).model;
+      const cancelled = update(inserted, Message.PressedEscapeKey()).model;
+      expect(rows(cancelled)[0]?.name).toBe(defaultName);
+      expect(cancelled.editor).toEqual(EditorState.Idle());
+      expect(cancelled.selection).toEqual(select(row(newId)));
+      expect(cancelled.history).toBe(inserted.history);
+
+      const footer = update(
+        baseModel,
+        kind === "Entity"
+          ? Message.ClickedAddAttribute({ entityId: nodeId })
+          : Message.ClickedAddEnumValue({ typeId: nodeId }),
+      ).model;
+      const cancelledFooter = update(footer, Message.PressedEscapeKey()).model;
+      expect(rows(cancelledFooter).at(-1)).toEqual(rows(cancelled)[0]);
+
+      const undone = update(cancelled, Message.PressedUndoKey()).model;
+      expect(rows(undone).map(({ id }) => id)).toEqual(ids);
+      expect(undone.selection).toEqual(select(CardRow.Title()));
+    });
+
+    test(`${kind}: commit keeps the new row current and preserves the existing two-step history`, () => {
+      let m = update(
+        { ...baseModel, selection: select(CardRow.Title()) },
+        Message.InsertedCardRow({ position: "Above" }),
+      ).model;
+      m = update(
+        m,
+        kind === "Entity"
+          ? Message.UpdatedAttributeDraftName({ name: "nickname" })
+          : Message.UpdatedEnumValueDraftName({ name: "nickname" }),
+      ).model;
+      m = update(m, Message.PressedEnterKey()).model;
+      expect(rows(m)[0]?.name).toBe("nickname");
+      expect(m.editor).toEqual(EditorState.Idle());
+      expect(m.selection).toEqual(select(row(newId)));
+      expect(m.history.past).toHaveLength(2);
+      m = update(m, Message.PressedUndoKey()).model;
+      expect(rows(m)[0]?.name).toBe(defaultName);
+      m = update(m, Message.PressedUndoKey()).model;
+      expect(rows(m).map(({ id }) => id)).toEqual(ids);
+    });
+
+    test(`${kind}: J/K share the move button behavior and keep cursor identity through undo/redo`, () => {
+      const selected = { ...baseModel, selection: select(row(ids[1]!)) };
+      let m = selected;
+      for (const direction of ["Up", "Down"] as const) {
+        const moved = update(m, Message.ReorderedCardRow({ direction })).model;
+        const clicked = update(
+          m,
+          kind === "Entity"
+            ? Message.ClickedMoveAttribute({ entityId: nodeId, attributeId: ids[1]!, direction })
+            : Message.ClickedMoveEnumValue({ typeId: nodeId, valueId: ids[1]!, direction }),
+        ).model;
+        expect(moved).toEqual(clicked);
+        expect(moved.selection).toEqual(selected.selection);
+        expect(moved.history.past.length).toBe(m.history.past.length + 1);
+        expect(moved.history.present.layout).toEqual(m.history.present.layout);
+        m = moved;
+      }
+      expect(rows(m).map(({ id }) => id)).toEqual(ids);
+      m = update(m, Message.PressedUndoKey()).model;
+      expect(rows(m).map(({ id }) => id)).toEqual([ids[1], ids[0], ids[2]]);
+      expect(m.selection).toEqual(selected.selection);
+      m = update(m, Message.PressedRedoKey()).model;
+      expect(rows(m).map(({ id }) => id)).toEqual(ids);
+      expect(m.selection).toEqual(selected.selection);
+    });
+
+    for (const [cursor, direction] of [
+      [CardRow.Title(), "Up"],
+      [CardRow.Title(), "Down"],
+      [row(ids[0]!), "Up"],
+      [row(ids[2]!), "Down"],
+    ] as const) {
+      test(`${kind}: reorder ${cursor._tag} ${direction} at a boundary leaves history and document unchanged`, () => {
+        const selected = { ...baseModel, selection: select(cursor) };
+        expect(update(selected, Message.ReorderedCardRow({ direction })).model).toBe(selected);
+      });
+    }
+  }
+
+  for (const selection of [
+    Selection.NoSelection(),
+    Selection.SelectedAssociation({ associationId: "r1" }),
+  ]) {
+    test(`row verbs do nothing with ${selection._tag}`, () => {
+      const selected = { ...baseModel, selection };
+      for (const action of [
+        Message.InsertedCardRow({ position: "Above" }),
+        Message.InsertedCardRow({ position: "Below" }),
+        Message.ReorderedCardRow({ direction: "Up" }),
+        Message.ReorderedCardRow({ direction: "Down" }),
+      ]) {
+        expect(update(selected, action)).toEqual({ model: selected });
+      }
+    });
+  }
+});
+
 describe("files", () => {
   test("save hands the committed document to SaveFile", () => {
     story(

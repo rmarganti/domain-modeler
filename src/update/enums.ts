@@ -93,7 +93,7 @@ export const startEditingValue = (
     }),
   );
 
-export const addValue = (model: Model, typeId: string): UpdateReturn =>
+export const addValue = (model: Model, typeId: string, index?: number): UpdateReturn =>
   Option.match(Doc.findEnum(present(model), typeId), {
     onNone: () => ({ model }),
     onSome: (definition) => {
@@ -101,16 +101,26 @@ export const addValue = (model: Model, typeId: string): UpdateReturn =>
       const valueId = Doc.nextId(present(ready), "v");
       return startEditingValue(
         commitDocument(ready, (document) =>
-          Doc.addEnumValue(document, typeId, {
-            id: valueId,
-            name: `value${definition.values.length + 1}`,
-          }),
+          Doc.addEnumValue(
+            document,
+            typeId,
+            { id: valueId, name: `value${definition.values.length + 1}` },
+            index,
+          ),
         ),
         typeId,
         valueId,
       );
     },
   });
+
+export const moveValue = (
+  model: Model,
+  typeId: string,
+  valueId: string,
+  direction: Doc.MoveDirection,
+): Model =>
+  commitDocument(model, (document) => Doc.moveEnumValue(document, typeId, valueId, direction));
 
 export const deleteValue = (model: Model, typeId: string, valueId: string): Model =>
   reconcile(commitDocument(model, (document) => Doc.deleteEnumValue(document, typeId, valueId)));

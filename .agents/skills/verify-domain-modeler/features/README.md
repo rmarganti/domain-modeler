@@ -40,8 +40,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
-- [Row cursor](./row-cursor.md) covers title/field/value selection, j/k and gg/G motion, row-aware edit/delete, and undo/redo safety.
-
+- [Row cursor](./row-cursor.md) covers title/field/value selection, j/k and gg/G motion, row-aware edit/delete, o/O insertion, J/K reorder, and undo/redo safety.
 - [Zoom and fit](./zoom.md) covers keyboard/HUD zoom, fit-all, fit-selection, text-mode behavior, and history preservation.
 - [Keyboard shortcuts](./shortcuts.md) covers the `?` overlay, context/group listing, toolbar titles, cancellation, and selection/history preservation.
 - [New chooser](./new-chooser.md) covers `c`, Entity/Enum selection, cancellation, text input, and `Meta+n` for a new model.

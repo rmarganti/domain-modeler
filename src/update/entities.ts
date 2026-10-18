@@ -85,7 +85,7 @@ export const startEditingAttribute = (
     }),
   );
 
-export const addAttribute = (model: Model, entityId: string): UpdateReturn =>
+export const addAttribute = (model: Model, entityId: string, index?: number): UpdateReturn =>
   Option.match(Doc.findEntity(present(model), entityId), {
     onNone: () => ({ model }),
     onSome: (entity) => {
@@ -93,12 +93,22 @@ export const addAttribute = (model: Model, entityId: string): UpdateReturn =>
       const attributeId = Doc.nextId(present(ready), "p");
       const attribute = Doc.newAttribute(attributeId, `field${entity.attributes.length + 1}`);
       return startEditingAttribute(
-        commitDocument(ready, (document) => Doc.addAttribute(document, entityId, attribute)),
+        commitDocument(ready, (document) => Doc.addAttribute(document, entityId, attribute, index)),
         entityId,
         attributeId,
       );
     },
   });
+
+export const moveAttribute = (
+  model: Model,
+  entityId: string,
+  attributeId: string,
+  direction: Doc.MoveDirection,
+): Model =>
+  commitDocument(model, (document) =>
+    Doc.moveAttribute(document, entityId, attributeId, direction),
+  );
 
 export const deleteAttribute = (model: Model, entityId: string, attributeId: string): Model =>
   reconcile(

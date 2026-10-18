@@ -236,10 +236,15 @@ export const addAttribute = (
   document: DomainModelDocument,
   entityId: string,
   attribute: AttributeDefinition,
+  index?: number,
 ): DomainModelDocument =>
   mapEntity(document, entityId, (entity) => ({
     ...entity,
-    attributes: [...entity.attributes, normalizeAttribute(attribute)],
+    attributes: Array.insertAt(
+      entity.attributes,
+      index ?? entity.attributes.length,
+      normalizeAttribute(attribute),
+    ).pipe(Option.getOrElse(() => entity.attributes)),
   }));
 
 export const replaceAttribute = (
@@ -400,10 +405,13 @@ export const addEnumValue = (
   document: DomainModelDocument,
   typeId: string,
   value: EnumValue,
+  index?: number,
 ): DomainModelDocument =>
   mapEnum(document, typeId, (definition) => ({
     ...definition,
-    values: [...definition.values, value],
+    values: Array.insertAt(definition.values, index ?? definition.values.length, value).pipe(
+      Option.getOrElse(() => definition.values),
+    ),
   }));
 
 /** Sets a value's name and description; a blank description removes it. */

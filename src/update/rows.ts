@@ -81,6 +81,30 @@ export const move = (model: Model, motion: RowMotion): Model =>
     },
   });
 
+export const insert = (model: Model, position: "Above" | "Below"): UpdateReturn =>
+  Option.match(cardCursor(model), {
+    onNone: () => ({ model }),
+    onSome: (cursor) => {
+      const rowIndex = cursor.rows.findIndex((row) => sameRow(cursor.row, row));
+      const index = Math.max(0, rowIndex - (position === "Above" ? 1 : 0));
+      return model.selection._tag === "SelectedEntity"
+        ? Entities.addAttribute(model, cursor.nodeId, index)
+        : Enums.addValue(model, cursor.nodeId, index);
+    },
+  });
+
+export const reorder = (model: Model, direction: Doc.MoveDirection): Model =>
+  Selection.match(model.selection, {
+    NoSelection: () => model,
+    SelectedAssociation: () => model,
+    SelectedEntity: ({ entityId, row }) =>
+      row._tag === "Attribute"
+        ? Entities.moveAttribute(model, entityId, row.attributeId, direction)
+        : model,
+    SelectedEnum: ({ typeId, row }) =>
+      row._tag === "Value" ? Enums.moveValue(model, typeId, row.valueId, direction) : model,
+  });
+
 export const select = (model: Model, selection: Selection): Model =>
   reconcile({ ...toIdle(finishEditing(model)), selection });
 

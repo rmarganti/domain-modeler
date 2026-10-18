@@ -81,6 +81,28 @@ describe("keybinding registry", () => {
     expect(bindingsFor("Help").map((binding) => binding.keys)).toEqual(["Escape", "?", "Shift+?"]);
   });
 
+  test("row verbs are Normal-only Edit bindings, distinct from row navigation", () => {
+    const actions = [
+      ["O", { _tag: "InsertedCardRow", position: "Below" }],
+      ["Shift+O", { _tag: "InsertedCardRow", position: "Above" }],
+      ["Shift+J", { _tag: "ReorderedCardRow", direction: "Down" }],
+      ["Shift+K", { _tag: "ReorderedCardRow", direction: "Up" }],
+      ["J", { _tag: "MovedCardRow", motion: "Next" }],
+      ["K", { _tag: "MovedCardRow", motion: "Previous" }],
+    ] as const;
+    for (const [keys, expected] of actions) {
+      const binding = bindingsFor("Normal").find((binding) => binding.keys === keys);
+      expect(binding?.mapEvent(new KeyboardEvent("keydown"))).toEqual(expected);
+      expect(binding?.whileTyping).toBeUndefined();
+      for (const mode of ["Text", "Choosing", "Pointer", "Help"] as const) {
+        expect(bindingsFor(mode).some((binding) => binding.keys === keys)).toBe(false);
+      }
+    }
+    for (const id of ["insertRowBelow", "insertRowAbove", "reorderRowDown", "reorderRowUp"]) {
+      expect(KEYMAP.find((entry) => entry.id === id)?.group).toBe("Edit");
+    }
+  });
+
   test("zoom bindings reuse HUD messages and allow typing only for Mod zoom", () => {
     const actions = [
       ["Mod+=", "ClickedZoomIn"],

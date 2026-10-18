@@ -24,6 +24,8 @@ export const Message = defineMessageUnion({
   PressedRedoKey: {},
   PressedEditKey: {},
   MovedCardRow: { motion: Schema.Literals(["Next", "Previous", "First", "Last"]) },
+  InsertedCardRow: { position: Schema.Literals(["Above", "Below"]) },
+  ReorderedCardRow: { direction: MoveDirection },
   PressedEnterKey: {},
   PressedEscapeKey: {},
   PressedSaveKey: {},

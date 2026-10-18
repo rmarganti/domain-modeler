@@ -50,6 +50,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     PressedRedoKey: () => ({ model: Session.redo(model) }),
     PressedEditKey: () => Rows.edit(model),
     MovedCardRow: ({ motion }) => ({ model: Rows.move(model, motion) }),
+    InsertedCardRow: ({ position }) => Rows.insert(model, position),
+    ReorderedCardRow: ({ direction }) => ({ model: Rows.reorder(model, direction) }),
     PressedEnterKey: () =>
       EditorState.matchOrElse(
         model.editor,
@@ -135,9 +137,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       model: Entities.deleteAttribute(model, entityId, attributeId),
     }),
     ClickedMoveAttribute: ({ entityId, attributeId, direction }) => ({
-      model: commitDocument(model, (document) =>
-        Doc.moveAttribute(document, entityId, attributeId, direction),
-      ),
+      model: Entities.moveAttribute(model, entityId, attributeId, direction),
     }),
     UpdatedAttributeDraftName: ({ name }) =>
       updateAttributeDraft(model, (draft) => ({ ...draft, name })),
@@ -174,9 +174,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       model: Enums.deleteValue(model, typeId, valueId),
     }),
     ClickedMoveEnumValue: ({ typeId, valueId, direction }) => ({
-      model: commitDocument(model, (document) =>
-        Doc.moveEnumValue(document, typeId, valueId, direction),
-      ),
+      model: Enums.moveValue(model, typeId, valueId, direction),
     }),
     UpdatedEnumValueDraftName: ({ name }) =>
       updateEnumValueDraft(model, (draft) => ({ ...draft, name })),
