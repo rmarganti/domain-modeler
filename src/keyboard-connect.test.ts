@@ -23,8 +23,10 @@ const initial: Model = {
   selection: Selection.SelectedEntity({ entityId: "e1", row: CardRow.Title() }),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
+  maybeFilePath: Option.none(),
   maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const step = (model: Model, message: Message): Model => update(model, message).model;
@@ -251,7 +253,7 @@ describe("keyboard connection picker", () => {
     expect(step(targetGone, Message.PickedCard({ nodeId: "e3" }))).toBe(targetGone);
     const replaced = step(
       opened,
-      Message.SucceededOpenFile({ document: Doc.sampleDocument, fileName: "other.json" }),
+      Message.SucceededOpenFile({ document: Doc.sampleDocument, path: "/models/other.json" }),
     );
     expect(replaced.editor).toEqual(EditorState.Idle());
     expect(step(replaced, Message.PickedCard({ nodeId: "e3" }))).toBe(replaced);

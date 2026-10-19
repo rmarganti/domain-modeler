@@ -38,8 +38,10 @@ const initial: Model = {
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 900 },
   panKey: "Released",
-  maybeFileName: Option.none(),
+  maybeFilePath: Option.none(),
   maybeSavedDocument: Option.some(document),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const selection = (id: string) =>

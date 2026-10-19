@@ -20,8 +20,10 @@ const initial: Model = {
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
+  maybeFilePath: Option.none(),
   maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const step = (m: Model, msg: Message): Model => update(m, msg).model;
@@ -214,7 +216,7 @@ describe("card picker", () => {
     const start = opened();
     const end = step(
       start,
-      Message.SucceededOpenFile({ document: Doc.sampleDocument, fileName: "other.json" }),
+      Message.SucceededOpenFile({ document: Doc.sampleDocument, path: "/models/other.json" }),
     );
     expect(end.editor).toEqual(EditorState.Idle());
     expect(step(end, Message.PickedCard({ nodeId: "e1" }))).toBe(end);

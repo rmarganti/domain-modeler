@@ -2,14 +2,21 @@ import { Option, Schema } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 
-import { ConfirmCloseWindow, FocusInput, ForgetActiveFile, OpenFile, SaveFile } from "./command";
+import {
+  CheckFileOnDisk,
+  ConfirmCloseWindow,
+  FocusInput,
+  OpenFile,
+  ReloadFileFromDisk,
+  SaveFile,
+} from "./command";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
 import * as Ids from "./domain/ids";
 import * as Geometry from "./domain/geometry";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
-import { CardRow, EditorState, Selection, isDirty, type Model } from "./model";
+import { CardRow, EditorState, Selection, isDirty, maybeFileName, type Model } from "./model";
 import { bindingsFor, toKeyMode } from "./subscription";
 import { update } from "./update";
 
@@ -21,8 +28,10 @@ const baseModel: Model = {
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
+  maybeFilePath: Option.none(),
   maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 
@@ -426,7 +435,7 @@ describe("new chooser", () => {
       const viaButton = update(current, Message.RequestedNewDocument());
       expect(viaKey.model).toEqual(viaButton.model);
       expect(viaKey.commands).toEqual(viaButton.commands);
-      expect(viaKey.commands).toEqual([ForgetActiveFile()]);
+      expect(viaKey.model.maybeFilePath).toEqual(Option.none());
       expect(viaKey.model.editor).toEqual(EditorState.Idle());
       expect(viaKey.model.history.present.entities).toHaveLength(0);
       expect(viaKey.model.history.present.types).toHaveLength(0);
@@ -1434,12 +1443,12 @@ describe("files", () => {
         SaveFile,
         Message.SucceededSaveFile({
           document: Doc.renameEntity(Doc.sampleDocument, "e3", "Label"),
-          fileName: "blog.domain.json",
+          path: "/models/blog.domain.json",
         }),
       ),
       model((m) => {
         expect(isDirty(m)).toBe(false);
-        expect(m.maybeFileName).toEqual(Option.some("blog.domain.json"));
+        expect(maybeFileName(m)).toEqual(Option.some("blog.domain.json"));
         expect(Option.getOrThrow(Doc.findEntity(m.history.present, "e3")).name).toBe("Label");
       }),
     );
@@ -1456,7 +1465,7 @@ describe("files", () => {
       message(Message.RequestedOpen()),
       Command.resolve(
         OpenFile,
-        Message.SucceededOpenFile({ document: opened, fileName: "x.domain.json" }),
+        Message.SucceededOpenFile({ document: opened, path: "/models/x.domain.json" }),
       ),
       model((m) => {
         // Three entities and the Role enum.
@@ -1470,12 +1479,12 @@ describe("files", () => {
   test("a new model is undoable and forgets the file handle", () => {
     story(
       update,
-      given({ ...baseModel, maybeFileName: Option.some("blog.domain.json") }),
+      given({ ...baseModel, maybeFilePath: Option.some("/models/blog.domain.json") }),
       message(Message.RequestedNewDocument()),
-      Command.resolve(ForgetActiveFile, Message.CompletedForgetActiveFile()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(0);
-        expect(m.maybeFileName).toEqual(Option.none());
+        expect(m.maybeFilePath).toEqual(Option.none());
+        expect(isDirty(m)).toBe(true);
       }),
       message(Message.RequestedUndo()),
       model((m) => expect(m.history.present.entities).toHaveLength(3)),
@@ -1514,15 +1523,10 @@ describe("unsaved changes", () => {
     const editedDuringSave = update(update(baseModel, Message.RequestedSave()).model, rename).model;
     const saved = update(
       editedDuringSave,
-      Message.SucceededSaveFile({ document: Doc.sampleDocument, fileName: "blog.domain.json" }),
+      Message.SucceededSaveFile({ document: Doc.sampleDocument, path: "/models/blog.domain.json" }),
     ).model;
     expect(saved.maybeSavedDocument).toEqual(Option.some(Doc.sampleDocument));
     expect(isDirty(saved)).toBe(true);
-  });
-
-  test("forgetting the active file is dirty", () => {
-    const forgotten = update(baseModel, Message.CompletedForgetActiveFile()).model;
-    expect(isDirty(forgotten)).toBe(true);
   });
 });
 
@@ -1535,6 +1539,222 @@ describe("window", () => {
       Command.expectExact(ConfirmCloseWindow),
       Command.resolve(ConfirmCloseWindow, Message.CancelledCloseWindow()),
       model((m) => expect(isDirty(m)).toBe(true)),
+    );
+  });
+});
+
+describe("external edits", () => {
+  const PATH = "/models/blog.domain.json";
+  const saved = Doc.syncLayout(Doc.sampleDocument);
+  const onDisk: Model = {
+    ...baseModel,
+    history: History.init(saved),
+    maybeFilePath: Option.some(PATH),
+    maybeSavedDocument: Option.some(saved),
+  };
+  const theirs = Doc.renameEntity(saved, "e3", "Label");
+  const arrived = (document: typeof saved) => Message.ReadFileOnDisk({ path: PATH, document });
+  const step = (m: Model, msg: Message): Model => update(m, msg).model;
+  // Commands carry their effect, so compare what they are, not how they run.
+  const described = (commands: ReadonlyArray<{ name: string; args?: unknown }> | undefined) =>
+    (commands ?? []).map(({ name, args }) => ({ name, args }));
+  const entityName = (m: Model, entityId: string) =>
+    Option.getOrThrow(Doc.findEntity(m.history.present, entityId)).name;
+
+  test("a change on disk or a return to the window reads the open file back", () => {
+    for (const signal of [Message.ChangedFileOnDisk(), Message.FocusedWindow()]) {
+      expect(described(update(onDisk, signal).commands)).toEqual(
+        described([CheckFileOnDisk({ path: PATH })]),
+      );
+      expect(update(baseModel, signal).commands ?? []).toEqual([]);
+    }
+  });
+
+  test("a clean document takes the change, stays clean, and says so", () => {
+    const m = step(onDisk, arrived(theirs));
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(m.history.past).toHaveLength(1);
+    expect(isDirty(m)).toBe(false);
+    expect(m.maybePendingDiskDocument).toEqual(Option.none());
+    expect(m.maybeNotice).toEqual(
+      Option.some({ tone: "Info", text: "Updated from blog.domain.json" }),
+    );
+  });
+
+  test("the viewport is never taken from disk", () => {
+    const panned = {
+      ...theirs,
+      layout: { ...theirs.layout, viewport: { pan: { x: 9, y: 9 }, zoom: 2 } },
+    };
+    const m = step(onDisk, arrived(panned));
+    expect(m.history.present.layout.viewport).toEqual(saved.layout.viewport);
+  });
+
+  test("unsaved edits merge with a change elsewhere and stay unsaved", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const m = step(edited, arrived(theirs));
+    expect(m.history.present.name).toBe("Mine");
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(m.maybeSavedDocument).toEqual(Option.some(theirs));
+    expect(isDirty(m)).toBe(true);
+  });
+
+  test("a conflict keeps ours and the notice names it", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const m = step(edited, arrived(Doc.renameDocument(theirs, "Theirs")));
+    expect(m.history.present.name).toBe("Mine");
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(m.maybeNotice).toEqual(
+      Option.some({
+        tone: "Info",
+        text: "Merged changes from blog.domain.json. Kept your version of Mine.",
+      }),
+    );
+  });
+
+  test("a long conflict list is capped", () => {
+    const renamedAll = (document: typeof saved, suffix: string) =>
+      ["e1", "e2", "e3"].reduce(
+        (acc, id) => Doc.renameEntity(acc, id, `${id}${suffix}`),
+        Doc.renameDocument(document, `Doc${suffix}`),
+      );
+    const ours = { ...onDisk, history: History.init(renamedAll(saved, "Ours")) };
+    const m = step(ours, arrived(renamedAll(saved, "Theirs")));
+    expect(Option.getOrThrow(m.maybeNotice).text).toMatch(/Kept your version of .+ and 1 more\.$/);
+  });
+
+  test("undo after a merge restores the document from before it", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const merged = step(edited, arrived(theirs));
+    const undone = step(merged, Message.RequestedUndo());
+    expect(undone.history.present).toEqual(edited.history.present);
+    expect(entityName(undone, "e3")).toBe(entityName(onDisk, "e3"));
+  });
+
+  test("a change is held while renaming and merged once the rename commits or cancels", () => {
+    const renaming = step(onDisk, Message.DoubleClickedEntityName({ entityId: "e1" }));
+    expect(renaming.editor._tag).toBe("RenamingEntity");
+    const held = step(renaming, arrived(theirs));
+    expect(entityName(held, "e3")).toBe(entityName(onDisk, "e3"));
+    expect(held.maybePendingDiskDocument).toEqual(Option.some(theirs));
+
+    const typed = step(held, Message.UpdatedEntityDraftName({ name: "Member" }));
+    const committed = step(typed, Message.PressedEnterKey());
+    expect(entityName(committed, "e1")).toBe("Member");
+    expect(entityName(committed, "e3")).toBe("Label");
+    expect(committed.maybePendingDiskDocument).toEqual(Option.none());
+
+    const cancelled = step(held, Message.PressedEscapeKey());
+    expect(entityName(cancelled, "e1")).toBe("User");
+    expect(entityName(cancelled, "e3")).toBe("Label");
+  });
+
+  test("only the latest change waits while busy", () => {
+    const busy = {
+      ...onDisk,
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "User" }),
+    };
+    const latest = Doc.renameEntity(saved, "e3", "Newest");
+    const held = step(step(busy, arrived(theirs)), arrived(latest));
+    expect(held.maybePendingDiskDocument).toEqual(Option.some(latest));
+    const applied = step(held, Message.PressedEscapeKey());
+    expect(entityName(applied, "e3")).toBe("Newest");
+    expect(applied.history.past).toHaveLength(1);
+  });
+
+  test("a change that reverts to the saved document drops what was pending", () => {
+    const busy = {
+      ...onDisk,
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "User" }),
+    };
+    const m = step(step(busy, arrived(theirs)), arrived(saved));
+    expect(m.maybePendingDiskDocument).toEqual(Option.none());
+  });
+
+  test("the saved document read back, as after our own save, is ignored", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const m = step(edited, arrived(saved));
+    expect(m).toEqual(edited);
+  });
+
+  test("results for a file that is no longer open are ignored", () => {
+    const stale = Message.ReadFileOnDisk({ path: "/models/other.domain.json", document: theirs });
+    expect(step(onDisk, stale)).toEqual(onDisk);
+  });
+
+  test("an invalid file is reported once and the document is kept", () => {
+    const invalid = Message.FailedReadFileOnDisk({ path: PATH, issue: "Invalid" });
+    const first = step(onDisk, invalid);
+    expect(first.history).toBe(onDisk.history);
+    expect(first.maybeNotice).toEqual(
+      Option.some({
+        tone: "Error",
+        text: "blog.domain.json on disk isn't a valid model right now. Keeping your version.",
+      }),
+    );
+    const dismissed = step(first, Message.ClickedDismissNotice());
+    expect(step(dismissed, invalid).maybeNotice).toEqual(Option.none());
+    // Once it's valid again, a later problem is reported afresh.
+    const fixed = step(dismissed, arrived(theirs));
+    expect(step(step(fixed, Message.ClickedDismissNotice()), invalid).maybeNotice).not.toEqual(
+      Option.none(),
+    );
+  });
+
+  test("a missing file makes the document unsaved, so Save writes it back", () => {
+    const m = step(onDisk, Message.FailedReadFileOnDisk({ path: PATH, issue: "Missing" }));
+    expect(isDirty(m)).toBe(true);
+    expect(m.maybeFilePath).toEqual(Option.some(PATH));
+    expect(Option.getOrThrow(m.maybeNotice).tone).toBe("Error");
+    expect(described(update(m, Message.RequestedSave()).commands)).toEqual(
+      described([SaveFile({ document: m.history.present, maybePath: Option.some(PATH) })]),
+    );
+  });
+
+  test("without a saved document a different file waits for Reload from disk", () => {
+    const missing = step(onDisk, Message.FailedReadFileOnDisk({ path: PATH, issue: "Missing" }));
+    const m = step(step(missing, Message.ClickedDismissNotice()), arrived(theirs));
+    expect(entityName(m, "e3")).toBe(entityName(onDisk, "e3"));
+    expect(Option.getOrThrow(m.maybeNotice).text).toMatch(/changed on disk\. Reload from disk/);
+    // The same content back on disk is saved again.
+    const restored = step(missing, arrived(saved));
+    expect(isDirty(restored)).toBe(false);
+  });
+
+  test("save merges a pending change first, so it isn't overwritten", () => {
+    const busy = {
+      ...onDisk,
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "Member" }),
+    };
+    const held = step(busy, arrived(theirs));
+    const { model: m, commands } = update(held, Message.RequestedSave());
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(described(commands)).toEqual(
+      described([SaveFile({ document: m.history.present, maybePath: Option.some(PATH) })]),
+    );
+  });
+
+  test("Reload from disk discards unsaved changes as one undoable step", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    expect(described(update(edited, Message.PressedReloadFromDiskKey()).commands)).toEqual(
+      described([ReloadFileFromDisk({ path: PATH })]),
+    );
+    const reloaded = step(edited, Message.SucceededReloadFile({ path: PATH, document: theirs }));
+    expect(reloaded.history.present.name).toBe(saved.name);
+    expect(entityName(reloaded, "e3")).toBe("Label");
+    expect(isDirty(reloaded)).toBe(false);
+    expect(reloaded.maybeNotice).toEqual(
+      Option.some({ tone: "Info", text: "Reloaded blog.domain.json" }),
+    );
+    const undone = step(reloaded, Message.RequestedUndo());
+    expect(undone.history.present).toEqual(edited.history.present);
+  });
+
+  test("Reload from disk without a file says there's nothing to reload", () => {
+    const result = update(baseModel, Message.PressedReloadFromDiskKey());
+    expect(result.commands ?? []).toEqual([]);
+    expect(result.model.maybeNotice).toEqual(
+      Option.some({ tone: "Info", text: "No file to reload." }),
     );
   });
 });

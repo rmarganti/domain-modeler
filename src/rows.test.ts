@@ -17,8 +17,10 @@ const initial: Model = {
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
+  maybeFilePath: Option.none(),
   maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const step = (model: Model, message: Message): Model => update(model, message).model;

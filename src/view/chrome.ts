@@ -5,7 +5,7 @@ import * as Diagnostics from "../domain/diagnostics";
 import * as History from "../domain/history";
 import { shortcutFor, shortcutTitle } from "../keymap";
 import { Message } from "../message";
-import { EditorState, isDirty, type Model } from "../model";
+import { EditorState, isDirty, maybeFileName, type Model } from "../model";
 
 // HUD
 
@@ -175,7 +175,7 @@ export const toolbarView = (
 ): Html => {
   const document = model.history.present;
   const pill = statusPill(model.editor);
-  const fileLabel = Option.getOrElse(model.maybeFileName, () => "Not saved to a file");
+  const fileLabel = Option.getOrElse(maybeFileName(model), () => "Not saved to a file");
   const diagnosticMessages = Array.map(diagnostics, Diagnostics.describe);
 
   return h.footer(

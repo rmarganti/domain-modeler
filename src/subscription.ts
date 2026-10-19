@@ -6,6 +6,7 @@ import { classifyWheel } from "./domain/geometry";
 import { bindingsFor, KeyMode } from "./keymap";
 import { Message } from "./message";
 import { EditorState, isDirty, type Model } from "./model";
+import * as Files from "./platform/files";
 import * as AppWindow from "./platform/window";
 import { windowTitle } from "./view";
 
@@ -78,6 +79,20 @@ const pointerTracking = Stream.mergeAll<Message, never, never>(
   ],
   { concurrency: "unbounded" },
 );
+
+// EXTERNAL EDITS
+// The open file is watched for changes, and re-checked whenever the window
+// regains focus, in case the watcher missed one.
+
+const fileChecks = (path: string): Stream.Stream<Message> =>
+  Stream.merge(
+    Files.changes(path).pipe(Stream.map(() => Message.ChangedFileOnDisk())),
+    Dom.streamFromEvent({
+      target: window,
+      type: "focus",
+      mapEvent: () => Message.FocusedWindow(),
+    }),
+  );
 
 const isOverCanvas = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest(`#${CANVAS_ID}`) !== null;
@@ -160,6 +175,15 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
           AppWindow.closeRequests(() => Message.RequestedWindowClose()),
           Effect.sync(() => isGuarded),
         ),
+    },
+  ),
+
+  fileOnDisk: entry(
+    { maybePath: Schema.Option(Schema.String) },
+    {
+      modelToDependencies: (model) => ({ maybePath: model.maybeFilePath }),
+      dependenciesToStream: ({ maybePath }) =>
+        Option.match(maybePath, { onNone: () => Stream.empty, onSome: fileChecks }),
     },
   ),
 

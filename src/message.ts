@@ -13,6 +13,10 @@ const PointerFields = {
 
 export const MoveDirection = Schema.Literals(["Up", "Down"]);
 export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
+/** Why the open file couldn't be read back: it isn't a valid model, or it
+ *  couldn't be read at all (deleted, moved, or mid-replace). */
+export const DiskReadIssue = Schema.Literals(["Invalid", "Missing"]);
+export type DiskReadIssue = typeof DiskReadIssue.Type;
 
 export const Message = defineMessageUnion({
   // Keyboard
@@ -30,6 +34,7 @@ export const Message = defineMessageUnion({
   PressedToggleExpandKey: {},
   PressedEnterKey: {},
   PressedEscapeKey: {},
+  PressedReloadFromDiskKey: {},
   PressedSpace: {},
   ReleasedSpace: {},
 
@@ -139,14 +144,21 @@ export const Message = defineMessageUnion({
   ClickedCloseInspector: {},
 
   // Files
-  SucceededOpenFile: { document: DomainModelDocument, fileName: Schema.String },
+  SucceededOpenFile: { document: DomainModelDocument, path: Schema.String },
   FailedOpenFile: { error: Schema.String },
-  SucceededSaveFile: { document: DomainModelDocument, fileName: Schema.String },
+  SucceededSaveFile: { document: DomainModelDocument, path: Schema.String },
   FailedSaveFile: { error: Schema.String },
   CancelledFilePicker: {},
-  CompletedForgetActiveFile: {},
   CompletedFocusInput: {},
   ClickedDismissNotice: {},
+
+  // External edits to the open file
+  ChangedFileOnDisk: {},
+  FocusedWindow: {},
+  ReadFileOnDisk: { path: Schema.String, document: DomainModelDocument },
+  FailedReadFileOnDisk: { path: Schema.String, issue: DiskReadIssue },
+  SucceededReloadFile: { path: Schema.String, document: DomainModelDocument },
+  FailedReloadFile: { path: Schema.String, issue: DiskReadIssue },
 
   // Window
   RequestedWindowClose: {},

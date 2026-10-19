@@ -39,8 +39,10 @@ export const init: Runtime.ApplicationInit<Model, Message, Flags> = ({ screen, i
     selection: Selection.NoSelection(),
     screen,
     panKey: "Released",
-    maybeFileName: Option.none(),
+    maybeFilePath: Option.none(),
     maybeSavedDocument: Option.none(),
+    maybePendingDiskDocument: Option.none(),
+    maybeDiskIssue: Option.none(),
     maybeNotice: Option.none(),
   },
 });

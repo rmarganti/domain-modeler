@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { fileNameOf } from "./files";
+import { fileNameOf } from "./model";
 
 describe("fileNameOf", () => {
   test("derives the file name from POSIX and Windows paths", () => {

@@ -60,6 +60,13 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     mapEvent: () => Message.RequestedSaveAs(),
   },
   {
+    id: "reloadFromDisk",
+    keys: ["Shift+R"],
+    description: "Reload from disk, discarding unsaved changes",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedReloadFromDiskKey(),
+  },
+  {
     id: "create",
     keys: ["C"],
     description: "Create entity or enum",
@@ -480,6 +487,7 @@ export const HELP_SECTIONS: ReadonlyArray<HelpSection> = [
         { label: "New model", ids: ["newDocument"] },
         { label: "Open", ids: ["open"] },
         { label: "Save / save as", ids: ["save", "saveAs"], paired: true },
+        { label: "Reload from disk", ids: ["reloadFromDisk"] },
       ],
     ],
   },
