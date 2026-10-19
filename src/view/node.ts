@@ -24,7 +24,6 @@ import {
   cardFrame,
   cardHeader,
   cardName,
-  countBadge,
   creatingCardView,
   editorActions,
   rowActions,
@@ -105,7 +104,7 @@ const headerView = (
       Diagnostics.forEntity(context.diagnostics, entity.id),
       Diagnostics.describe,
     ),
-    badges: [countBadge(h, entity.attributes.length, `${entity.attributes.length} fields`)],
+    badges: [],
     onPress: ({ button, clientX, clientY }) =>
       Message.PressedNodeHeader({ entityId: entity.id, button, clientX, clientY }),
   });
