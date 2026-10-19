@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { History } from "./domain/history";
+import { IdState } from "./domain/ids";
 import { AttributeType, Multiplicity, Point } from "./domain/schema";
 
 // EDITOR STATE MACHINE
@@ -115,6 +116,9 @@ export type Notice = typeof Notice.Type;
 
 export const Model = Schema.Struct({
   history: History,
+  /** Where the next new ID comes from. Kept outside the document and history,
+   *  so undo never rewinds it and an undone ID is never minted again. */
+  idState: IdState,
   editor: EditorState,
   selection: Selection,
   screen: ScreenSize,

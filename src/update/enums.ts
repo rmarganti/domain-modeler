@@ -2,6 +2,7 @@ import { Option, pipe } from "effect";
 
 import { ENUM_NAME_INPUT_ID, ENUM_VALUE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
+import * as Ids from "../domain/ids";
 import type { Point } from "../domain/schema";
 import { CardRow, EditorState, Selection, type EnumValueSave, type Model } from "../model";
 import { draftFromEnumValue, finishEditing } from "./editing";
@@ -98,9 +99,9 @@ export const addValue = (model: Model, typeId: string, index?: number): UpdateRe
     onNone: () => ({ model }),
     onSome: (definition) => {
       const ready = finishEditing(model);
-      const valueId = Doc.nextId(present(ready), "v");
+      const { id: valueId, state: idState } = Ids.nextId(ready.idState, present(ready));
       return startEditingValue(
-        commitDocument(ready, (document) =>
+        commitDocument({ ...ready, idState }, (document) =>
           Doc.addEnumValue(
             document,
             typeId,

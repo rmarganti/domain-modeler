@@ -6,6 +6,7 @@ import { FocusInput, RevealCardOption } from "./command";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { bindingsFor, helpSectionOf } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./model";
@@ -14,6 +15,7 @@ import { update } from "./update";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },

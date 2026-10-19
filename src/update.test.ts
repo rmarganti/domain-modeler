@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import { ConfirmCloseWindow, FocusInput, ForgetActiveFile, OpenFile, SaveFile } from "./command";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import * as Geometry from "./domain/geometry";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
@@ -15,6 +16,7 @@ import { update } from "./update";
 // Viewport at pan (0, 0) and zoom 1, so screen and world coordinates match.
 const baseModel: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
@@ -23,6 +25,11 @@ const baseModel: Model = {
   saveStatus: "Clean",
   maybeNotice: Option.none(),
 };
+
+// New IDs are random, so tests find what an action created instead of naming it.
+const lastEntity = (m: Model) => m.history.present.entities.at(-1)!;
+const lastEnum = (m: Model) => m.history.present.types.at(-1)!;
+const lastAssociation = (m: Model) => m.history.present.associations.at(-1)!;
 
 const focused = Command.resolve(FocusInput, Message.CompletedFocusInput());
 
@@ -574,12 +581,13 @@ describe("entities", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(m.selection).toEqual(
-          Selection.SelectedEntity({ entityId: "e4", row: CardRow.Title() }),
-        );
-        const created = Option.getOrThrow(Doc.findEntity(m.history.present, "e4"));
+        const created = lastEntity(m);
         expect(created.name).toBe("Comment");
-        expect(m.history.present.layout.nodes["e4"]).toBeDefined();
+        expect(m.history.present.entities).toHaveLength(4);
+        expect(m.selection).toEqual(
+          Selection.SelectedEntity({ entityId: created.id, row: CardRow.Title() }),
+        );
+        expect(m.history.present.layout.nodes[created.id]).toBeDefined();
       }),
     );
   });
@@ -678,8 +686,9 @@ describe("attributes", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         const tag = Option.getOrThrow(Doc.findEntity(m.history.present, "e3"));
+        expect(tag.attributes).toHaveLength(2);
         expect(tag.attributes.at(-1)).toEqual({
-          id: "p11",
+          id: tag.attributes.at(-1)?.id,
           name: "kind",
           type: "Integer",
           multiplicity: { min: 0, max: "one" },
@@ -752,9 +761,11 @@ describe("associations", () => {
         }),
       ),
       model((m) => {
-        expect(m.editor).toEqual(EditorState.EditingAssociation({ associationId: "r3" }));
-        expect(Option.getOrThrow(Doc.findAssociation(m.history.present, "r3"))).toEqual({
-          id: "r3",
+        const { id: associationId } = lastAssociation(m);
+        expect(m.history.present.associations).toHaveLength(3);
+        expect(m.editor).toEqual(EditorState.EditingAssociation({ associationId }));
+        expect(Option.getOrThrow(Doc.findAssociation(m.history.present, associationId))).toEqual({
+          id: associationId,
           ends: [
             { entityId: "e3", multiplicity: { min: 1, max: "one" } },
             { entityId: "e1", multiplicity: { min: 0, max: "many" } },
@@ -850,9 +861,13 @@ describe("enums", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2", row: CardRow.Title() }));
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
-        expect(m.history.present.layout.nodes["t2"]).toBeDefined();
+        const created = lastEnum(m);
+        expect(created.name).toBe("Status");
+        expect(m.history.present.types).toHaveLength(2);
+        expect(m.selection).toEqual(
+          Selection.SelectedEnum({ typeId: created.id, row: CardRow.Title() }),
+        );
+        expect(m.history.present.layout.nodes[created.id]).toBeDefined();
       }),
       message(Message.RequestedUndo()),
       model((m) => {
@@ -911,16 +926,19 @@ describe("enums", () => {
   });
 
   test("adding a value opens it for editing and saving applies the draft", () => {
+    let valueId = "";
     story(
       update,
       given(baseModel),
       message(Message.ClickedAddEnumValue({ typeId: "t1" })),
       focused,
       model((m) => {
+        valueId = findRole(m).values.at(-1)!.id;
+        expect(roleValues(m)).toEqual(["reader", "author", "admin", "value4"]);
         expect(m.editor).toEqual(
           EditorState.EditingEnumValue({
             typeId: "t1",
-            valueId: "v4",
+            valueId,
             draft: { name: "value4", description: "" },
             save: "Commit",
           }),
@@ -932,7 +950,7 @@ describe("enums", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(findRole(m).values.at(-1)).toEqual({
-          id: "v4",
+          id: valueId,
           name: "guest",
           description: "Not signed in",
         });
@@ -940,7 +958,7 @@ describe("enums", () => {
         expect(m.history.past).toHaveLength(2);
       }),
       message(Message.RequestedUndo()),
-      model((m) => expect(findRole(m).values.at(-1)).toEqual({ id: "v4", name: "value4" })),
+      model((m) => expect(findRole(m).values.at(-1)).toEqual({ id: valueId, name: "value4" })),
       message(Message.RequestedUndo()),
       model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
     );
@@ -1083,6 +1101,10 @@ describe("enum-typed fields", () => {
   const post = (m: Model) => Option.getOrThrow(Doc.findEntity(m.history.present, "e2"));
 
   test("New enum… is one undo step that types the field and opens the first value", () => {
+    let typeId = "";
+    let valueId = "";
+    let attributeId = "";
+    const status = (m: Model) => Option.getOrThrow(Doc.findEnum(m.history.present, typeId));
     story(
       update,
       given(baseModel),
@@ -1092,24 +1114,24 @@ describe("enum-typed fields", () => {
       message(Message.SelectedAttributeDraftNewEnum()),
       focused,
       model((m) => {
+        typeId = lastEnum(m).id;
+        valueId = lastEnum(m).values[0]!.id;
+        attributeId = post(m).attributes.at(-1)!.id;
+        expect(new Set([typeId, valueId, attributeId]).size).toBe(3);
         expect(m.editor).toEqual(
           EditorState.EditingEnumValue({
-            typeId: "t2",
-            valueId: "v4",
+            typeId,
+            valueId,
             draft: { name: "", description: "" },
             save: "Amend",
           }),
         );
         expect(m.selection).toEqual(
-          Selection.SelectedEnum({ typeId: "t2", row: CardRow.Value({ valueId: "v4" }) }),
+          Selection.SelectedEnum({ typeId, row: CardRow.Value({ valueId }) }),
         );
-        expect(post(m).attributes.at(-1)).toMatchObject({
-          id: "p11",
-          name: "status",
-          type: { typeId: "t2" },
-        });
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
-        expect(m.history.present.layout.nodes["t2"]?.isExpanded).toBe(true);
+        expect(post(m).attributes.at(-1)).toMatchObject({ name: "status", type: { typeId } });
+        expect(status(m).name).toBe("Status");
+        expect(m.history.present.layout.nodes[typeId]?.isExpanded).toBe(true);
         // One snapshot for adding the field, one for the whole "New enum…".
         expect(m.history.past).toHaveLength(2);
       }),
@@ -1117,25 +1139,21 @@ describe("enum-typed fields", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
-          { id: "v4", name: "draft" },
-        ]);
+        expect(status(m).values).toEqual([{ id: valueId, name: "draft" }]);
         // Naming the first value folds into the same step.
         expect(m.history.past).toHaveLength(2);
       }),
       message(Message.RequestedUndo()),
       model((m) => {
-        expect(Doc.findEnum(m.history.present, "t2")).toEqual(Option.none());
-        expect(m.history.present.layout.nodes["t2"]).toBeUndefined();
-        expect(post(m).attributes.at(-1)).toEqual(Doc.newAttribute("p11", "field3"));
+        expect(Doc.findEnum(m.history.present, typeId)).toEqual(Option.none());
+        expect(m.history.present.layout.nodes[typeId]).toBeUndefined();
+        expect(post(m).attributes.at(-1)).toEqual(Doc.newAttribute(attributeId, "field3"));
         expect(m.selection).toEqual(Selection.NoSelection());
       }),
       message(Message.RequestedRedo()),
       model((m) => {
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
-          { id: "v4", name: "draft" },
-        ]);
-        expect(post(m).attributes.at(-1)?.type).toEqual({ typeId: "t2" });
+        expect(status(m).values).toEqual([{ id: valueId, name: "draft" }]);
+        expect(post(m).attributes.at(-1)?.type).toEqual({ typeId });
       }),
     );
   });
@@ -1150,9 +1168,13 @@ describe("enum-typed fields", () => {
       message(Message.SelectedAttributeDraftNewEnum()),
       focused,
       model((m) => {
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("NewEnum");
+        const created = lastEnum(m);
+        expect(created.name).toBe("NewEnum");
         // A blank draft name keeps the field's own name.
-        expect(post(m).attributes[0]).toMatchObject({ name: "title", type: { typeId: "t2" } });
+        expect(post(m).attributes[0]).toMatchObject({
+          name: "title",
+          type: { typeId: created.id },
+        });
       }),
     );
   });
@@ -1202,7 +1224,8 @@ describe("keyboard row verbs", () => {
     const row = (id: string) =>
       kind === "Entity" ? CardRow.Attribute({ attributeId: id }) : CardRow.Value({ valueId: id });
     const ids = kind === "Entity" ? ["p2", "p3", "p4"] : ["v1", "v2", "v3"];
-    const newId = kind === "Entity" ? "p11" : "v4";
+    // The inserted row's ID is random: it's the one the sample didn't have.
+    const addedId = (m: Model) => rows(m).find(({ id }) => !ids.includes(id))!.id;
     const nodeId = kind === "Entity" ? "e1" : "t1";
     const defaultName = kind === "Entity" ? "field4" : "value4";
 
@@ -1216,6 +1239,7 @@ describe("keyboard row verbs", () => {
           const result = update(selected, Message.InsertedCardRow({ position }));
           const m = result.model;
           const index = onTitle || position === "Above" ? 0 : 1;
+          const newId = addedId(m);
           expect(rows(m).map(({ id }) => id)).toEqual([
             ...ids.slice(0, index),
             newId,
@@ -1263,9 +1287,9 @@ describe("keyboard row verbs", () => {
         selection: select(row(ids[1]!)),
       };
       const m = update(selected, Message.InsertedCardRow({ position: "Below" })).model;
-      expect(rows(m).map(({ id }) => id)).toEqual([ids[0], ids[1], newId, ids[2]]);
+      expect(rows(m).map(({ id }) => id)).toEqual([ids[0], ids[1], addedId(m), ids[2]]);
       expect(m.history.present.layout.nodes[nodeId]?.isExpanded).toBe(true);
-      expect(m.selection).toEqual(select(row(newId)));
+      expect(m.selection).toEqual(select(row(addedId(m))));
       expect(m.history.past).toHaveLength(1);
     });
 
@@ -1300,7 +1324,7 @@ describe("keyboard row verbs", () => {
       const cancelled = update(inserted, Message.PressedEscapeKey()).model;
       expect(rows(cancelled)[0]?.name).toBe(defaultName);
       expect(cancelled.editor).toEqual(EditorState.Idle());
-      expect(cancelled.selection).toEqual(select(row(newId)));
+      expect(cancelled.selection).toEqual(select(row(addedId(cancelled))));
       expect(cancelled.history).toBe(inserted.history);
 
       const footer = update(
@@ -1331,7 +1355,7 @@ describe("keyboard row verbs", () => {
       m = update(m, Message.PressedEnterKey()).model;
       expect(rows(m)[0]?.name).toBe("nickname");
       expect(m.editor).toEqual(EditorState.Idle());
-      expect(m.selection).toEqual(select(row(newId)));
+      expect(m.selection).toEqual(select(row(addedId(m))));
       expect(m.history.past).toHaveLength(2);
       m = update(m, Message.RequestedUndo()).model;
       expect(rows(m)[0]?.name).toBe(defaultName);

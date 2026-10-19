@@ -48,7 +48,7 @@
   ],
   "additionalProperties": true,
   "title": "Domain Model",
-  "description": "A Domain Modeler document: entities, enums and the associations between entities. New IDs take the next unused number for their prefix.",
+  "description": "A Domain Modeler document: entities, enums and the associations between entities. IDs are opaque: any string unused elsewhere in the document works.",
   "$defs": {
     "Primitive": {
       "type": "string",
@@ -109,7 +109,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique in the document, shaped \"p<number>\"."
+          "description": "Unique in the document. Any string; the editor generates 10 random lowercase letters and digits."
         },
         "name": {
           "type": "string",
@@ -158,7 +158,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique in the document, shaped \"e<number>\"."
+          "description": "Unique in the document. Any string; the editor generates 10 random lowercase letters and digits."
         },
         "name": {
           "type": "string",
@@ -194,7 +194,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique in the document, shaped \"v<number>\"."
+          "description": "Unique in the document. Any string; the editor generates 10 random lowercase letters and digits."
         },
         "name": {
           "type": "string",
@@ -222,7 +222,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique in the document, shaped \"t<number>\"."
+          "description": "Unique in the document. Any string; the editor generates 10 random lowercase letters and digits."
         },
         "kind": {
           "type": "string",
@@ -294,7 +294,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique in the document, shaped \"r<number>\"."
+          "description": "Unique in the document. Any string; the editor generates 10 random lowercase letters and digits."
         },
         "name": {
           "anyOf": [

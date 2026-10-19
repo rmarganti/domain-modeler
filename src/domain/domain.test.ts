@@ -6,6 +6,7 @@ import * as Doc from "./document";
 import { bezierRouter } from "./edgeRouter";
 import * as Geometry from "./geometry";
 import * as History from "./history";
+import * as Ids from "./ids";
 import { defaultRole, enumNameForAttribute, toPascalCase } from "./naming";
 import {
   DomainModelDocumentJsonString,
@@ -16,17 +17,41 @@ import {
 
 const sample = Doc.sampleDocument;
 
-describe("document", () => {
-  test("nextId never collides with existing ids", () => {
-    expect(Doc.nextId(sample, "e")).toBe("e4");
-    expect(Doc.nextId(sample, "p")).toBe("p11");
-    expect(Doc.nextId(sample, "r")).toBe("r3");
-    expect(Doc.nextId(sample, "t")).toBe("t2");
-    expect(Doc.nextId(sample, "v")).toBe("v4");
-    expect(Doc.nextId(Doc.emptyDocument("x"), "e")).toBe("e1");
-    expect(Doc.nextId(Doc.emptyDocument("x"), "t")).toBe("t1");
+describe("ids", () => {
+  const state = Ids.seed([1, 2, 3, 4]);
+
+  test("nextId is deterministic for a fixed seed", () => {
+    expect(Ids.nextId(state, sample)).toEqual(Ids.nextId(Ids.seed([1, 2, 3, 4]), sample));
   });
 
+  test("nextId mints 10 lowercase letters and digits and advances the state", () => {
+    const first = Ids.nextId(state, sample);
+    const second = Ids.nextId(first.state, sample);
+    expect(first.id).toMatch(/^[0-9a-z]{10}$/);
+    expect(second.id).toMatch(/^[0-9a-z]{10}$/);
+    expect(first.state).not.toEqual(state);
+    expect(second.id).not.toBe(first.id);
+  });
+
+  test("nextId skips IDs already in the document", () => {
+    const first = Ids.nextId(state, sample);
+    const taken: DomainModelDocument = Doc.addEntity(sample, first.id, "Taken", { x: 0, y: 0 });
+    const minted = Ids.nextId(state, taken);
+    expect(minted.id).not.toBe(first.id);
+    expect(minted).toEqual(Ids.nextId(first.state, sample));
+  });
+
+  test("nextId skips reserved IDs not yet in the document", () => {
+    const first = Ids.nextId(state, sample);
+    expect(Ids.nextId(state, sample, [first.id])).toEqual(Ids.nextId(first.state, sample));
+  });
+
+  test("seed never starts from the all-zero state", () => {
+    expect(Ids.seed([0, 0, 0, 0])).not.toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("document", () => {
   test("syncLayout staggers missing nodes and prunes orphans", () => {
     const document: DomainModelDocument = {
       ...sample,

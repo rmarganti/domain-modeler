@@ -20,7 +20,7 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 - **A list can't be `unique`.** The document API forces `unique: false` when the max is `many`.
 - **Names:** entity and enum names share one case-insensitive namespace.
 - **Vocabulary:** code and the file format say "association" and "attribute"; the UI says "Relationship" and "field".
-- **ID prefixes:** IDs are derived from the document with one prefix per kind: `e` entity, `p` attribute, `t` type, `v` enum value, `r` association.
+- **IDs are random and opaque.** New IDs are 10 random lowercase letters and digits from a seeded generator (`ids.ts`) whose state lives in the Model, outside the document and history, so `update` stays pure and undo never rewinds it. An ID is never reused, so a merge can trust that the same ID means the same thing. Code never reads meaning into an ID, and older files with IDs like `e1` keep working.
 - **File format:** the version stays `1.0.0` while the project is early. The schema changes in place, with no migrations.
 - **JSON Schema:** `schema/domain-model.schema.json` is generated from `schema.ts` for agents and editors, and its descriptions come from the schema's annotations. A test fails when the two drift, and `pnpm schema:generate` rewrites it. It checks shape only. Rules that span the document, like references resolving, stay in diagnostics. Saved files lead with `"$schema": SCHEMA_URL`, the raw GitHub URL of that file on `main`. `$schema` exists only in the file codec (`DomainModelFile`): loading ignores whatever value is there, and `DomainModelDocument` never carries it.
 

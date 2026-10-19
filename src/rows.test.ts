@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { KEYMAP, bindingsFor } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, Selection, type Model } from "./model";
@@ -11,6 +12,7 @@ import { commitDocument } from "./update/shared";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },

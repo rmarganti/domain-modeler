@@ -7,6 +7,7 @@ import { searchCards } from "./domain/card-search";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { bindingsFor, helpSectionOf, KEYMAP } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./model";
@@ -17,6 +18,7 @@ import { statusPill } from "./view/chrome";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.SelectedEntity({ entityId: "e1", row: CardRow.Title() }),
   screen: { width: 1200, height: 800 },
@@ -182,14 +184,15 @@ describe("keyboard connection picker", () => {
         const pointer = pointerConnect(start, target);
         expect(result).toEqual(pointer);
         expect(result.history.present.associations).toHaveLength(before + 1);
+        const associationId = result.history.present.associations.at(-1)!.id;
         expect(result.history.present.associations.at(-1)).toEqual(
-          Doc.newAssociation("r3", "e1", target),
+          Doc.newAssociation(associationId, "e1", target),
         );
         expect(result.history.past).toHaveLength(start.history.past.length + 1);
         expect(result.history.future).toEqual([]);
         expect(result.saveStatus).toBe("Dirty");
-        expect(result.selection).toEqual(Selection.SelectedAssociation({ associationId: "r3" }));
-        expect(result.editor).toEqual(EditorState.EditingAssociation({ associationId: "r3" }));
+        expect(result.selection).toEqual(Selection.SelectedAssociation({ associationId }));
+        expect(result.editor).toEqual(EditorState.EditingAssociation({ associationId }));
         expect(result.history.present.layout).toBe(document.layout);
         expect(step(result, Message.PressedEnterKey()).history).toBe(result.history);
         const undone = step(result, Message.RequestedUndo());

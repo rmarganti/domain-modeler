@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { bindingsFor, formatKeys, helpSectionOf, KEYMAP, keysFor } from "./keymap";
 import { Message } from "./message";
 import { CardRow, EditorState, Selection, type Model } from "./model";
@@ -32,6 +33,7 @@ const document = {
 };
 const initial: Model = {
   history: History.init(document),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 900 },

@@ -1,6 +1,7 @@
 import { Option } from "effect";
 
 import * as Doc from "../domain/document";
+import * as Ids from "../domain/ids";
 import * as Geometry from "../domain/geometry";
 import type { Point } from "../domain/schema";
 import { EditorState, Selection, type Model } from "../model";
@@ -28,9 +29,9 @@ export const create = (model: Model, fromEntityId: string, toEntityId: string): 
   ) {
     return model;
   }
-  const associationId = Doc.nextId(document, "r");
+  const { id: associationId, state: idState } = Ids.nextId(model.idState, document);
   return {
-    ...commitDocument(model, (current) =>
+    ...commitDocument({ ...model, idState }, (current) =>
       Doc.addAssociation(current, Doc.newAssociation(associationId, fromEntityId, toEntityId)),
     ),
     editor: EditorState.EditingAssociation({ associationId }),
