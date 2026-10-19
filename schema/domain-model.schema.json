@@ -1,0 +1,407 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "1.0.0"
+      ]
+    },
+    "name": {
+      "type": "string"
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Entity"
+      }
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Enum"
+      },
+      "description": "Enums, referenced by TypeRef."
+    },
+    "associations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Association"
+      }
+    },
+    "layout": {
+      "$ref": "#/$defs/Layout"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "entities",
+    "types",
+    "associations",
+    "layout"
+  ],
+  "additionalProperties": true,
+  "title": "Domain Model",
+  "description": "A Domain Modeler document: entities, enums and the associations between entities. New IDs take the next unused number for their prefix.",
+  "$defs": {
+    "Primitive": {
+      "type": "string",
+      "enum": [
+        "String",
+        "Integer",
+        "Decimal",
+        "Boolean",
+        "Date",
+        "DateTime",
+        "Json"
+      ],
+      "description": "A built-in attribute type."
+    },
+    "TypeRef": {
+      "type": "object",
+      "properties": {
+        "typeId": {
+          "type": "string",
+          "description": "The ID of an enum in `types`."
+        }
+      },
+      "required": [
+        "typeId"
+      ],
+      "additionalProperties": true,
+      "description": "An attribute type that points at an enum."
+    },
+    "Multiplicity": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number",
+          "enum": [
+            0,
+            1
+          ],
+          "description": "0 means optional, 1 means required."
+        },
+        "max": {
+          "type": "string",
+          "enum": [
+            "one",
+            "many"
+          ],
+          "description": "\"many\" makes it a list."
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": true,
+      "description": "How many may exist: 0..1, 1, 0..* or 1..*. On an association end, it counts that end's entity per one of the other end's entity."
+    },
+    "Attribute": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique in the document, shaped \"p<number>\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "camelCase by convention. Unique within its entity, including the roles the entity reaches through associations."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Primitive"
+            },
+            {
+              "$ref": "#/$defs/TypeRef"
+            }
+          ]
+        },
+        "multiplicity": {
+          "$ref": "#/$defs/Multiplicity"
+        },
+        "unique": {
+          "type": "boolean",
+          "description": "A business key. Must be false when the max is many."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "multiplicity",
+        "unique"
+      ],
+      "additionalProperties": true,
+      "description": "A field on an entity. Never model IDs or foreign keys as attributes: identity is implicit, and links between entities are associations."
+    },
+    "Entity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique in the document, shaped \"e<number>\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "PascalCase by convention. Shares a case-insensitive namespace with enum names."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Attribute"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "attributes"
+      ],
+      "additionalProperties": true,
+      "description": "A thing in the domain with its own identity."
+    },
+    "EnumValue": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique in the document, shaped \"v<number>\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "Unique within its enum."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": true
+    },
+    "Enum": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique in the document, shaped \"t<number>\"."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "Enum"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "description": "PascalCase by convention. Shares a case-insensitive namespace with entity names."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EnumValue"
+          },
+          "description": "Should have at least one value."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "values"
+      ],
+      "additionalProperties": true,
+      "description": "A closed set of named values."
+    },
+    "AssociationEnd": {
+      "type": "object",
+      "properties": {
+        "entityId": {
+          "type": "string",
+          "description": "The ID of an entity in `entities`."
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the other end's entity calls this end's entity. Leave it out to derive it: the camelCased entity name, pluralized when the max is many."
+        },
+        "multiplicity": {
+          "$ref": "#/$defs/Multiplicity"
+        }
+      },
+      "required": [
+        "entityId",
+        "multiplicity"
+      ],
+      "additionalProperties": true
+    },
+    "Association": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique in the document, shaped \"r<number>\"."
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A display verb only. It carries no direction."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ends": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/AssociationEnd"
+            },
+            {
+              "$ref": "#/$defs/AssociationEnd"
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
+        }
+      },
+      "required": [
+        "id",
+        "ends"
+      ],
+      "additionalProperties": true,
+      "description": "An undirected link between two entities, read UML-style: in `User 1 ── 0..* Post`, a User has many Posts. Never links attributes."
+    },
+    "Point": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": true
+    },
+    "NodeLayout": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "isExpanded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "position",
+        "isExpanded"
+      ],
+      "additionalProperties": true
+    },
+    "ViewportLayout": {
+      "type": "object",
+      "properties": {
+        "pan": {
+          "$ref": "#/$defs/Point"
+        },
+        "zoom": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "pan",
+        "zoom"
+      ],
+      "additionalProperties": true
+    },
+    "Layout": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/NodeLayout"
+          },
+          "description": "Card positions keyed by entity or enum ID."
+        },
+        "viewport": {
+          "$ref": "#/$defs/ViewportLayout"
+        }
+      },
+      "required": [
+        "nodes",
+        "viewport"
+      ],
+      "additionalProperties": true,
+      "description": "Canvas presentation only, with no domain meaning. The editor gives new cards a position and drops stale ones, so tools can leave this alone."
+    }
+  }
+}
