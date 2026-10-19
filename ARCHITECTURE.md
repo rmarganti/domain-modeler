@@ -22,7 +22,7 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 - **Vocabulary:** code and the file format say "association" and "attribute"; the UI says "Relationship" and "field".
 - **ID prefixes:** IDs are derived from the document with one prefix per kind: `e` entity, `p` attribute, `t` type, `v` enum value, `r` association.
 - **File format:** the version stays `1.0.0` while the project is early. The schema changes in place, with no migrations.
-- **JSON Schema:** `schema/domain-model.schema.json` is generated from `schema.ts` for agents and editors, and its descriptions come from the schema's annotations. A test fails when the two drift, and `pnpm schema:generate` rewrites it. It checks shape only. Rules that span the document, like references resolving, stay in diagnostics.
+- **JSON Schema:** `schema/domain-model.schema.json` is generated from `schema.ts` for agents and editors, and its descriptions come from the schema's annotations. A test fails when the two drift, and `pnpm schema:generate` rewrites it. It checks shape only. Rules that span the document, like references resolving, stay in diagnostics. Saved files lead with `"$schema": SCHEMA_URL`, the raw GitHub URL of that file on `main`. `$schema` exists only in the file codec (`DomainModelFile`): loading ignores whatever value is there, and `DomainModelDocument` never carries it.
 
 ## Layout is separate from semantics
 

@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema, SchemaTransformation, Struct } from "effect";
 
 // Descriptions flow into schema/domain-model.schema.json, which agents and
 // editors read to learn the file format. Keep them about meaning, not shape.
@@ -156,13 +156,35 @@ export const DomainModelDocument = Schema.Struct({
   types: Schema.Array(EnumDefinition).annotate({ description: "Enums, referenced by TypeRef." }),
   associations: Schema.Array(AssociationDefinition),
   layout: DomainLayout,
+});
+export type DomainModelDocument = typeof DomainModelDocument.Type;
+
+// FILE
+
+/** Where the published JSON Schema lives. It tracks `main`, matching the
+ *  format's change-in-place policy. */
+export const SCHEMA_URL =
+  "https://raw.githubusercontent.com/rmarganti/domain-modeler/main/schema/domain-model.schema.json";
+
+/** A document as it sits on disk: `$schema` points editors and agents at the
+ *  format. Reading ignores it, and saving always writes `SCHEMA_URL`. */
+export const DomainModelFile = Schema.Struct({
+  $schema: Schema.optionalKey(Schema.String),
+  ...DomainModelDocument.fields,
 }).annotate({
   title: "Domain Model",
   description:
     "A Domain Modeler document: entities, enums and the associations between entities. New IDs take the next unused number for their prefix.",
 });
-export type DomainModelDocument = typeof DomainModelDocument.Type;
 
 export const DomainModelDocumentJsonString = Schema.fromJsonString(
-  Schema.toCodecJson(DomainModelDocument),
+  Schema.toCodecJson(DomainModelFile).pipe(
+    Schema.decodeTo(
+      DomainModelDocument,
+      SchemaTransformation.transform({
+        decode: (file) => Struct.omit(file, ["$schema"]),
+        encode: (document) => ({ $schema: SCHEMA_URL, ...document }),
+      }),
+    ),
+  ),
 );

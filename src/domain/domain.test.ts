@@ -9,6 +9,7 @@ import * as History from "./history";
 import { defaultRole, enumNameForAttribute, toPascalCase } from "./naming";
 import {
   DomainModelDocumentJsonString,
+  SCHEMA_URL,
   type AssociationDefinition,
   type DomainModelDocument,
 } from "./schema";
@@ -201,6 +202,16 @@ describe("document", () => {
     const json = Schema.encodeSync(DomainModelDocumentJsonString)(sample);
     expect(JSON.parse(json).types[0]).toMatchObject({ id: "t1", kind: "Enum", name: "Role" });
     expect(Schema.decodeUnknownSync(DomainModelDocumentJsonString)(json)).toEqual(sample);
+  });
+
+  test("saved files lead with $schema, and any $schema or none still loads", () => {
+    const json = Schema.encodeSync(DomainModelDocumentJsonString)(sample);
+    expect(Object.keys(JSON.parse(json))[0]).toBe("$schema");
+    expect(JSON.parse(json).$schema).toBe(SCHEMA_URL);
+    const { $schema: _, ...bare } = JSON.parse(json);
+    const decode = Schema.decodeUnknownSync(DomainModelDocumentJsonString);
+    expect(decode(JSON.stringify(bare))).toEqual(sample);
+    expect(decode(JSON.stringify({ ...bare, $schema: "./elsewhere.json" }))).toEqual(sample);
   });
 
   test("the codec accepts an enum reference and rejects the removed Literal type", () => {
