@@ -429,15 +429,24 @@ export const merge = (
       ),
   );
 
-  const nodes = mergeById<NodeEntry>(
-    Object.entries(base.layout.nodes),
-    Object.entries(ours.layout.nodes),
-    Object.entries(theirs.layout.nodes),
-    ([nodeId]) => nodeId,
-    mergeNode(nameOf, report),
-    (deletion, [nodeId]) =>
-      reportDeletion(report, ConflictSubject.Node({ nodeId }), nameOf(nodeId), deletion),
+  // A node follows its card: deleting one is never a conflict of its own (the
+  // card's deletion already reports), and a card that survived keeps a node,
+  // so `reconcile` doesn't move it somewhere new.
+  const mergedNodes = Object.fromEntries(
+    mergeById<NodeEntry>(
+      Object.entries(base.layout.nodes),
+      Object.entries(ours.layout.nodes),
+      Object.entries(theirs.layout.nodes),
+      ([nodeId]) => nodeId,
+      mergeNode(nameOf, report),
+      () => {},
+    ),
   );
+  const nodes = { ...mergedNodes };
+  for (const { id } of [...entities, ...types]) {
+    const survivor = nodes[id] ?? ours.layout.nodes[id] ?? theirs.layout.nodes[id];
+    if (survivor !== undefined) nodes[id] = survivor;
+  }
 
   return {
     document: {
@@ -445,7 +454,7 @@ export const merge = (
       entities,
       types,
       associations,
-      layout: { nodes: Object.fromEntries(nodes), viewport: ours.layout.viewport },
+      layout: { nodes, viewport: ours.layout.viewport },
     },
     conflicts,
   };

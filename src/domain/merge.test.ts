@@ -578,7 +578,39 @@ describe("merge document and layout", () => {
     ]);
   });
 
-  test("layout nodes added or deleted on one side follow the add/delete rules", () => {
+  test("a card that survives a deletion in theirs keeps its node", () => {
+    const ours = mapAttribute(base, "e2", "p4", (p) => ({ ...p, name: "headline" }));
+    const { e2: _, ...withoutE2 } = base.layout.nodes;
+    const theirs: DomainModelDocument = {
+      ...base,
+      entities: base.entities.filter(({ id }) => id !== "e2"),
+      layout: { ...base.layout, nodes: withoutE2 },
+    };
+    const result = merge(base, ours, theirs);
+    expect(result.document.layout.nodes["e2"]).toEqual(base.layout.nodes["e2"]);
+  });
+
+  test("moving a card theirs deleted reports no conflict of its own", () => {
+    const { e2: node, ...withoutE2 } = base.layout.nodes;
+    const ours: DomainModelDocument = {
+      ...base,
+      layout: {
+        ...base.layout,
+        nodes: { ...withoutE2, e2: { ...node!, position: { x: 999, y: 0 } } },
+      },
+    };
+    const theirs: DomainModelDocument = {
+      ...base,
+      entities: base.entities.filter(({ id }) => id !== "e2"),
+      associations: [],
+      layout: { ...base.layout, nodes: withoutE2 },
+    };
+    const result = merge(base, ours, theirs);
+    expect(entityIds(result.document)).toEqual(["e1", "Qm7xK2pLw9"]);
+    expect(result.conflicts).toEqual([]);
+  });
+
+  test("a node added on one side appears, and a card still present keeps its node", () => {
     const { t1: _, ...withoutT1 } = base.layout.nodes;
     const theirs: DomainModelDocument = {
       ...base,
@@ -593,6 +625,7 @@ describe("merge document and layout", () => {
       "e1",
       "e2",
       "e9",
+      "t1",
     ]);
   });
 });
