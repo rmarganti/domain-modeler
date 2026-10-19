@@ -151,6 +151,21 @@ export const worldToScreen = (viewport: ViewportLayout, world: Point): Point => 
   y: world.y * viewport.zoom + viewport.pan.y,
 });
 
+/** True when the world rect sits on screen at least NAVIGATION_MARGIN from every edge. */
+export const isRectOnScreen = (viewport: ViewportLayout, screen: Size, rect: Rect): boolean => {
+  const topLeft = worldToScreen(viewport, { x: rect.x, y: rect.y });
+  const bottomRight = worldToScreen(viewport, {
+    x: rect.x + rect.width,
+    y: rect.y + rect.height,
+  });
+  return (
+    topLeft.x >= NAVIGATION_MARGIN &&
+    topLeft.y >= NAVIGATION_MARGIN &&
+    bottomRight.x <= screen.width - NAVIGATION_MARGIN &&
+    bottomRight.y <= screen.height - NAVIGATION_MARGIN
+  );
+};
+
 export const clampZoom = (zoom: number): number =>
   Number.clamp(zoom, { minimum: MIN_ZOOM, maximum: MAX_ZOOM });
 

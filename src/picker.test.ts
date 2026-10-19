@@ -100,46 +100,73 @@ describe("card picker", () => {
     }
   });
 
-  test.each(["e1", "e3", "t1"])("focus %s keeps zoom, expansion, history and redo", (nodeId) => {
-    for (const isExpanded of [true, false]) {
-      for (const zoom of [0.5, 2]) {
-        const document = Doc.setViewport(Doc.setExpanded(Doc.sampleDocument, nodeId, isExpanded), {
-          pan: { x: 123, y: -40 },
-          zoom,
-        });
-        const start: Model = {
-          ...initial,
-          history: { present: document, past: [document], future: [document] },
-          saveStatus: "Dirty",
-        };
-        const end = step(opened(start), Message.PickedCard({ nodeId }));
-        expect(end.editor).toEqual(EditorState.Idle());
-        expect(end.selection).toEqual(
-          nodeId === "t1"
-            ? Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() })
-            : Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() }),
-        );
-        const onlyCard = {
-          ...document,
-          entities: document.entities.filter(({ id }) => id === nodeId),
-          types: document.types.filter(({ id }) => id === nodeId),
-        };
-        const rect = Geometry.cardRects(onlyCard)[0]!;
-        const viewport = end.history.present.layout.viewport;
-        expect(
-          Geometry.worldToScreen(viewport, {
-            x: rect.x + rect.width / 2,
-            y: rect.y + rect.height / 2,
-          }),
-        ).toEqual({ x: 600, y: 400 });
-        expect(viewport.zoom).toBe(zoom);
-        expect(end.history.present.layout.nodes).toEqual(document.layout.nodes);
-        expect(end.history.past).toBe(start.history.past);
-        expect(end.history.future).toBe(start.history.future);
-        expect(end.saveStatus).toBe(start.saveStatus);
+  test.each(["e1", "e3", "t1"])(
+    "focus %s off screen centers it, keeping zoom, expansion, history and redo",
+    (nodeId) => {
+      for (const isExpanded of [true, false]) {
+        for (const zoom of [0.5, 2]) {
+          const document = Doc.setViewport(
+            Doc.setExpanded(Doc.sampleDocument, nodeId, isExpanded),
+            {
+              pan: { x: 20000, y: -20000 },
+              zoom,
+            },
+          );
+          const start: Model = {
+            ...initial,
+            history: { present: document, past: [document], future: [document] },
+            saveStatus: "Dirty",
+          };
+          const end = step(opened(start), Message.PickedCard({ nodeId }));
+          expect(end.editor).toEqual(EditorState.Idle());
+          expect(end.selection).toEqual(
+            nodeId === "t1"
+              ? Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() })
+              : Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() }),
+          );
+          const onlyCard = {
+            ...document,
+            entities: document.entities.filter(({ id }) => id === nodeId),
+            types: document.types.filter(({ id }) => id === nodeId),
+          };
+          const rect = Geometry.cardRects(onlyCard)[0]!;
+          const viewport = end.history.present.layout.viewport;
+          expect(
+            Geometry.worldToScreen(viewport, {
+              x: rect.x + rect.width / 2,
+              y: rect.y + rect.height / 2,
+            }),
+          ).toEqual({ x: 600, y: 400 });
+          expect(viewport.zoom).toBe(zoom);
+          expect(end.history.present.layout.nodes).toEqual(document.layout.nodes);
+          expect(end.history.past).toBe(start.history.past);
+          expect(end.history.future).toBe(start.history.future);
+          expect(end.saveStatus).toBe(start.saveStatus);
+        }
       }
-    }
-  });
+    },
+  );
+
+  test.each(["e1", "e3", "t1"])(
+    "focus %s already on screen selects it without moving the viewport",
+    (nodeId) => {
+      const card = Geometry.cardBounds(Doc.sampleDocument).find(
+        (bounds) => bounds.nodeId === nodeId,
+      )!;
+      const document = Doc.setViewport(Doc.sampleDocument, {
+        pan: { x: 100 - card.rect.x, y: 100 - card.rect.y },
+        zoom: 1,
+      });
+      const start: Model = { ...initial, history: History.init(document) };
+      const end = step(opened(start), Message.PickedCard({ nodeId }));
+      expect(end.selection).toEqual(
+        nodeId === "t1"
+          ? Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() })
+          : Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() }),
+      );
+      expect(end.history.present).toBe(start.history.present);
+    },
+  );
 
   test("opens from inspector, releases pan key and retains its selection on cancel", () => {
     const start: Model = {

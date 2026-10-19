@@ -618,6 +618,24 @@ describe("geometry", () => {
     expect(fitted).toEqual({ zoom: 1, pan: { x: 450, y: 350 } });
   });
 
+  test("isRectOnScreen requires the navigation margin on every edge", () => {
+    const viewport = { zoom: 2, pan: { x: 0, y: 0 } };
+    const screen = { width: 1000, height: 800 };
+    const margin = Geometry.NAVIGATION_MARGIN;
+    const onScreen = (x: number, y: number, width: number, height: number) =>
+      Geometry.isRectOnScreen(viewport, screen, {
+        x: x / 2,
+        y: y / 2,
+        width: width / 2,
+        height: height / 2,
+      });
+    expect(onScreen(margin, margin, 1000 - margin * 2, 800 - margin * 2)).toBe(true);
+    expect(onScreen(margin - 1, 100, 100, 100)).toBe(false);
+    expect(onScreen(100, margin - 1, 100, 100)).toBe(false);
+    expect(onScreen(1000 - margin - 99, 100, 100, 100)).toBe(false);
+    expect(onScreen(100, 800 - margin - 99, 100, 100)).toBe(false);
+  });
+
   test("the Bézier router's midpoint lies on the curve between facing ports", () => {
     const source = { x: 0, y: 0 };
     const target = { x: 200, y: 100 };

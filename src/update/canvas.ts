@@ -209,7 +209,8 @@ export const zoomBy = (model: Model, factor: number): Model =>
   );
 
 /**
- * Select a card's title and center its persisted bounds without zooming or resizing.
+ * Select a card's title. Center its persisted bounds, without zooming or resizing,
+ * only when they are not already comfortably on screen.
  */
 export const focusCard = (model: Model, nodeId: string): Model => {
   const document = present(model);
@@ -227,22 +228,23 @@ export const focusCard = (model: Model, nodeId: string): Model => {
   if (rect === undefined) {
     return model;
   }
+  const selected = {
+    ...model,
+    selection: Option.isSome(entity)
+      ? Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() })
+      : Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() }),
+  };
+  if (Geometry.isRectOnScreen(viewport(model), model.screen, rect)) {
+    return selected;
+  }
   const zoom = viewport(model).zoom;
-  return setViewport(
-    {
-      ...model,
-      selection: Option.isSome(entity)
-        ? Selection.SelectedEntity({ entityId: nodeId, row: CardRow.Title() })
-        : Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() }),
+  return setViewport(selected, {
+    zoom,
+    pan: {
+      x: model.screen.width / 2 - (rect.x + rect.width / 2) * zoom,
+      y: model.screen.height / 2 - (rect.y + rect.height / 2) * zoom,
     },
-    {
-      zoom,
-      pan: {
-        x: model.screen.width / 2 - (rect.x + rect.width / 2) * zoom,
-        y: model.screen.height / 2 - (rect.y + rect.height / 2) * zoom,
-      },
-    },
-  );
+  });
 };
 
 /**
