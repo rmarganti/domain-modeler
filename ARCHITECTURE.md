@@ -62,6 +62,8 @@ A message records what happened, in the past tense. It is never a command, so th
 
 Native open and save dialogs go through the Tauri dialog and fs plugins. The active file path is held at runtime, outside the Model. Capabilities are least-privilege: there is no standing fs scope, and the dialog grants access to exactly the paths the user picks. Closing with unsaved changes asks for confirmation.
 
+Unsaved state isn't stored as a flag. The Model keeps the saved document (as last read from or written to disk), and `isDirty` compares the present document against it, so undoing back to the saved state reads as clean. Pan, zoom, and card expansion don't count as changes. The saved document is also the base for merging external edits to the open file.
+
 ## Edge routing
 
 Edges are drawn through the `EdgeRouter` interface (`edgeRouter.ts`), with cubic Bézier by default, so an orthogonal router can replace it without touching views. Edges anchor at card headers. Each card has exactly two header ports, and enum cards have none, so they aren't drop targets.

@@ -5,7 +5,7 @@ import * as Diagnostics from "../domain/diagnostics";
 import * as History from "../domain/history";
 import { shortcutFor, shortcutTitle } from "../keymap";
 import { Message } from "../message";
-import { EditorState, type Model } from "../model";
+import { EditorState, isDirty, type Model } from "../model";
 
 // HUD
 
@@ -225,10 +225,8 @@ export const toolbarView = (
         [
           h.span(
             [
-              h.Class(
-                `h-2 w-2 rounded-full ${model.saveStatus === "Dirty" ? "bg-amber-400" : "bg-emerald-400"}`,
-              ),
-              h.Title(model.saveStatus === "Dirty" ? "Unsaved changes" : "All changes saved"),
+              h.Class(`h-2 w-2 rounded-full ${isDirty(model) ? "bg-amber-400" : "bg-emerald-400"}`),
+              h.Title(isDirty(model) ? "Unsaved changes" : "All changes saved"),
             ],
             [],
           ),

@@ -16,7 +16,7 @@ import { commitDocument, deselect, present, reconcile, toIdle, type UpdateReturn
 const restore = (model: Model, maybeHistory: Option.Option<History.History>): Model =>
   Option.match(maybeHistory, {
     onNone: () => model,
-    onSome: (history) => reconcile({ ...toIdle(model), history, saveStatus: "Dirty" }),
+    onSome: (history) => reconcile({ ...toIdle(model), history }),
   });
 
 export const undo = (model: Model): Model => restore(model, History.undo(model.history));
@@ -72,20 +72,24 @@ export const saveAs = (model: Model): UpdateReturn => {
   return { model: ready, commands: [SaveFileAs({ document: present(ready) })] };
 };
 
-export const opened = (model: Model, document: DomainModelDocument, fileName: string): Model => ({
-  ...model,
-  history: History.init(Doc.syncLayout(document)),
-  editor: EditorState.Idle(),
-  selection: Selection.NoSelection(),
-  maybeFileName: Option.some(fileName),
-  saveStatus: "Clean",
-  maybeNotice: Option.none(),
-});
+export const opened = (model: Model, document: DomainModelDocument, fileName: string): Model => {
+  // The baseline is the synced document, so filling in missing layout isn't an unsaved change.
+  const synced = Doc.syncLayout(document);
+  return {
+    ...model,
+    history: History.init(synced),
+    editor: EditorState.Idle(),
+    selection: Selection.NoSelection(),
+    maybeFileName: Option.some(fileName),
+    maybeSavedDocument: Option.some(synced),
+    maybeNotice: Option.none(),
+  };
+};
 
-export const saved = (model: Model, fileName: string): Model => ({
+export const saved = (model: Model, document: DomainModelDocument, fileName: string): Model => ({
   ...model,
   maybeFileName: Option.some(fileName),
-  saveStatus: "Clean",
+  maybeSavedDocument: Option.some(document),
   maybeNotice: Option.some({ tone: "Info", text: `Saved ${fileName}` }),
 });
 

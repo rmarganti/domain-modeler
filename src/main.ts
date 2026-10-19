@@ -40,7 +40,7 @@ export const init: Runtime.ApplicationInit<Model, Message, Flags> = ({ screen, i
     screen,
     panKey: "Released",
     maybeFileName: Option.none(),
-    saveStatus: "Clean",
+    maybeSavedDocument: Option.none(),
     maybeNotice: Option.none(),
   },
 });

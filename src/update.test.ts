@@ -9,7 +9,7 @@ import * as Ids from "./domain/ids";
 import * as Geometry from "./domain/geometry";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
-import { CardRow, EditorState, Selection, type Model } from "./model";
+import { CardRow, EditorState, Selection, isDirty, type Model } from "./model";
 import { bindingsFor, toKeyMode } from "./subscription";
 import { update } from "./update";
 
@@ -22,7 +22,7 @@ const baseModel: Model = {
   screen: { width: 1200, height: 800 },
   panKey: "Released",
   maybeFileName: Option.none(),
-  saveStatus: "Clean",
+  maybeSavedDocument: Option.some(Doc.sampleDocument),
   maybeNotice: Option.none(),
 };
 
@@ -63,7 +63,7 @@ describe("node dragging", () => {
         expect(m.selection).toEqual(
           Selection.SelectedEntity({ entityId: "e3", row: CardRow.Title() }),
         );
-        expect(m.saveStatus).toBe("Dirty");
+        expect(isDirty(m)).toBe(true);
       }),
     );
   });
@@ -193,7 +193,7 @@ describe("zoom shortcuts", () => {
       expect(result).toEqual(update(initial, hud));
       expect(result.model.history.past).toEqual(initial.history.past);
       expect(result.model.history.future).toEqual(initial.history.future);
-      expect(result.model.saveStatus).toBe("Clean");
+      expect(isDirty(result.model)).toBe(false);
     }
   });
 
@@ -249,7 +249,7 @@ describe("zoom shortcuts", () => {
     expect(result.editor).toEqual(initial.editor);
     expect(result.history.past).toEqual(initial.history.past);
     expect(result.history.future).toEqual(initial.history.future);
-    expect(result.saveStatus).toBe("Clean");
+    expect(isDirty(result)).toBe(false);
   });
 
   test("zoom to a small collapsed card stops at max zoom", () => {
@@ -397,7 +397,7 @@ describe("new chooser", () => {
         expect(m.editor).toEqual(EditorState.Idle());
         expect(m.history.present).toBe(baseModel.history.present);
         expect(m.history.past).toHaveLength(0);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
     );
   });
@@ -498,7 +498,7 @@ describe("keyboard shortcuts overlay", () => {
         expect(toKeyMode(m.editor)).toBe("Help");
         expect(m.history).toBe(selected.history);
         expect(m.selection).toEqual(selected.selection);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
       message(Message.PressedEscapeKey()),
       model((m) => {
@@ -1430,9 +1430,15 @@ describe("files", () => {
       }),
       message(Message.RequestedSave()),
       Command.expectHas(SaveFile),
-      Command.resolve(SaveFile, Message.SucceededSaveFile({ fileName: "blog.domain.json" })),
+      Command.resolve(
+        SaveFile,
+        Message.SucceededSaveFile({
+          document: Doc.renameEntity(Doc.sampleDocument, "e3", "Label"),
+          fileName: "blog.domain.json",
+        }),
+      ),
       model((m) => {
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
         expect(m.maybeFileName).toEqual(Option.some("blog.domain.json"));
         expect(Option.getOrThrow(Doc.findEntity(m.history.present, "e3")).name).toBe("Label");
       }),
@@ -1446,7 +1452,7 @@ describe("files", () => {
     };
     story(
       update,
-      given({ ...baseModel, saveStatus: "Dirty" }),
+      given({ ...baseModel, maybeSavedDocument: Option.none() }),
       message(Message.RequestedOpen()),
       Command.resolve(
         OpenFile,
@@ -1456,7 +1462,7 @@ describe("files", () => {
         // Three entities and the Role enum.
         expect(Object.keys(m.history.present.layout.nodes)).toHaveLength(4);
         expect(m.history.past).toHaveLength(0);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
     );
   });
@@ -1487,15 +1493,48 @@ describe("files", () => {
   });
 });
 
+describe("unsaved changes", () => {
+  const rename = Message.ChangedDocumentName({ name: "Renamed" });
+
+  test("an edit is dirty and undoing back to the saved document is clean", () => {
+    const edited = update(baseModel, rename).model;
+    expect(isDirty(baseModel)).toBe(false);
+    expect(isDirty(edited)).toBe(true);
+    expect(isDirty(update(edited, Message.RequestedUndo()).model)).toBe(false);
+  });
+
+  test("pan, zoom, and expansion alone stay clean", () => {
+    const zoomed = update(baseModel, Message.RequestedZoomIn()).model;
+    const expanded = update(zoomed, Message.ClickedToggleExpand({ nodeId: "e1" })).model;
+    expect(expanded.history.present).not.toEqual(baseModel.history.present);
+    expect(isDirty(expanded)).toBe(false);
+  });
+
+  test("save success records the written document, so a later edit stays dirty", () => {
+    const editedDuringSave = update(update(baseModel, Message.RequestedSave()).model, rename).model;
+    const saved = update(
+      editedDuringSave,
+      Message.SucceededSaveFile({ document: Doc.sampleDocument, fileName: "blog.domain.json" }),
+    ).model;
+    expect(saved.maybeSavedDocument).toEqual(Option.some(Doc.sampleDocument));
+    expect(isDirty(saved)).toBe(true);
+  });
+
+  test("forgetting the active file is dirty", () => {
+    const forgotten = update(baseModel, Message.CompletedForgetActiveFile()).model;
+    expect(isDirty(forgotten)).toBe(true);
+  });
+});
+
 describe("window", () => {
   test("a close request with unsaved changes asks before closing", () => {
     story(
       update,
-      given({ ...baseModel, saveStatus: "Dirty" }),
+      given({ ...baseModel, maybeSavedDocument: Option.none() }),
       message(Message.RequestedWindowClose()),
       Command.expectExact(ConfirmCloseWindow),
       Command.resolve(ConfirmCloseWindow, Message.CancelledCloseWindow()),
-      model((m) => expect(m.saveStatus).toBe("Dirty")),
+      model((m) => expect(isDirty(m)).toBe(true)),
     );
   });
 });

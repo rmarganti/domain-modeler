@@ -5,7 +5,7 @@ import { CANVAS_ID, ENTITY_ID_ATTRIBUTE } from "./dom";
 import { classifyWheel } from "./domain/geometry";
 import { bindingsFor, KeyMode } from "./keymap";
 import { Message } from "./message";
-import { EditorState, type Model } from "./model";
+import { EditorState, isDirty, type Model } from "./model";
 import * as AppWindow from "./platform/window";
 import { windowTitle } from "./view";
 
@@ -154,7 +154,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   closeGuard: entry(
     { isGuarded: Schema.Boolean },
     {
-      modelToDependencies: (model) => ({ isGuarded: model.saveStatus === "Dirty" }),
+      modelToDependencies: (model) => ({ isGuarded: isDirty(model) }),
       dependenciesToStream: ({ isGuarded }) =>
         Stream.when(
           AppWindow.closeRequests(() => Message.RequestedWindowClose()),

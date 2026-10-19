@@ -24,7 +24,7 @@ export const commitDocument = (
   f: (document: DomainModelDocument) => DomainModelDocument,
 ): Model => {
   const history = History.commit(model.history, f);
-  return history === model.history ? model : reconcile({ ...model, history, saveStatus: "Dirty" });
+  return history === model.history ? model : reconcile({ ...model, history });
 };
 
 /** Applies a transient change (pan, zoom, expansion) without a snapshot. */

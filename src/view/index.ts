@@ -2,7 +2,7 @@ import type { Document, HtmlBuilder } from "foldkit/html";
 
 import { diagnose } from "../domain/diagnostics";
 import type { Message } from "../message";
-import type { Model } from "../model";
+import { isDirty, type Model } from "../model";
 import { canvasView } from "./canvas";
 import { chooserView } from "./chooser";
 import { hudView, noticeView, toolbarView } from "./chrome";
@@ -10,7 +10,7 @@ import { shortcutsView } from "./shortcuts";
 import { pickerView } from "./picker";
 
 export const windowTitle = (model: Model): string =>
-  `${model.saveStatus === "Dirty" ? "• " : ""}${model.history.present.name} — Domain Modeler`;
+  `${isDirty(model) ? "• " : ""}${model.history.present.name} — Domain Modeler`;
 
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   const document = model.history.present;

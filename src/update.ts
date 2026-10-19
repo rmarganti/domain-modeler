@@ -225,13 +225,15 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     FailedOpenFile: ({ error }) => ({
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
-    SucceededSaveFile: ({ fileName }) => ({ model: Session.saved(model, fileName) }),
+    SucceededSaveFile: ({ document, fileName }) => ({
+      model: Session.saved(model, document, fileName),
+    }),
     FailedSaveFile: ({ error }) => ({
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
     CancelledFilePicker: () => ({ model }),
     CompletedForgetActiveFile: () => ({
-      model: { ...model, maybeFileName: Option.none(), saveStatus: "Dirty" },
+      model: { ...model, maybeFileName: Option.none(), maybeSavedDocument: Option.none() },
     }),
     CompletedFocusInput: () => ({ model }),
     ClickedDismissNotice: () => ({ model: { ...model, maybeNotice: Option.none() } }),

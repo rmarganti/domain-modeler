@@ -1,9 +1,9 @@
-import { Schema } from "effect";
+import { Equal, Option, Record, Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { History } from "./domain/history";
 import { IdState } from "./domain/ids";
-import { AttributeType, Multiplicity, Point } from "./domain/schema";
+import { AttributeType, DomainModelDocument, Multiplicity, Point } from "./domain/schema";
 
 // EDITOR STATE MACHINE
 // The editor never tracks interaction with boolean flags: exactly one of these
@@ -103,9 +103,6 @@ export type ScreenSize = typeof ScreenSize.Type;
 export const PanKey = Schema.Literals(["Released", "Held"]);
 export type PanKey = typeof PanKey.Type;
 
-export const SaveStatus = Schema.Literals(["Clean", "Dirty"]);
-export type SaveStatus = typeof SaveStatus.Type;
-
 export const Notice = Schema.Struct({
   tone: Schema.Literals(["Info", "Error"]),
   text: Schema.String,
@@ -124,7 +121,30 @@ export const Model = Schema.Struct({
   screen: ScreenSize,
   panKey: PanKey,
   maybeFileName: Schema.Option(Schema.String),
-  saveStatus: SaveStatus,
+  /** The version there is nothing to lose relative to: the document as last
+   *  read from or written to disk. `None` when the content exists nowhere else.
+   *  It is also the base for merging external edits to the open file. */
+  maybeSavedDocument: Schema.Option(DomainModelDocument),
   maybeNotice: Schema.Option(Notice),
 });
 export type Model = typeof Model.Type;
+
+// DERIVED
+
+/** Drops what doesn't count as an unsaved change: pan, zoom, and expansion. */
+const withoutTransientLayout = (document: DomainModelDocument) => ({
+  ...document,
+  layout: {
+    nodes: Record.map(document.layout.nodes, ({ position }) => ({ position })),
+    viewport: null,
+  },
+});
+
+/** Whether the present document differs from the saved one. */
+export const isDirty = (model: Model): boolean =>
+  Option.match(model.maybeSavedDocument, {
+    onNone: () => true,
+    onSome: (saved) =>
+      saved !== model.history.present &&
+      !Equal.equals(withoutTransientLayout(saved), withoutTransientLayout(model.history.present)),
+  });

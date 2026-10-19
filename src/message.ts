@@ -141,7 +141,7 @@ export const Message = defineMessageUnion({
   // Files
   SucceededOpenFile: { document: DomainModelDocument, fileName: Schema.String },
   FailedOpenFile: { error: Schema.String },
-  SucceededSaveFile: { fileName: Schema.String },
+  SucceededSaveFile: { document: DomainModelDocument, fileName: Schema.String },
   FailedSaveFile: { error: Schema.String },
   CancelledFilePicker: {},
   CompletedForgetActiveFile: {},

@@ -31,7 +31,7 @@ const writeDocument = (path: string, document: DomainModelDocument) =>
     );
     yield* Files.write(path, `${json}\n`);
     maybeActivePath = Option.some(path);
-    return Message.SucceededSaveFile({ fileName: Files.fileNameOf(path) });
+    return Message.SucceededSaveFile({ document, fileName: Files.fileNameOf(path) });
   });
 
 const toFailureMessage =

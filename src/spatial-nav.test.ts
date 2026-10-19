@@ -8,7 +8,7 @@ import * as History from "./domain/history";
 import * as Ids from "./domain/ids";
 import { bindingsFor, formatKeys, helpSectionOf, KEYMAP, keysFor } from "./keymap";
 import { Message } from "./message";
-import { CardRow, EditorState, Selection, type Model } from "./model";
+import { CardRow, EditorState, Selection, isDirty, type Model } from "./model";
 import { update } from "./update";
 
 const card = (nodeId: string, x: number, y: number): Geometry.CardBounds => ({
@@ -39,7 +39,7 @@ const initial: Model = {
   screen: { width: 1200, height: 900 },
   panKey: "Released",
   maybeFileName: Option.none(),
-  saveStatus: "Clean",
+  maybeSavedDocument: Option.some(document),
   maybeNotice: Option.none(),
 };
 const selection = (id: string) =>
@@ -238,7 +238,7 @@ describe("spatial card navigation", () => {
     const result = navigate(start, direction);
     expect(result.selection).toEqual(selection(to));
     expect(result.history).toBe(start.history);
-    expect(result.saveStatus).toBe("Clean");
+    expect(isDirty(result)).toBe(false);
     expect(result.editor).toEqual(EditorState.Idle());
   });
 
@@ -286,9 +286,9 @@ describe("spatial card navigation", () => {
     );
   });
 
-  test.each(["Clean", "Dirty"] as const)(
-    "offscreen pan preserves zoom, expansion, %s status, past and redo",
-    (saveStatus) => {
+  test.each([false, true])(
+    "offscreen pan preserves zoom, expansion, dirty %s, past and redo",
+    (dirty) => {
       for (const isExpanded of [true, false]) {
         for (const zoom of [0.5, 2]) {
           const doc = Doc.setViewport(Doc.setExpanded(document, "e1", isExpanded), {
@@ -298,7 +298,7 @@ describe("spatial card navigation", () => {
           const start: Model = {
             ...initial,
             selection: selection("e2"),
-            saveStatus,
+            maybeSavedDocument: dirty ? Option.none() : Option.some(doc),
             history: { present: doc, past: [doc], future: [doc] },
           };
           const result = navigate(start, "Left");
@@ -310,7 +310,7 @@ describe("spatial card navigation", () => {
           expect(result.history.present.layout.nodes).toBe(doc.layout.nodes);
           expect(result.history.past).toBe(start.history.past);
           expect(result.history.future).toBe(start.history.future);
-          expect(result.saveStatus).toBe(saveStatus);
+          expect(isDirty(result)).toBe(dirty);
         }
       }
     },
