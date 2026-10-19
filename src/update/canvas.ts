@@ -12,7 +12,6 @@ import {
   present,
   setViewport,
   toIdle,
-  toggleExpanded,
   toWorld,
   viewport,
   type UpdateReturn,
@@ -142,12 +141,11 @@ export const movePointer = (model: Model, clientX: number, clientY: number): Upd
 
 const releaseDrag = (model: Model, nodeId: string, origin: Point, position: Point): Model => {
   const isClick = Geometry.distance(origin, position) * viewport(model).zoom < CLICK_TOLERANCE_PX;
-  // NOTE: a press and release without movement is a click, which toggles the
-  // card open or closed in place.
+  // NOTE: a press and release without movement is a click, which only selects
+  // the card. Expansion belongs to the chevron, so clicks don't fight
+  // double-click to rename.
   return toIdle(
-    isClick
-      ? toggleExpanded(model, nodeId)
-      : commitDocument(model, (document) => Doc.moveNode(document, nodeId, position)),
+    isClick ? model : commitDocument(model, (document) => Doc.moveNode(document, nodeId, position)),
   );
 };
 

@@ -61,7 +61,7 @@ describe("node dragging", () => {
     );
   });
 
-  test("a press and release without movement toggles expansion without history", () => {
+  test("a press and release without movement selects without toggling or history", () => {
     story(
       update,
       given(baseModel),
@@ -74,7 +74,11 @@ describe("node dragging", () => {
         }),
       ),
       model((m) => {
-        expect(m.history.present.layout.nodes["e3"]?.isExpanded).toBe(true);
+        expect(m.history.present.layout.nodes["e3"]?.isExpanded).toBe(false);
+        expect(m.history.present.layout.nodes["e3"]?.position).toEqual({ x: 980, y: 140 });
+        expect(m.selection).toEqual(
+          Selection.SelectedEntity({ entityId: "e3", row: CardRow.Title() }),
+        );
         expect(m.history.past).toHaveLength(0);
       }),
     );
