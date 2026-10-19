@@ -143,10 +143,29 @@ export const cardHeader = (
       ...config.badges,
       iconButton(h, {
         label: config.layout.isExpanded ? "Collapse" : "Expand",
-        icon: config.layout.isExpanded ? "▾" : "▸",
+        icon: chevron(h, config.layout.isExpanded),
+        className: CHEVRON_BUTTON_CLASS,
         onClick: Message.ClickedToggleExpand({ nodeId: config.nodeId }),
       }),
     ],
+  );
+
+const CHEVRON_BUTTON_CLASS = "h-7 w-7";
+
+/** Points down when expanded and right when collapsed. */
+const chevron = (h: HtmlBuilder<Message>, isExpanded: boolean): Html =>
+  h.svg(
+    [
+      h.ViewBox("0 0 24 24"),
+      h.Fill("none"),
+      h.Stroke("currentColor"),
+      h.StrokeWidth("2.25"),
+      h.StrokeLinecap("round"),
+      h.StrokeLinejoin("round"),
+      h.AriaHidden(true),
+      h.Class("h-4 w-4"),
+    ],
+    [h.polyline([h.Points(isExpanded ? "6 9 12 15 18 9" : "9 6 15 12 9 18")], [])],
   );
 
 // ROWS

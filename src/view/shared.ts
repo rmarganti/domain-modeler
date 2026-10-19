@@ -32,7 +32,7 @@ export const iconButton = (
   h: HtmlBuilder<Message>,
   config: Readonly<{
     label: string;
-    icon: string;
+    icon: Html | string;
     onClick: Message;
     className?: string;
     isDisabled?: boolean;
