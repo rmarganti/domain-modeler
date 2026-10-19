@@ -31,20 +31,24 @@ const initialDocument = (screen: ScreenSize) => {
   });
 };
 
-export const init: Runtime.ApplicationInit<Model, Message, Flags> = ({ screen, idState }) => ({
-  model: {
-    history: History.init(initialDocument(screen)),
-    idState,
-    editor: EditorState.Idle(),
-    selection: Selection.NoSelection(),
-    screen,
-    panKey: "Released",
-    maybeFilePath: Option.none(),
-    maybeSavedDocument: Option.none(),
-    maybePendingDiskDocument: Option.none(),
-    maybeDiskIssue: Option.none(),
-    maybeNotice: Option.none(),
-  },
-});
+export const init: Runtime.ApplicationInit<Model, Message, Flags> = ({ screen, idState }) => {
+  const document = initialDocument(screen);
+  return {
+    model: {
+      history: History.init(document),
+      idState,
+      editor: EditorState.Idle(),
+      selection: Selection.NoSelection(),
+      screen,
+      panKey: "Released",
+      maybeFilePath: Option.none(),
+      // The built-in sample has nothing to lose, so it starts out clean.
+      maybeSavedDocument: Option.some(document),
+      maybePendingDiskDocument: Option.none(),
+      maybeDiskIssue: Option.none(),
+      maybeNotice: Option.none(),
+    },
+  };
+};
 
 export { Message, Model, subscriptions, update, view };
