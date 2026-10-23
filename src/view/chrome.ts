@@ -155,71 +155,16 @@ export const toolbarView = (
         shortcutId: "saveAs",
         onClick: Message.RequestedSaveAs(),
       }),
-      divider(h),
-      h.input([
-        h.Value(document.name),
-        h.AriaLabel("Model name"),
-        h.Autocomplete("off"),
-        h.Spellcheck(false),
-        h.OnChange((name) => Message.ChangedDocumentName({ name })),
-        h.Class(
-          "w-40 rounded-md border border-transparent px-2 py-1 text-sm font-semibold text-slate-800 outline-none hover:border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100",
-        ),
-      ]),
-      h.span(
-        [h.Class("flex items-center gap-1.5 truncate text-slate-500"), h.Title(fileLabel)],
-        [
-          h.span(
-            [
-              h.Class(`h-2 w-2 rounded-full ${isDirty(model) ? "bg-amber-400" : "bg-emerald-400"}`),
-              h.Title(isDirty(model) ? "Unsaved changes" : "All changes saved"),
-            ],
-            [],
-          ),
-          fileLabel,
-        ],
-      ),
-      divider(h),
-      toolbarButton(h, {
-        label: "Undo",
-        content: "↶ Undo",
-        shortcutId: "undo",
-        isDisabled: !History.canUndo(model.history),
-        onClick: Message.RequestedUndo(),
-      }),
-      toolbarButton(h, {
-        label: "Redo",
-        content: "↷ Redo",
-        shortcutId: "redo",
-        isDisabled: !History.canRedo(model.history),
-        onClick: Message.RequestedRedo(),
-      }),
-      divider(h),
-      h.button(
-        [
-          h.Type("button"),
-          h.Title(shortcutTitle("Create entity or enum", "create")),
-          h.OnClick(Message.PressedNewKey()),
-          h.Class(
-            "rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700",
-          ),
-        ],
-        ["+ Create"],
-      ),
-      toolbarButton(h, {
-        label: "Keyboard shortcuts",
-        content: "?",
-        shortcutId: "shortcuts",
-        onClick: Message.ClickedShowShortcuts(),
-      }),
       h.div(
-        [h.Class("ml-auto flex min-w-0 items-center gap-3")],
+        [h.Class("ml-auto flex min-w-0 items-center gap-1")],
         [
           ...(diagnosticMessages.length > 0
             ? [
                 h.span(
                   [
-                    h.Class("rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800"),
+                    h.Class(
+                      "mr-2 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800",
+                    ),
                     h.Title(diagnosticMessages.join("\n")),
                   ],
                   [
@@ -228,6 +173,64 @@ export const toolbarView = (
                 ),
               ]
             : []),
+          h.input([
+            h.Value(document.name),
+            h.AriaLabel("Model name"),
+            h.Autocomplete("off"),
+            h.Spellcheck(false),
+            h.OnChange((name) => Message.ChangedDocumentName({ name })),
+            h.Class(
+              "w-40 rounded-md border border-transparent px-2 py-1 text-right text-sm font-semibold text-slate-800 outline-none hover:border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100",
+            ),
+          ]),
+          h.span(
+            [h.Class("flex items-center gap-1.5 truncate text-slate-500"), h.Title(fileLabel)],
+            [
+              h.span(
+                [
+                  h.Class(
+                    `h-2 w-2 rounded-full ${isDirty(model) ? "bg-amber-400" : "bg-emerald-400"}`,
+                  ),
+                  h.Title(isDirty(model) ? "Unsaved changes" : "All changes saved"),
+                ],
+                [],
+              ),
+              fileLabel,
+            ],
+          ),
+          divider(h),
+          toolbarButton(h, {
+            label: "Undo",
+            content: "↶ Undo",
+            shortcutId: "undo",
+            isDisabled: !History.canUndo(model.history),
+            onClick: Message.RequestedUndo(),
+          }),
+          toolbarButton(h, {
+            label: "Redo",
+            content: "↷ Redo",
+            shortcutId: "redo",
+            isDisabled: !History.canRedo(model.history),
+            onClick: Message.RequestedRedo(),
+          }),
+          divider(h),
+          h.button(
+            [
+              h.Type("button"),
+              h.Title(shortcutTitle("Create entity or enum", "create")),
+              h.OnClick(Message.PressedNewKey()),
+              h.Class(
+                "rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700",
+              ),
+            ],
+            ["+ Create"],
+          ),
+          toolbarButton(h, {
+            label: "Keyboard shortcuts",
+            content: "?",
+            shortcutId: "shortcuts",
+            onClick: Message.ClickedShowShortcuts(),
+          }),
           h.span(
             [
               h.Class("sr-only"),
