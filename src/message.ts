@@ -85,8 +85,6 @@ export const Message = defineMessageUnion({
 
   // Toolbar
   ClickedShowShortcuts: {},
-  ClickedAddEntity: {},
-  ClickedAddEnum: {},
   ChangedDocumentName: { name: Schema.String },
 
   // Cards

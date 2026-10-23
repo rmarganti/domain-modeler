@@ -200,25 +200,13 @@ export const toolbarView = (
       h.button(
         [
           h.Type("button"),
-          h.Title(shortcutTitle("Create entity", "create")),
-          h.OnClick(Message.ClickedAddEntity()),
+          h.Title(shortcutTitle("Create entity or enum", "create")),
+          h.OnClick(Message.PressedNewKey()),
           h.Class(
             "rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700",
           ),
         ],
-        ["+ Entity"],
-      ),
-      h.button(
-        [
-          h.Type("button"),
-          h.AriaLabel("Create enum"),
-          h.Title(shortcutTitle("Create enum", "create")),
-          h.OnClick(Message.ClickedAddEnum()),
-          h.Class(
-            "rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-violet-700",
-          ),
-        ],
-        ["+ Enum"],
+        ["+ Create"],
       ),
       toolbarButton(h, {
         label: "Keyboard shortcuts",

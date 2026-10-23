@@ -113,8 +113,6 @@ const handle = (model: Model, message: Message): UpdateReturn =>
     // Toolbar
 
     ClickedShowShortcuts: () => showShortcuts(model),
-    ClickedAddEntity: () => Entities.startCreating(model),
-    ClickedAddEnum: () => Enums.startCreating(model),
     ChangedDocumentName: ({ name }) => ({ model: Session.renameDocument(model, name) }),
 
     // Cards

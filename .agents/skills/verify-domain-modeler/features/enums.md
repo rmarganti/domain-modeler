@@ -5,7 +5,7 @@ A user adds an enum to the canvas as its own card, names it, adds, edits, reorde
 ## Sub-features
 
 - `enum-baseline` shows the sample's collapsed `Enum Role` card with values `reader`, `author`, `admin`.
-- `enum-create` creates an enum with `c`, then `2`, or the `+ Enum` toolbar button; a new enum shows an `Enum has no values` warning.
+- `enum-create` creates an enum with `c`, then `2`, or the `+ Create` toolbar button, then `2`; a new enum shows an `Enum has no values` warning.
 - `enum-rename` renames an enum by double-clicking its name, or with `Enter`/`i` on its current title.
 - `enum-values` adds values with `+ Add value` and edits a value's name and description inline.
 - `enum-reorder` moves a value with its `Move up` / `Move down` row buttons.
@@ -18,7 +18,7 @@ A user adds an enum to the canvas as its own card, names it, adds, edits, reorde
 ## How to get to it (user POV)
 
 - Press `c` in Normal mode, then `2` (or ArrowDown and Enter) to pick Enum; type a name and press Enter.
-- Click `+ Enum` in the bottom toolbar (title `Create enum (c)`) to start naming directly.
+- Click `+ Create` in the bottom toolbar (title `Create entity or enum (c)`) and pick Enum.
 - Expand a card with its `Expand` button (or click its header), then use `+ Add value` in the footer or click a value row to select it and press Enter/`i` to edit (the `Edit value` button opens it directly).
 - Double-click an enum's name to rename it; select its title and press Enter to expand and rename.
 - Select an enum by clicking its header, then press `d`; or expand it and click its trash button.
@@ -32,7 +32,7 @@ Preconditions:
 - No card named `Status` exists.
 
 - **Baseline.** Run `ab get count '[aria-label="Enum Role"][data-type-id="t1"]'` (`1`), `ab get count '[aria-label="Enum Role"] [data-port]'` (`0`), then `ab click '[aria-label="Enum Role"] [aria-label="Expand"]'`, `ab mouse move 5 5`, and `ab get text '[aria-label="Enum Role"]'`. The text lists `reader`, `author`, `admin`.
-- **Create.** Run `ab press c`; mode is `Mode: NEW` and listbox `Create new` is visible. Run `ab press 2` to pick Enum (or click the toolbar button directly with `ab click '[aria-label="Create enum"]'` from Normal mode). Mode is `Mode: CREATING` and textbox `New enum name` has focus. Run `ab keyboard type "Status"` and `ab press Enter`. Mode returns to `Mode: NORMAL`, `ab get count '[aria-label="Enum Status"]'` is `1`, and `ab get attr '[aria-label="Enum Status"] [aria-label^="Warnings:"]' aria-label` is `Warnings: Enum has no values`.
+- **Create.** Run `ab press c`; mode is `Mode: NEW` and listbox `Create new` is visible. Run `ab press 2` to pick Enum (or open the chooser with `ab find title "Create entity or enum (c)" click`). Mode is `Mode: CREATING` and textbox `New enum name` has focus. Run `ab keyboard type "Status"` and `ab press Enter`. Mode returns to `Mode: NORMAL`, `ab get count '[aria-label="Enum Status"]'` is `1`, and `ab get attr '[aria-label="Enum Status"] [aria-label^="Warnings:"]' aria-label` is `Warnings: Enum has no values`.
 - **Add values.** Run `ab click '[aria-label="Enum Status"] [aria-label="Expand"]'`, then take the `+ Add value` ref from `ab snapshot -i -s '[aria-label="Enum Status"]'` and `ab click @eN`. Mode is `Mode: EDITING`. Run `ab fill '[aria-label="Value name"]' draft` and `ab press Enter`. Repeat with `published`. `ab get text '[aria-label="Enum Status"]'` lists `draft`, `published`, and the card's warning badge is gone (`ab get count '[aria-label="Enum Status"] [aria-label^="Warnings:"]'` is `0`).
 - **Reorder.** Run `ab hover '[aria-label="Enum Status"] li:nth-child(2)'` and `ab click '[aria-label="Enum Status"] li:nth-child(2) [aria-label="Move up"]'`. The card text now lists `published` before `draft`.
 - **Describe a value.** Run `ab click '[aria-label="Enum Status"] li:nth-child(2)'` (the `draft` row), `ab press Enter`, `ab fill '[aria-label="Value description"]' "Not yet visible"`, and `ab press Enter`. After `ab mouse move 5 5`, the card text shows `draft` followed by `Not yet visible`.

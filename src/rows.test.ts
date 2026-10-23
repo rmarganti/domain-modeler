@@ -214,7 +214,7 @@ describe("card row cursor", () => {
     ).toEqual(CardRow.Title());
     const created = step(
       step(
-        step(initial, Message.ClickedAddEntity()),
+        step(step(initial, Message.PressedNewKey()), Message.PickedNew({ kind: "Entity" })),
         Message.UpdatedEntityDraftName({ name: "New" }),
       ),
       Message.PressedEnterKey(),

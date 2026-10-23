@@ -879,11 +879,12 @@ describe("enums", () => {
   const findRole = (m: Model) => Option.getOrThrow(Doc.findEnum(m.history.present, "t1"));
   const roleValues = (m: Model) => findRole(m).values.map((value) => value.name);
 
-  test("+ Enum, typing, and Enter create a selected enum; undo removes it", () => {
+  test("c, picking Enum, typing, and Enter create a selected enum; undo removes it", () => {
     story(
       update,
       given(baseModel),
-      message(Message.ClickedAddEnum()),
+      message(Message.PressedNewKey()),
+      message(Message.PickedNew({ kind: "Enum" })),
       focused,
       model((m) => expect(m.editor._tag).toBe("CreatingEnum")),
       message(Message.UpdatedEnumDraftName({ name: " Status " })),
@@ -910,7 +911,8 @@ describe("enums", () => {
     story(
       update,
       given(baseModel),
-      message(Message.ClickedAddEnum()),
+      message(Message.PressedNewKey()),
+      message(Message.PickedNew({ kind: "Enum" })),
       focused,
       message(Message.UpdatedEnumDraftName({ name: "Status" })),
       message(Message.PressedEscapeKey()),
