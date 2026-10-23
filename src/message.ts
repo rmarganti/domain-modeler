@@ -79,6 +79,7 @@ export const Message = defineMessageUnion({
   RequestedZoomOut: {},
   RequestedResetView: {},
   RequestedFitToScreen: {},
+  RequestedAutoArrange: {},
 
   // Toolbar
   ClickedShowShortcuts: {},

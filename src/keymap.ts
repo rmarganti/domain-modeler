@@ -339,6 +339,13 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     modes: ["Normal"],
     mapEvent: () => Message.PressedZoomToSelectionKey(),
   },
+  {
+    id: "autoArrange",
+    keys: ["Shift+A"],
+    description: "Auto-arrange cards",
+    modes: ["Normal"],
+    mapEvent: () => Message.RequestedAutoArrange(),
+  },
   // Foldkit compares shiftKey exactly. Both literal and shifted ? events work.
   {
     id: "shortcuts",
@@ -522,6 +529,7 @@ export const HELP_SECTIONS: ReadonlyArray<HelpSection> = [
         { label: "Fit selection", ids: ["zoomToSelection"] },
         { label: "Pan (hold and drag)", ids: ["pan"] },
       ],
+      [{ label: "Auto-arrange cards", ids: ["autoArrange"] }],
     ],
   },
   {

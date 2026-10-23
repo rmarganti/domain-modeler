@@ -4,7 +4,7 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 
 ## Code map
 
-- `src/domain/`: pure document logic. It imports only `effect`, `pluralize`, and other domain modules: schema, document edits, history, diagnostics, naming, geometry, edge routing, card search.
+- `src/domain/`: pure document logic. It imports only `effect`, `pluralize`, and other domain modules: schema, document edits, history, diagnostics, naming, geometry, edge routing, card search, auto-arrange.
 - `src/update/`: one module per feature area, called by `src/update.ts`.
 - `src/view/`: rendering. Entity and enum cards share chrome in `card.ts`.
 - `src/platform/`: the only code that touches Tauri (files, file watching, window close).
@@ -78,3 +78,12 @@ Coding agents, git, and editors change the open file on disk, and the app merges
 ## Edge routing
 
 Edges are drawn through the `EdgeRouter` interface (`edgeRouter.ts`), with cubic Bézier by default, so an orthogonal router can replace it without touching views. Edges anchor at card headers. Each card has exactly two header ports, and enum cards have none, so they aren't drop targets.
+
+## Auto-arrange
+
+`arrange` (`arrange.ts`) lays the cards out in left-to-right columns at their current sizes, as one undoable edit, and the update then fits them on screen. Columns run left to right because edges leave card headers sideways. The engine (`layered.ts`) is our own small layered layout, built after studying [pele](https://github.com/obsidianmd/pele)'s, but none of pele's code is copied. It only places boxes. Edges stay with the `EdgeRouter`.
+
+- **Direction comes from multiplicity.** An association's one end goes before its many end, so owners come before what they own. Otherwise `ends[0]` comes first. Enums come after the entities whose fields use them.
+- **Headers line up, not centers**, because that's where edges attach. Each node moves toward the average header height of its neighbors, weighted by edge count. That minimizes total edge slope, so the passes settle.
+- **Deterministic.** Ties keep document order, so the same document always arranges the same way.
+- **Disconnected parts** are laid out separately and wrapped into rows, largest first. The arranged cards start at the old top-left corner.

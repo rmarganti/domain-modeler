@@ -112,6 +112,7 @@ const handle = (model: Model, message: Message): UpdateReturn =>
     RequestedZoomOut: () => ({ model: Canvas.zoomBy(model, 1 / ZOOM_STEP) }),
     RequestedResetView: () => ({ model: Canvas.resetView(model) }),
     RequestedFitToScreen: () => ({ model: Canvas.fitToScreen(model) }),
+    RequestedAutoArrange: () => ({ model: Canvas.autoArrange(model) }),
 
     // Toolbar
 

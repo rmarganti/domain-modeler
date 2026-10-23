@@ -10,6 +10,7 @@ import {
   ReloadFileFromDisk,
   SaveFile,
 } from "./command";
+import { arrange } from "./domain/arrange";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
 import * as Ids from "./domain/ids";
@@ -298,6 +299,24 @@ describe("zoom shortcuts", () => {
     expect(
       update(empty, Message.RequestedFitToScreen()).model.history.present.layout.viewport,
     ).toEqual(Doc.DEFAULT_VIEWPORT);
+  });
+});
+
+describe("auto-arrange", () => {
+  test("Shift+A and the HUD arrange the cards as one undoable edit and fit them", () => {
+    const binding = bindingsFor("Normal").find((entry) => entry.keys === "Shift+A");
+    expect(binding?.mapEvent(new KeyboardEvent("keydown"))).toEqual(Message.RequestedAutoArrange());
+
+    const arranged = update(baseModel, Message.RequestedAutoArrange()).model;
+    const present = arranged.history.present;
+    expect(present.layout.nodes).toEqual(arrange(Doc.sampleDocument).layout.nodes);
+    expect(present.layout.nodes).not.toEqual(Doc.sampleDocument.layout.nodes);
+    expect(present.layout.viewport).toEqual(
+      Geometry.fitViewport(Option.getOrThrow(Geometry.documentBounds(present)), baseModel.screen),
+    );
+
+    const undone = update(arranged, Message.RequestedUndo()).model;
+    expect(undone.history.present.layout.nodes).toEqual(Doc.sampleDocument.layout.nodes);
   });
 });
 

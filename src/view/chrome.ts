@@ -52,6 +52,8 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
       h.span([h.Class("mx-1 h-4 w-px bg-slate-200")], []),
       hudButton(h, "Reset view to 100%", "100%", Message.RequestedResetView(), "resetView"),
       hudButton(h, "Fit to screen", "Fit", Message.RequestedFitToScreen(), "fitToScreen"),
+      h.span([h.Class("mx-1 h-4 w-px bg-slate-200")], []),
+      hudButton(h, "Auto-arrange cards", "Arrange", Message.RequestedAutoArrange(), "autoArrange"),
     ],
   );
 };
