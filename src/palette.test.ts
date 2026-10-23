@@ -14,7 +14,7 @@ import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./mo
 import { toKeyMode } from "./subscription";
 import { update } from "./update";
 import * as Palette from "./update/palette";
-import { statusPill } from "./view/chrome";
+import { modeLabel } from "./view/chrome";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
@@ -54,7 +54,7 @@ describe("command palette", () => {
           }),
         );
         expect(toKeyMode(m.editor)).toBe("Picking");
-        expect(statusPill(m.editor).label).toBe("COMMAND");
+        expect(modeLabel(m.editor)).toBe("COMMAND");
       }),
     );
   });

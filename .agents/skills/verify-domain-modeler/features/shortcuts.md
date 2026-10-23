@@ -30,7 +30,7 @@ Preconditions: baseline from the README; doctor reports OK. Save snapshots and s
 ## Gotchas
 
 - `[aria-label="Keyboard shortcuts"]` matches only the toolbar button when closed, but also the dialog and its Help section when open. Scope the dialog by `[role="dialog"]` and the toolbar button by `button` if needed.
-- The background is inert while help is open: its controls cannot be clicked until help closes. Read the mode pill through its DOM attribute; it is omitted from the accessibility tree while inert.
+- The background is inert while help is open: its controls cannot be clicked until help closes. Read the hidden mode label through its DOM attribute; it is omitted from the accessibility tree while inert.
 - Normal shortcuts are suppressed in text inputs. The dialog takes focus so `?` can close it even if toolbar help was opened while typing.
 - Plain and shifted `?` both work; a raw `Shift+/` command may produce `/` rather than `?` in an automation tool. Use `?` or `Shift+?`.
 - Native file dialogs and Tauri-window keyboard behavior are not covered by web verification.

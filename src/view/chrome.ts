@@ -58,72 +58,30 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
   );
 };
 
-// STATUS
+// MODE
 
-type StatusPill = Readonly<{ label: string; className: string }>;
-
-const pickingPill = (label: string, className: string): StatusPill => ({ label, className });
-
-export const statusPill = (editor: EditorState): StatusPill =>
-  EditorState.match<StatusPill>(editor, {
-    Idle: () => ({
-      label: "NORMAL",
-      className: "bg-slate-800 text-white",
-    }),
+/** The editor's current mode, announced to assistive tech but not shown. */
+export const modeLabel = (editor: EditorState): string =>
+  EditorState.match<string>(editor, {
+    Idle: () => "NORMAL",
     Picking: ({ purpose }) =>
       PickerPurpose.match(purpose, {
-        Focus: () => pickingPill("FIND", "bg-indigo-600 text-white"),
-        Connect: () => pickingPill("CONNECT", "bg-violet-600 text-white"),
-        RunCommand: () => pickingPill("COMMAND", "bg-slate-800 text-white"),
+        Focus: () => "FIND",
+        Connect: () => "CONNECT",
+        RunCommand: () => "COMMAND",
       }),
-    ViewingShortcuts: () => ({
-      label: "HELP",
-      className: "bg-slate-800 text-white",
-    }),
-    ChoosingNew: () => ({
-      label: "NEW",
-      className: "bg-emerald-600 text-white",
-    }),
-    CreatingEntity: () => ({
-      label: "CREATING",
-      className: "bg-emerald-600 text-white",
-    }),
-    RenamingEntity: () => ({
-      label: "EDITING",
-      className: "bg-indigo-600 text-white",
-    }),
-    EditingAttribute: () => ({
-      label: "EDITING",
-      className: "bg-indigo-600 text-white",
-    }),
-    CreatingEnum: () => ({
-      label: "CREATING",
-      className: "bg-emerald-600 text-white",
-    }),
-    RenamingEnum: () => ({
-      label: "EDITING",
-      className: "bg-indigo-600 text-white",
-    }),
-    EditingEnumValue: () => ({
-      label: "EDITING",
-      className: "bg-indigo-600 text-white",
-    }),
-    EditingAssociation: () => ({
-      label: "EDITING",
-      className: "bg-indigo-600 text-white",
-    }),
-    ConnectingAssociation: () => ({
-      label: "CONNECTING",
-      className: "bg-violet-600 text-white",
-    }),
-    DraggingNode: () => ({
-      label: "MOVING",
-      className: "bg-sky-600 text-white",
-    }),
-    PanningCanvas: () => ({
-      label: "PANNING",
-      className: "bg-sky-600 text-white",
-    }),
+    ViewingShortcuts: () => "HELP",
+    ChoosingNew: () => "NEW",
+    CreatingEntity: () => "CREATING",
+    RenamingEntity: () => "EDITING",
+    EditingAttribute: () => "EDITING",
+    CreatingEnum: () => "CREATING",
+    RenamingEnum: () => "EDITING",
+    EditingEnumValue: () => "EDITING",
+    EditingAssociation: () => "EDITING",
+    ConnectingAssociation: () => "CONNECTING",
+    DraggingNode: () => "MOVING",
+    PanningCanvas: () => "PANNING",
   });
 
 // TOOLBAR
@@ -165,7 +123,6 @@ export const toolbarView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const document = model.history.present;
-  const pill = statusPill(model.editor);
   const fileLabel = Option.getOrElse(maybeFileName(model), () => "Not saved to a file");
   const diagnosticMessages = Array.map(diagnostics, Diagnostics.describe);
 
@@ -287,13 +244,11 @@ export const toolbarView = (
             : []),
           h.span(
             [
-              h.Class(
-                `rounded-md px-2 py-0.5 font-mono text-[11px] font-bold tracking-wider ${pill.className}`,
-              ),
+              h.Class("sr-only"),
               h.AriaLive("polite"),
-              h.AriaLabel(`Mode: ${pill.label}`),
+              h.AriaLabel(`Mode: ${modeLabel(model.editor)}`),
             ],
-            [pill.label],
+            [modeLabel(model.editor)],
           ),
         ],
       ),

@@ -14,7 +14,7 @@ import { CardRow, EditorState, PickerPurpose, Selection, isDirty, type Model } f
 import { toKeyMode } from "./subscription";
 import { update } from "./update";
 import { reconcile } from "./update/shared";
-import { statusPill } from "./view/chrome";
+import { modeLabel } from "./view/chrome";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
@@ -75,7 +75,7 @@ describe("keyboard connection picker", () => {
         }),
       );
       expect(toKeyMode(result.model.editor)).toBe("Picking");
-      expect(statusPill(result.model.editor).label).toBe("CONNECT");
+      expect(modeLabel(result.model.editor)).toBe("CONNECT");
       expect(result.model.panKey).toBe("Released");
       expect(result.model.selection).toBe(start.selection);
       expect(result.model.history).toBe(start.history);

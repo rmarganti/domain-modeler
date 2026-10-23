@@ -13,7 +13,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 ## Driving conventions
 
 - Start every recipe from the baseline. `ab reload` restores it. The only state kept across reloads is the command palette's recent list (`localStorage`).
-- Assert the mode pill after every step that changes mode: `ab get attr '[aria-label^="Mode:"]' aria-label`.
+- Assert the hidden mode label after every step that changes mode: `ab get attr '[aria-label^="Mode:"]' aria-label`.
 - Prefer aria labels and roles. For unlabeled or repeated buttons, take a ref from `ab snapshot -i -s '<card selector>'`.
 - Treat every command as literal apart from expanding `ab`. Keep quoted names unchanged.
 - Move the mouse off the canvas items (`ab mouse move 5 5`) before `get text` on a card: hovering a field row hides its type and badges.

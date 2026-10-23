@@ -26,7 +26,7 @@ Preconditions: web baseline from the feature index; doctor reports OK. Save evid
 - **No selection:** `ab mouse move 20 100`, `ab mouse down`, `ab mouse up`, then `ab press Shift+2`. The percentage and canvas transform are unchanged.
 - **Fit enum:** reload; `ab click '[aria-label="Enum Role"] [title="Double-click to rename"]'`, `ab press Shift+2`. Role is centered.
 - **Fit relationship:** reload; `ab click '[aria-label="Relationship writes 1:0..*"]'`, `ab press Shift+2`. User and Post are visible, their combined bounds centered; the inspector and selection remain.
-- **Typing:** reload; double-click the Post name to open Entity name, then `ab press Meta+=` and `ab press Meta+0`. The editor stays open and zoom changes/reset works. `ab press 'Shift+!'` and `ab press 'Shift+@'` append !/@ instead of fitting; Escape cancels. Also check Model name, which is editable while the mode pill stays NORMAL.
+- **Typing:** reload; double-click the Post name to open Entity name, then `ab press Meta+=` and `ab press Meta+0`. The editor stays open and zoom changes/reset works. `ab press 'Shift+!'` and `ab press 'Shift+@'` append !/@ instead of fitting; Escape cancels. Also check Model name, which is editable while the mode stays NORMAL.
 - **Discovery:** `ab get attr '[aria-label="Zoom in"]' title` includes ⌘= on macOS (Ctrl+= elsewhere). Open ? and capture the View entries in Canvas and Editing text; fit entries are Canvas-only.
 - **Finish:** `ab errors > .verify/latest/evidence/zoom-keys/errors.txt` is empty; run cleanup. Separately launch desktop, run doctor, save its result and launch log, then cleanup.
 
