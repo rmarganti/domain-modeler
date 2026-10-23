@@ -20,6 +20,7 @@ import * as Entities from "./update/entities";
 import * as Rows from "./update/rows";
 import * as Enums from "./update/enums";
 import * as Associations from "./update/associations";
+import * as Disk from "./update/disk";
 import * as Session from "./update/session";
 import {
   commitDocument,
@@ -34,10 +35,17 @@ const showShortcuts = (model: Model): UpdateReturn => ({
   commands: [FocusInput({ selector: "#keyboard-shortcuts" })],
 });
 
+/** Handles a message, then merges any change from disk the editor is now free for. */
+export const update = (model: Model, message: Message): UpdateReturn => {
+  const result = handle(model, message);
+  const merged = Disk.applyPending(result.model);
+  return merged === result.model ? result : { ...result, model: merged };
+};
+
 // Every Message is handled here, so exhaustiveness is checked in one place.
 // Handlers with any logic live in the area modules under ./update/.
 
-export const update = (model: Model, message: Message): UpdateReturn =>
+const handle = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     // Keyboard
 
@@ -69,6 +77,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         () => ({ model: finishEditing(model) }),
       ),
     PressedEscapeKey: () => ({ model: cancelEditing(model) }),
+    PressedReloadFromDiskKey: () => Disk.reload(model),
     PressedSpace: () => ({ model: { ...model, panKey: "Held" } }),
     ReleasedSpace: () => ({ model: { ...model, panKey: "Released" } }),
 
@@ -93,7 +102,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     // Shared by a key and a control (see ARCHITECTURE.md)
 
-    RequestedNewDocument: () => Session.newDocument(model),
+    RequestedNewDocument: () => ({ model: Session.newDocument(model) }),
     RequestedOpen: () => Session.open(model),
     RequestedSave: () => Session.save(model),
     RequestedSaveAs: () => Session.saveAs(model),
@@ -219,22 +228,32 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     // Files
 
-    SucceededOpenFile: ({ document, fileName }) => ({
-      model: Session.opened(model, document, fileName),
+    SucceededOpenFile: ({ document, path }) => ({
+      model: Session.opened(model, document, path),
     }),
     FailedOpenFile: ({ error }) => ({
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
-    SucceededSaveFile: ({ fileName }) => ({ model: Session.saved(model, fileName) }),
+    SucceededSaveFile: ({ document, path }) => ({
+      model: Session.saved(model, document, path),
+    }),
     FailedSaveFile: ({ error }) => ({
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
     CancelledFilePicker: () => ({ model }),
-    CompletedForgetActiveFile: () => ({
-      model: { ...model, maybeFileName: Option.none(), saveStatus: "Dirty" },
-    }),
     CompletedFocusInput: () => ({ model }),
     ClickedDismissNotice: () => ({ model: { ...model, maybeNotice: Option.none() } }),
+
+    // External edits to the open file
+
+    ChangedFileOnDisk: () => Disk.check(model),
+    FocusedWindow: () => Disk.check(model),
+    ReadFileOnDisk: ({ path, document }) => ({ model: Disk.read(model, path, document) }),
+    FailedReadFileOnDisk: ({ path, issue }) => ({ model: Disk.failedRead(model, path, issue) }),
+    SucceededReloadFile: ({ path, document }) => ({
+      model: Disk.reloaded(model, path, document),
+    }),
+    FailedReloadFile: ({ path, issue }) => ({ model: Disk.failedReload(model, path, issue) }),
 
     // Window
 

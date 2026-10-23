@@ -1,10 +1,11 @@
 import { Option } from "effect";
 
-import { ConfirmCloseWindow, ForgetActiveFile, OpenFile, SaveFile, SaveFileAs } from "../command";
+import { ConfirmCloseWindow, OpenFile, SaveFile, SaveFileAs } from "../command";
 import * as Doc from "../domain/document";
 import * as History from "../domain/history";
 import type { DomainModelDocument } from "../domain/schema";
-import { EditorState, Selection, type Model, type Notice } from "../model";
+import { EditorState, Selection, fileNameOf, type Model, type Notice } from "../model";
+import { applyPending } from "./disk";
 import { finishEditing } from "./editing";
 import * as Rows from "./rows";
 import { commitDocument, deselect, present, reconcile, toIdle, type UpdateReturn } from "./shared";
@@ -16,7 +17,7 @@ import { commitDocument, deselect, present, reconcile, toIdle, type UpdateReturn
 const restore = (model: Model, maybeHistory: Option.Option<History.History>): Model =>
   Option.match(maybeHistory, {
     onNone: () => model,
-    onSome: (history) => reconcile({ ...toIdle(model), history, saveStatus: "Dirty" }),
+    onSome: (history) => reconcile({ ...toIdle(model), history }),
   });
 
 export const undo = (model: Model): Model => restore(model, History.undo(model.history));
@@ -50,11 +51,13 @@ export const deleteSelection = (model: Model): Model => {
 
 // FILES
 
-export const newDocument = (model: Model): UpdateReturn => ({
-  model: deselect(
-    toIdle(commitDocument(finishEditing(model), () => Doc.emptyDocument("Untitled"))),
-  ),
-  commands: [ForgetActiveFile()],
+/** Starts an empty model that isn't tied to a file. */
+export const newDocument = (model: Model): Model => ({
+  ...deselect(toIdle(commitDocument(finishEditing(model), () => Doc.emptyDocument("Untitled")))),
+  maybeFilePath: Option.none(),
+  maybeSavedDocument: Option.none(),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
 });
 
 export const open = (model: Model): UpdateReturn => ({
@@ -62,31 +65,47 @@ export const open = (model: Model): UpdateReturn => ({
   commands: [OpenFile()],
 });
 
+// A pending change from disk is merged first, so a save never overwrites it.
+
 export const save = (model: Model): UpdateReturn => {
-  const ready = finishEditing(model);
-  return { model: ready, commands: [SaveFile({ document: present(ready) })] };
+  const ready = applyPending(finishEditing(model));
+  return {
+    model: ready,
+    commands: [SaveFile({ document: present(ready), maybePath: ready.maybeFilePath })],
+  };
 };
 
 export const saveAs = (model: Model): UpdateReturn => {
-  const ready = finishEditing(model);
+  const ready = applyPending(finishEditing(model));
   return { model: ready, commands: [SaveFileAs({ document: present(ready) })] };
 };
 
-export const opened = (model: Model, document: DomainModelDocument, fileName: string): Model => ({
-  ...model,
-  history: History.init(Doc.syncLayout(document)),
-  editor: EditorState.Idle(),
-  selection: Selection.NoSelection(),
-  maybeFileName: Option.some(fileName),
-  saveStatus: "Clean",
-  maybeNotice: Option.none(),
-});
+export const opened = (model: Model, document: DomainModelDocument, path: string): Model => {
+  // The baseline is the synced document, so filling in missing layout isn't an unsaved change.
+  const synced = Doc.syncLayout(document);
+  return {
+    ...model,
+    history: History.init(synced),
+    editor: EditorState.Idle(),
+    selection: Selection.NoSelection(),
+    maybeFilePath: Option.some(path),
+    maybeSavedDocument: Option.some(synced),
+    maybePendingDiskDocument: Option.none(),
+    maybeDiskIssue: Option.none(),
+    maybeNotice: Option.none(),
+  };
+};
 
-export const saved = (model: Model, fileName: string): Model => ({
+export const saved = (model: Model, document: DomainModelDocument, path: string): Model => ({
   ...model,
-  maybeFileName: Option.some(fileName),
-  saveStatus: "Clean",
-  maybeNotice: Option.some({ tone: "Info", text: `Saved ${fileName}` }),
+  maybeFilePath: Option.some(path),
+  maybeSavedDocument: Option.some(document),
+  // A change read back while the save was in flight still merges, now against what we wrote.
+  maybePendingDiskDocument: Option.contains(model.maybeFilePath, path)
+    ? model.maybePendingDiskDocument
+    : Option.none(),
+  maybeDiskIssue: Option.none(),
+  maybeNotice: Option.some({ tone: "Info", text: `Saved ${fileNameOf(path)}` }),
 });
 
 export const renameDocument = (model: Model, name: string): Model =>

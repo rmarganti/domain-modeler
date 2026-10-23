@@ -1,6 +1,7 @@
 import { Option, pipe } from "effect";
 
 import * as Doc from "../domain/document";
+import * as Ids from "../domain/ids";
 import type { AttributeDefinition, EnumValue, Multiplicity, Point } from "../domain/schema";
 import {
   CardRow,
@@ -98,9 +99,11 @@ const commitCreateEntity = (model: Model, position: Point, draftName: string): M
   if (name === "") {
     return toIdle(model);
   }
-  const entityId = Doc.nextId(present(model), "e");
+  const { id: entityId, state: idState } = Ids.nextId(model.idState, present(model));
   return {
-    ...commitDocument(model, (document) => Doc.addEntity(document, entityId, name, position)),
+    ...commitDocument({ ...model, idState }, (document) =>
+      Doc.addEntity(document, entityId, name, position),
+    ),
     editor: EditorState.Idle(),
     selection: Selection.SelectedEntity({ entityId, row: CardRow.Title() }),
   };
@@ -140,9 +143,11 @@ const commitCreateEnum = (model: Model, position: Point, draftName: string): Mod
   if (name === "") {
     return toIdle(model);
   }
-  const typeId = Doc.nextId(present(model), "t");
+  const { id: typeId, state: idState } = Ids.nextId(model.idState, present(model));
   return {
-    ...commitDocument(model, (document) => Doc.addEnum(document, typeId, name, position)),
+    ...commitDocument({ ...model, idState }, (document) =>
+      Doc.addEnum(document, typeId, name, position),
+    ),
     editor: EditorState.Idle(),
     selection: Selection.SelectedEnum({ typeId, row: CardRow.Title() }),
   };

@@ -2,6 +2,7 @@ import { Option, pipe } from "effect";
 
 import { ENTITY_NAME_INPUT_ID, ATTRIBUTE_NAME_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
+import * as Ids from "../domain/ids";
 import type { Point } from "../domain/schema";
 import { enumNameForAttribute } from "../domain/naming";
 import { CardRow, EditorState, Selection, type Model } from "../model";
@@ -90,10 +91,12 @@ export const addAttribute = (model: Model, entityId: string, index?: number): Up
     onNone: () => ({ model }),
     onSome: (entity) => {
       const ready = finishEditing(model);
-      const attributeId = Doc.nextId(present(ready), "p");
+      const { id: attributeId, state: idState } = Ids.nextId(ready.idState, present(ready));
       const attribute = Doc.newAttribute(attributeId, `field${entity.attributes.length + 1}`);
       return startEditingAttribute(
-        commitDocument(ready, (document) => Doc.addAttribute(document, entityId, attribute, index)),
+        commitDocument({ ...ready, idState }, (document) =>
+          Doc.addAttribute(document, entityId, attribute, index),
+        ),
         entityId,
         attributeId,
       );
@@ -130,10 +133,12 @@ export const addEnumForAttribute = (model: Model): UpdateReturn =>
           Option.match({
             onNone: () => ({ model }),
             onSome: (attribute) => {
-              const typeId = Doc.nextId(present(model), "t");
-              const valueId = Doc.nextId(present(model), "v");
+              const { id: typeId, state: afterType } = Ids.nextId(model.idState, present(model));
+              const { id: valueId, state: idState } = Ids.nextId(afterType, present(model), [
+                typeId,
+              ]);
               return Enums.startEditingValue(
-                commitDocument(model, (document) =>
+                commitDocument({ ...model, idState }, (document) =>
                   Doc.addEnumForAttribute(
                     document,
                     entityId,

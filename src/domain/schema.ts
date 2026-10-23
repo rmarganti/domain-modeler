@@ -5,6 +5,12 @@ import { Schema, SchemaTransformation, Struct } from "effect";
 
 // AST
 
+/** The `id` of an entity, attribute, type, enum value, or association. */
+const Id = Schema.String.annotate({
+  description:
+    "Unique in the document. Any string; the editor generates 10 random lowercase letters and digits.",
+});
+
 export const Multiplicity = Schema.Struct({
   min: Schema.Literals([0, 1]).annotate({ description: "0 means optional, 1 means required." }),
   max: Schema.Literals(["one", "many"]).annotate({ description: '"many" makes it a list.' }),
@@ -40,7 +46,7 @@ export type AttributeType = typeof AttributeType.Type;
 export const isTypeRef = (type: AttributeType): type is TypeRef => typeof type !== "string";
 
 export const AttributeDefinition = Schema.Struct({
-  id: Schema.String.annotate({ description: 'Unique in the document, shaped "p<number>".' }),
+  id: Id,
   name: Schema.String.annotate({
     description:
       "camelCase by convention. Unique within its entity, including the roles the entity reaches through associations.",
@@ -59,7 +65,7 @@ export const AttributeDefinition = Schema.Struct({
 export type AttributeDefinition = typeof AttributeDefinition.Type;
 
 export const EntityDefinition = Schema.Struct({
-  id: Schema.String.annotate({ description: 'Unique in the document, shaped "e<number>".' }),
+  id: Id,
   name: Schema.String.annotate({
     description: "PascalCase by convention. Shares a case-insensitive namespace with enum names.",
   }),
@@ -69,14 +75,14 @@ export const EntityDefinition = Schema.Struct({
 export type EntityDefinition = typeof EntityDefinition.Type;
 
 export const EnumValue = Schema.Struct({
-  id: Schema.String.annotate({ description: 'Unique in the document, shaped "v<number>".' }),
+  id: Id,
   name: Schema.String.annotate({ description: "Unique within its enum." }),
   description: Schema.optional(Schema.String),
 }).annotate({ identifier: "EnumValue" });
 export type EnumValue = typeof EnumValue.Type;
 
 export const EnumDefinition = Schema.Struct({
-  id: Schema.String.annotate({ description: 'Unique in the document, shaped "t<number>".' }),
+  id: Id,
   kind: Schema.Literal("Enum"), // discriminator: value objects may join a union later
   name: Schema.String.annotate({
     description: "PascalCase by convention. Shares a case-insensitive namespace with entity names.",
@@ -101,7 +107,7 @@ export const EndIndex = Schema.Literals([0, 1]);
 export type EndIndex = typeof EndIndex.Type;
 
 export const AssociationDefinition = Schema.Struct({
-  id: Schema.String.annotate({ description: 'Unique in the document, shaped "r<number>".' }),
+  id: Id,
   name: Schema.optional(Schema.String).annotate({
     description: "A display verb only. It carries no direction.",
   }),
@@ -174,7 +180,7 @@ export const DomainModelFile = Schema.Struct({
 }).annotate({
   title: "Domain Model",
   description:
-    "A Domain Modeler document: entities, enums and the associations between entities. New IDs take the next unused number for their prefix.",
+    "A Domain Modeler document: entities, enums and the associations between entities. IDs are opaque: any string unused elsewhere in the document works.",
 });
 
 export const DomainModelDocumentJsonString = Schema.fromJsonString(

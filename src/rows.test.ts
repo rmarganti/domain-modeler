@@ -3,20 +3,24 @@ import { describe, expect, test } from "vitest";
 
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { KEYMAP, bindingsFor } from "./keymap";
 import { Message } from "./message";
-import { CardRow, EditorState, Selection, type Model } from "./model";
+import { CardRow, EditorState, Selection, isDirty, type Model } from "./model";
 import { update } from "./update";
 import { commitDocument } from "./update/shared";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
-  saveStatus: "Clean",
+  maybeFilePath: Option.none(),
+  maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const step = (model: Model, message: Message): Model => update(model, message).model;
@@ -69,7 +73,7 @@ describe("card row cursor", () => {
     expect(currentRow(move(m, "Last"))).toEqual(rows.at(-1));
     expect(currentRow(move(move(m, "Last"), "First"))).toEqual(CardRow.Title());
     expect(m.history.past).toHaveLength(0);
-    expect(m.saveStatus).toBe("Clean");
+    expect(isDirty(m)).toBe(false);
   });
 
   test.each(["Entity", "Enum"])(

@@ -7,9 +7,10 @@ import { searchCards } from "./domain/card-search";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { bindingsFor, helpSectionOf, KEYMAP } from "./keymap";
 import { Message } from "./message";
-import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./model";
+import { CardRow, EditorState, PickerPurpose, Selection, isDirty, type Model } from "./model";
 import { toKeyMode } from "./subscription";
 import { update } from "./update";
 import { reconcile } from "./update/shared";
@@ -17,12 +18,15 @@ import { statusPill } from "./view/chrome";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.SelectedEntity({ entityId: "e1", row: CardRow.Title() }),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
-  saveStatus: "Clean",
+  maybeFilePath: Option.none(),
+  maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const step = (model: Model, message: Message): Model => update(model, message).model;
@@ -74,7 +78,7 @@ describe("keyboard connection picker", () => {
       expect(result.model.panKey).toBe("Released");
       expect(result.model.selection).toBe(start.selection);
       expect(result.model.history).toBe(start.history);
-      expect(result.model.saveStatus).toBe("Clean");
+      expect(isDirty(result.model)).toBe(false);
     },
   );
 
@@ -182,14 +186,15 @@ describe("keyboard connection picker", () => {
         const pointer = pointerConnect(start, target);
         expect(result).toEqual(pointer);
         expect(result.history.present.associations).toHaveLength(before + 1);
+        const associationId = result.history.present.associations.at(-1)!.id;
         expect(result.history.present.associations.at(-1)).toEqual(
-          Doc.newAssociation("r3", "e1", target),
+          Doc.newAssociation(associationId, "e1", target),
         );
         expect(result.history.past).toHaveLength(start.history.past.length + 1);
         expect(result.history.future).toEqual([]);
-        expect(result.saveStatus).toBe("Dirty");
-        expect(result.selection).toEqual(Selection.SelectedAssociation({ associationId: "r3" }));
-        expect(result.editor).toEqual(EditorState.EditingAssociation({ associationId: "r3" }));
+        expect(isDirty(result)).toBe(true);
+        expect(result.selection).toEqual(Selection.SelectedAssociation({ associationId }));
+        expect(result.editor).toEqual(EditorState.EditingAssociation({ associationId }));
         expect(result.history.present.layout).toBe(document.layout);
         expect(step(result, Message.PressedEnterKey()).history).toBe(result.history);
         const undone = step(result, Message.RequestedUndo());
@@ -222,7 +227,7 @@ describe("keyboard connection picker", () => {
             row: CardRow.Attribute({ attributeId: "p2" }),
           }),
           history: { present: document, past: [document], future: [document] },
-          saveStatus: "Dirty",
+          maybeSavedDocument: Option.none(),
         };
         const result = step(query(open(start), "tag"), cancel);
         expect(result).toEqual(start);
@@ -248,7 +253,7 @@ describe("keyboard connection picker", () => {
     expect(step(targetGone, Message.PickedCard({ nodeId: "e3" }))).toBe(targetGone);
     const replaced = step(
       opened,
-      Message.SucceededOpenFile({ document: Doc.sampleDocument, fileName: "other.json" }),
+      Message.SucceededOpenFile({ document: Doc.sampleDocument, path: "/models/other.json" }),
     );
     expect(replaced.editor).toEqual(EditorState.Idle());
     expect(step(replaced, Message.PickedCard({ nodeId: "e3" }))).toBe(replaced);

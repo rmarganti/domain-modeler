@@ -1,8 +1,9 @@
-import { Schema } from "effect";
+import { Equal, Option, Record, Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { History } from "./domain/history";
-import { AttributeType, Multiplicity, Point } from "./domain/schema";
+import { IdState } from "./domain/ids";
+import { AttributeType, DomainModelDocument, Multiplicity, Point } from "./domain/schema";
 
 // EDITOR STATE MACHINE
 // The editor never tracks interaction with boolean flags: exactly one of these
@@ -102,25 +103,66 @@ export type ScreenSize = typeof ScreenSize.Type;
 export const PanKey = Schema.Literals(["Released", "Held"]);
 export type PanKey = typeof PanKey.Type;
 
-export const SaveStatus = Schema.Literals(["Clean", "Dirty"]);
-export type SaveStatus = typeof SaveStatus.Type;
-
 export const Notice = Schema.Struct({
   tone: Schema.Literals(["Info", "Error"]),
   text: Schema.String,
 });
 export type Notice = typeof Notice.Type;
 
+/** Why the open file on disk can't be merged right now. Kept so a problem is
+ *  reported once, not on every watch event or focus check while it lasts.
+ *  `Diverged`: the file changed but there is no saved document to merge from. */
+export const DiskIssue = Schema.Literals(["Invalid", "Missing", "Diverged"]);
+export type DiskIssue = typeof DiskIssue.Type;
+
 // MODEL
 
 export const Model = Schema.Struct({
   history: History,
+  /** Where the next new ID comes from. Kept outside the document and history,
+   *  so undo never rewinds it and an undone ID is never minted again. */
+  idState: IdState,
   editor: EditorState,
   selection: Selection,
   screen: ScreenSize,
   panKey: PanKey,
-  maybeFileName: Schema.Option(Schema.String),
-  saveStatus: SaveStatus,
+  /** The open file. Subscriptions watch it, and Save writes back to it. */
+  maybeFilePath: Schema.Option(Schema.String),
+  /** The version there is nothing to lose relative to: the document as last
+   *  read from or written to disk. `None` when the content exists nowhere else.
+   *  It is also the base for merging external edits to the open file. */
+  maybeSavedDocument: Schema.Option(DomainModelDocument),
+  /** The latest external edit to the open file (synced), waiting for the
+   *  editor to be idle before it's merged. Only the latest is kept. */
+  maybePendingDiskDocument: Schema.Option(DomainModelDocument),
+  maybeDiskIssue: Schema.Option(DiskIssue),
   maybeNotice: Schema.Option(Notice),
 });
 export type Model = typeof Model.Type;
+
+// DERIVED
+
+export const fileNameOf = (path: string): string => path.split(/[\\/]/).at(-1) ?? path;
+
+export const maybeFileName = (model: Model): Option.Option<string> =>
+  Option.map(model.maybeFilePath, fileNameOf);
+
+/** Drops what doesn't count as an unsaved change: pan, zoom, and expansion. */
+const withoutTransientLayout = (document: DomainModelDocument) => ({
+  ...document,
+  layout: {
+    nodes: Record.map(document.layout.nodes, ({ position }) => ({ position })),
+    viewport: null,
+  },
+});
+
+/** Whether two documents differ in anything that counts as an unsaved change. */
+export const hasSameContent = (a: DomainModelDocument, b: DomainModelDocument): boolean =>
+  a === b || Equal.equals(withoutTransientLayout(a), withoutTransientLayout(b));
+
+/** Whether the present document differs from the saved one. */
+export const isDirty = (model: Model): boolean =>
+  Option.match(model.maybeSavedDocument, {
+    onNone: () => true,
+    onSome: (saved) => !hasSameContent(saved, model.history.present),
+  });

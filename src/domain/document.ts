@@ -40,36 +40,6 @@ export const emptyDocument = (name: string): DomainModelDocument => ({
   layout: { nodes: {}, viewport: DEFAULT_VIEWPORT },
 });
 
-// IDS
-// IDs are derived from the document, not from randomness, so update stays
-// pure and deterministic. A prefix plus one more than the largest numeric
-// suffix in use can never collide.
-
-export type IdPrefix = "e" | "p" | "t" | "v" | "r";
-
-const allIds = (document: DomainModelDocument): ReadonlyArray<string> => [
-  ...Array.map(document.entities, (entity) => entity.id),
-  ...Array.flatMap(document.entities, (entity) =>
-    Array.map(entity.attributes, (attribute) => attribute.id),
-  ),
-  ...Array.map(document.types, (definition) => definition.id),
-  ...Array.flatMap(document.types, (definition) =>
-    Array.map(definition.values, (value) => value.id),
-  ),
-  ...Array.map(document.associations, (association) => association.id),
-];
-
-export const nextId = (document: DomainModelDocument, prefix: IdPrefix): string => {
-  const pattern = new RegExp(`^${prefix}(\\d+)$`);
-  const largest = pipe(
-    allIds(document),
-    Array.map((id) => Option.map(Option.fromNullishOr(pattern.exec(id)?.[1]), Number)),
-    Array.getSomes,
-    Array.reduce(0, Math.max),
-  );
-  return `${prefix}${largest + 1}`;
-};
-
 // LOOKUP
 
 export const findEntity = (

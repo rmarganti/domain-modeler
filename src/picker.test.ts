@@ -6,20 +6,24 @@ import { FocusInput, RevealCardOption } from "./command";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import { bindingsFor, helpSectionOf } from "./keymap";
 import { Message } from "./message";
-import { CardRow, EditorState, PickerPurpose, Selection, type Model } from "./model";
+import { CardRow, EditorState, PickerPurpose, Selection, isDirty, type Model } from "./model";
 import { toKeyMode } from "./subscription";
 import { update } from "./update";
 
 const initial: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
-  saveStatus: "Clean",
+  maybeFilePath: Option.none(),
+  maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
 const step = (m: Model, msg: Message): Model => update(m, msg).model;
@@ -60,7 +64,7 @@ describe("card picker", () => {
           EditorState.PickingCard({ query: "ta", highlighted: 0, purpose: PickerPurpose.Focus() }),
         );
         expect(m.history).toBe(initial.history);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
       message(Message.PressedEnterKey()),
       model((m) => {
@@ -96,7 +100,7 @@ describe("card picker", () => {
       expect(end.editor).toEqual(EditorState.Idle());
       expect(end.selection).toEqual(selection);
       expect(end.history).toBe(start.history);
-      expect(end.saveStatus).toBe("Clean");
+      expect(isDirty(end)).toBe(false);
     }
   });
 
@@ -115,7 +119,7 @@ describe("card picker", () => {
           const start: Model = {
             ...initial,
             history: { present: document, past: [document], future: [document] },
-            saveStatus: "Dirty",
+            maybeSavedDocument: Option.none(),
           };
           const end = step(opened(start), Message.PickedCard({ nodeId }));
           expect(end.editor).toEqual(EditorState.Idle());
@@ -141,7 +145,7 @@ describe("card picker", () => {
           expect(end.history.present.layout.nodes).toEqual(document.layout.nodes);
           expect(end.history.past).toBe(start.history.past);
           expect(end.history.future).toBe(start.history.future);
-          expect(end.saveStatus).toBe(start.saveStatus);
+          expect(isDirty(end)).toBe(isDirty(start));
         }
       }
     },
@@ -212,7 +216,7 @@ describe("card picker", () => {
     const start = opened();
     const end = step(
       start,
-      Message.SucceededOpenFile({ document: Doc.sampleDocument, fileName: "other.json" }),
+      Message.SucceededOpenFile({ document: Doc.sampleDocument, path: "/models/other.json" }),
     );
     expect(end.editor).toEqual(EditorState.Idle());
     expect(step(end, Message.PickedCard({ nodeId: "e1" }))).toBe(end);

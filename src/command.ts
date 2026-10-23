@@ -7,10 +7,6 @@ import * as Files from "./platform/files";
 import * as AppWindow from "./platform/window";
 
 // FILES
-// The active file's path is runtime state outside the Model, so Save can
-// write back to it; the Model only records the file's name.
-
-let maybeActivePath: Option.Option<string> = Option.none();
 
 const encodeDocument = Schema.encodeEffect(DomainModelDocumentJsonString);
 const decodeDocument = Schema.decodeUnknownEffect(DomainModelDocumentJsonString);
@@ -30,8 +26,7 @@ const writeDocument = (path: string, document: DomainModelDocument) =>
       Effect.mapError((error) => new Files.FileError({ reason: error.message })),
     );
     yield* Files.write(path, `${json}\n`);
-    maybeActivePath = Option.some(path);
-    return Message.SucceededSaveFile({ fileName: Files.fileNameOf(path) });
+    return Message.SucceededSaveFile({ document, path });
   });
 
 const toFailureMessage =
@@ -53,18 +48,17 @@ export const OpenFile = Command.define("OpenFile", {
         (error) => new Files.FileError({ reason: `Not a valid domain model: ${error.message}` }),
       ),
     );
-    maybeActivePath = Option.some(path);
-    return Message.SucceededOpenFile({ document, fileName: Files.fileNameOf(path) });
+    return Message.SucceededOpenFile({ document, path });
   }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedOpenFile({ error })))),
 });
 
 /** Writes straight to the active file; without one, falls back to Save As. */
 export const SaveFile = Command.define("SaveFile", {
-  args: { document: DomainModelDocument },
+  args: { document: DomainModelDocument, maybePath: Schema.Option(Schema.String) },
   messages: [Message.SucceededSaveFile, Message.FailedSaveFile, Message.CancelledFilePicker],
-  execute: ({ document }) =>
+  execute: ({ document, maybePath }) =>
     Effect.gen(function* () {
-      const path = yield* Option.match(maybeActivePath, {
+      const path = yield* Option.match(maybePath, {
         onNone: () => Files.pickToSave(suggestedFileName(document)),
         onSome: Effect.succeed,
       });
@@ -82,12 +76,33 @@ export const SaveFileAs = Command.define("SaveFileAs", {
     }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedSaveFile({ error })))),
 });
 
-export const ForgetActiveFile = Command.define("ForgetActiveFile", {
-  messages: [Message.CompletedForgetActiveFile],
-  execute: Effect.sync(() => {
-    maybeActivePath = Option.none();
-    return Message.CompletedForgetActiveFile();
-  }),
+/** Reads the open file as it is on disk now. A file that can't be read counts
+ *  as missing: it was deleted or moved, or is mid-replace. */
+const readOnDisk = (path: string) =>
+  Files.read(path).pipe(
+    Effect.mapError(() => "Missing" as const),
+    Effect.flatMap((text) => decodeDocument(text).pipe(Effect.mapError(() => "Invalid" as const))),
+  );
+
+/** Re-reads the open file after a change on disk or a return to the window. */
+export const CheckFileOnDisk = Command.define("CheckFileOnDisk", {
+  args: { path: Schema.String },
+  messages: [Message.ReadFileOnDisk, Message.FailedReadFileOnDisk],
+  execute: ({ path }) =>
+    readOnDisk(path).pipe(
+      Effect.map((document) => Message.ReadFileOnDisk({ path, document })),
+      Effect.catch((issue) => Effect.succeed(Message.FailedReadFileOnDisk({ path, issue }))),
+    ),
+});
+
+export const ReloadFileFromDisk = Command.define("ReloadFileFromDisk", {
+  args: { path: Schema.String },
+  messages: [Message.SucceededReloadFile, Message.FailedReloadFile],
+  execute: ({ path }) =>
+    readOnDisk(path).pipe(
+      Effect.map((document) => Message.SucceededReloadFile({ path, document })),
+      Effect.catch((issue) => Effect.succeed(Message.FailedReloadFile({ path, issue }))),
+    ),
 });
 
 // WINDOW

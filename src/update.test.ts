@@ -2,27 +2,43 @@ import { Option, Schema } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 
-import { ConfirmCloseWindow, FocusInput, ForgetActiveFile, OpenFile, SaveFile } from "./command";
+import {
+  CheckFileOnDisk,
+  ConfirmCloseWindow,
+  FocusInput,
+  OpenFile,
+  ReloadFileFromDisk,
+  SaveFile,
+} from "./command";
 import * as Doc from "./domain/document";
 import * as History from "./domain/history";
+import * as Ids from "./domain/ids";
 import * as Geometry from "./domain/geometry";
 import { DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
-import { CardRow, EditorState, Selection, type Model } from "./model";
+import { CardRow, EditorState, Selection, isDirty, maybeFileName, type Model } from "./model";
 import { bindingsFor, toKeyMode } from "./subscription";
 import { update } from "./update";
 
 // Viewport at pan (0, 0) and zoom 1, so screen and world coordinates match.
 const baseModel: Model = {
   history: History.init(Doc.sampleDocument),
+  idState: Ids.seed([1, 2, 3, 4]),
   editor: EditorState.Idle(),
   selection: Selection.NoSelection(),
   screen: { width: 1200, height: 800 },
   panKey: "Released",
-  maybeFileName: Option.none(),
-  saveStatus: "Clean",
+  maybeFilePath: Option.none(),
+  maybeSavedDocument: Option.some(Doc.sampleDocument),
+  maybePendingDiskDocument: Option.none(),
+  maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
 };
+
+// New IDs are random, so tests find what an action created instead of naming it.
+const lastEntity = (m: Model) => m.history.present.entities.at(-1)!;
+const lastEnum = (m: Model) => m.history.present.types.at(-1)!;
+const lastAssociation = (m: Model) => m.history.present.associations.at(-1)!;
 
 const focused = Command.resolve(FocusInput, Message.CompletedFocusInput());
 
@@ -56,7 +72,7 @@ describe("node dragging", () => {
         expect(m.selection).toEqual(
           Selection.SelectedEntity({ entityId: "e3", row: CardRow.Title() }),
         );
-        expect(m.saveStatus).toBe("Dirty");
+        expect(isDirty(m)).toBe(true);
       }),
     );
   });
@@ -186,7 +202,7 @@ describe("zoom shortcuts", () => {
       expect(result).toEqual(update(initial, hud));
       expect(result.model.history.past).toEqual(initial.history.past);
       expect(result.model.history.future).toEqual(initial.history.future);
-      expect(result.model.saveStatus).toBe("Clean");
+      expect(isDirty(result.model)).toBe(false);
     }
   });
 
@@ -242,7 +258,7 @@ describe("zoom shortcuts", () => {
     expect(result.editor).toEqual(initial.editor);
     expect(result.history.past).toEqual(initial.history.past);
     expect(result.history.future).toEqual(initial.history.future);
-    expect(result.saveStatus).toBe("Clean");
+    expect(isDirty(result)).toBe(false);
   });
 
   test("zoom to a small collapsed card stops at max zoom", () => {
@@ -390,7 +406,7 @@ describe("new chooser", () => {
         expect(m.editor).toEqual(EditorState.Idle());
         expect(m.history.present).toBe(baseModel.history.present);
         expect(m.history.past).toHaveLength(0);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
     );
   });
@@ -419,7 +435,7 @@ describe("new chooser", () => {
       const viaButton = update(current, Message.RequestedNewDocument());
       expect(viaKey.model).toEqual(viaButton.model);
       expect(viaKey.commands).toEqual(viaButton.commands);
-      expect(viaKey.commands).toEqual([ForgetActiveFile()]);
+      expect(viaKey.model.maybeFilePath).toEqual(Option.none());
       expect(viaKey.model.editor).toEqual(EditorState.Idle());
       expect(viaKey.model.history.present.entities).toHaveLength(0);
       expect(viaKey.model.history.present.types).toHaveLength(0);
@@ -491,7 +507,7 @@ describe("keyboard shortcuts overlay", () => {
         expect(toKeyMode(m.editor)).toBe("Help");
         expect(m.history).toBe(selected.history);
         expect(m.selection).toEqual(selected.selection);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
       message(Message.PressedEscapeKey()),
       model((m) => {
@@ -574,12 +590,13 @@ describe("entities", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(m.selection).toEqual(
-          Selection.SelectedEntity({ entityId: "e4", row: CardRow.Title() }),
-        );
-        const created = Option.getOrThrow(Doc.findEntity(m.history.present, "e4"));
+        const created = lastEntity(m);
         expect(created.name).toBe("Comment");
-        expect(m.history.present.layout.nodes["e4"]).toBeDefined();
+        expect(m.history.present.entities).toHaveLength(4);
+        expect(m.selection).toEqual(
+          Selection.SelectedEntity({ entityId: created.id, row: CardRow.Title() }),
+        );
+        expect(m.history.present.layout.nodes[created.id]).toBeDefined();
       }),
     );
   });
@@ -678,8 +695,9 @@ describe("attributes", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         const tag = Option.getOrThrow(Doc.findEntity(m.history.present, "e3"));
+        expect(tag.attributes).toHaveLength(2);
         expect(tag.attributes.at(-1)).toEqual({
-          id: "p11",
+          id: tag.attributes.at(-1)?.id,
           name: "kind",
           type: "Integer",
           multiplicity: { min: 0, max: "one" },
@@ -752,9 +770,11 @@ describe("associations", () => {
         }),
       ),
       model((m) => {
-        expect(m.editor).toEqual(EditorState.EditingAssociation({ associationId: "r3" }));
-        expect(Option.getOrThrow(Doc.findAssociation(m.history.present, "r3"))).toEqual({
-          id: "r3",
+        const { id: associationId } = lastAssociation(m);
+        expect(m.history.present.associations).toHaveLength(3);
+        expect(m.editor).toEqual(EditorState.EditingAssociation({ associationId }));
+        expect(Option.getOrThrow(Doc.findAssociation(m.history.present, associationId))).toEqual({
+          id: associationId,
           ends: [
             { entityId: "e3", multiplicity: { min: 1, max: "one" } },
             { entityId: "e1", multiplicity: { min: 0, max: "many" } },
@@ -850,9 +870,13 @@ describe("enums", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(m.selection).toEqual(Selection.SelectedEnum({ typeId: "t2", row: CardRow.Title() }));
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
-        expect(m.history.present.layout.nodes["t2"]).toBeDefined();
+        const created = lastEnum(m);
+        expect(created.name).toBe("Status");
+        expect(m.history.present.types).toHaveLength(2);
+        expect(m.selection).toEqual(
+          Selection.SelectedEnum({ typeId: created.id, row: CardRow.Title() }),
+        );
+        expect(m.history.present.layout.nodes[created.id]).toBeDefined();
       }),
       message(Message.RequestedUndo()),
       model((m) => {
@@ -911,16 +935,19 @@ describe("enums", () => {
   });
 
   test("adding a value opens it for editing and saving applies the draft", () => {
+    let valueId = "";
     story(
       update,
       given(baseModel),
       message(Message.ClickedAddEnumValue({ typeId: "t1" })),
       focused,
       model((m) => {
+        valueId = findRole(m).values.at(-1)!.id;
+        expect(roleValues(m)).toEqual(["reader", "author", "admin", "value4"]);
         expect(m.editor).toEqual(
           EditorState.EditingEnumValue({
             typeId: "t1",
-            valueId: "v4",
+            valueId,
             draft: { name: "value4", description: "" },
             save: "Commit",
           }),
@@ -932,7 +959,7 @@ describe("enums", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(findRole(m).values.at(-1)).toEqual({
-          id: "v4",
+          id: valueId,
           name: "guest",
           description: "Not signed in",
         });
@@ -940,7 +967,7 @@ describe("enums", () => {
         expect(m.history.past).toHaveLength(2);
       }),
       message(Message.RequestedUndo()),
-      model((m) => expect(findRole(m).values.at(-1)).toEqual({ id: "v4", name: "value4" })),
+      model((m) => expect(findRole(m).values.at(-1)).toEqual({ id: valueId, name: "value4" })),
       message(Message.RequestedUndo()),
       model((m) => expect(roleValues(m)).toEqual(["reader", "author", "admin"])),
     );
@@ -1083,6 +1110,10 @@ describe("enum-typed fields", () => {
   const post = (m: Model) => Option.getOrThrow(Doc.findEntity(m.history.present, "e2"));
 
   test("New enum… is one undo step that types the field and opens the first value", () => {
+    let typeId = "";
+    let valueId = "";
+    let attributeId = "";
+    const status = (m: Model) => Option.getOrThrow(Doc.findEnum(m.history.present, typeId));
     story(
       update,
       given(baseModel),
@@ -1092,24 +1123,24 @@ describe("enum-typed fields", () => {
       message(Message.SelectedAttributeDraftNewEnum()),
       focused,
       model((m) => {
+        typeId = lastEnum(m).id;
+        valueId = lastEnum(m).values[0]!.id;
+        attributeId = post(m).attributes.at(-1)!.id;
+        expect(new Set([typeId, valueId, attributeId]).size).toBe(3);
         expect(m.editor).toEqual(
           EditorState.EditingEnumValue({
-            typeId: "t2",
-            valueId: "v4",
+            typeId,
+            valueId,
             draft: { name: "", description: "" },
             save: "Amend",
           }),
         );
         expect(m.selection).toEqual(
-          Selection.SelectedEnum({ typeId: "t2", row: CardRow.Value({ valueId: "v4" }) }),
+          Selection.SelectedEnum({ typeId, row: CardRow.Value({ valueId }) }),
         );
-        expect(post(m).attributes.at(-1)).toMatchObject({
-          id: "p11",
-          name: "status",
-          type: { typeId: "t2" },
-        });
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("Status");
-        expect(m.history.present.layout.nodes["t2"]?.isExpanded).toBe(true);
+        expect(post(m).attributes.at(-1)).toMatchObject({ name: "status", type: { typeId } });
+        expect(status(m).name).toBe("Status");
+        expect(m.history.present.layout.nodes[typeId]?.isExpanded).toBe(true);
         // One snapshot for adding the field, one for the whole "New enum…".
         expect(m.history.past).toHaveLength(2);
       }),
@@ -1117,25 +1148,21 @@ describe("enum-typed fields", () => {
       message(Message.PressedEnterKey()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
-          { id: "v4", name: "draft" },
-        ]);
+        expect(status(m).values).toEqual([{ id: valueId, name: "draft" }]);
         // Naming the first value folds into the same step.
         expect(m.history.past).toHaveLength(2);
       }),
       message(Message.RequestedUndo()),
       model((m) => {
-        expect(Doc.findEnum(m.history.present, "t2")).toEqual(Option.none());
-        expect(m.history.present.layout.nodes["t2"]).toBeUndefined();
-        expect(post(m).attributes.at(-1)).toEqual(Doc.newAttribute("p11", "field3"));
+        expect(Doc.findEnum(m.history.present, typeId)).toEqual(Option.none());
+        expect(m.history.present.layout.nodes[typeId]).toBeUndefined();
+        expect(post(m).attributes.at(-1)).toEqual(Doc.newAttribute(attributeId, "field3"));
         expect(m.selection).toEqual(Selection.NoSelection());
       }),
       message(Message.RequestedRedo()),
       model((m) => {
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).values).toEqual([
-          { id: "v4", name: "draft" },
-        ]);
-        expect(post(m).attributes.at(-1)?.type).toEqual({ typeId: "t2" });
+        expect(status(m).values).toEqual([{ id: valueId, name: "draft" }]);
+        expect(post(m).attributes.at(-1)?.type).toEqual({ typeId });
       }),
     );
   });
@@ -1150,9 +1177,13 @@ describe("enum-typed fields", () => {
       message(Message.SelectedAttributeDraftNewEnum()),
       focused,
       model((m) => {
-        expect(Option.getOrThrow(Doc.findEnum(m.history.present, "t2")).name).toBe("NewEnum");
+        const created = lastEnum(m);
+        expect(created.name).toBe("NewEnum");
         // A blank draft name keeps the field's own name.
-        expect(post(m).attributes[0]).toMatchObject({ name: "title", type: { typeId: "t2" } });
+        expect(post(m).attributes[0]).toMatchObject({
+          name: "title",
+          type: { typeId: created.id },
+        });
       }),
     );
   });
@@ -1202,7 +1233,8 @@ describe("keyboard row verbs", () => {
     const row = (id: string) =>
       kind === "Entity" ? CardRow.Attribute({ attributeId: id }) : CardRow.Value({ valueId: id });
     const ids = kind === "Entity" ? ["p2", "p3", "p4"] : ["v1", "v2", "v3"];
-    const newId = kind === "Entity" ? "p11" : "v4";
+    // The inserted row's ID is random: it's the one the sample didn't have.
+    const addedId = (m: Model) => rows(m).find(({ id }) => !ids.includes(id))!.id;
     const nodeId = kind === "Entity" ? "e1" : "t1";
     const defaultName = kind === "Entity" ? "field4" : "value4";
 
@@ -1216,6 +1248,7 @@ describe("keyboard row verbs", () => {
           const result = update(selected, Message.InsertedCardRow({ position }));
           const m = result.model;
           const index = onTitle || position === "Above" ? 0 : 1;
+          const newId = addedId(m);
           expect(rows(m).map(({ id }) => id)).toEqual([
             ...ids.slice(0, index),
             newId,
@@ -1263,9 +1296,9 @@ describe("keyboard row verbs", () => {
         selection: select(row(ids[1]!)),
       };
       const m = update(selected, Message.InsertedCardRow({ position: "Below" })).model;
-      expect(rows(m).map(({ id }) => id)).toEqual([ids[0], ids[1], newId, ids[2]]);
+      expect(rows(m).map(({ id }) => id)).toEqual([ids[0], ids[1], addedId(m), ids[2]]);
       expect(m.history.present.layout.nodes[nodeId]?.isExpanded).toBe(true);
-      expect(m.selection).toEqual(select(row(newId)));
+      expect(m.selection).toEqual(select(row(addedId(m))));
       expect(m.history.past).toHaveLength(1);
     });
 
@@ -1300,7 +1333,7 @@ describe("keyboard row verbs", () => {
       const cancelled = update(inserted, Message.PressedEscapeKey()).model;
       expect(rows(cancelled)[0]?.name).toBe(defaultName);
       expect(cancelled.editor).toEqual(EditorState.Idle());
-      expect(cancelled.selection).toEqual(select(row(newId)));
+      expect(cancelled.selection).toEqual(select(row(addedId(cancelled))));
       expect(cancelled.history).toBe(inserted.history);
 
       const footer = update(
@@ -1331,7 +1364,7 @@ describe("keyboard row verbs", () => {
       m = update(m, Message.PressedEnterKey()).model;
       expect(rows(m)[0]?.name).toBe("nickname");
       expect(m.editor).toEqual(EditorState.Idle());
-      expect(m.selection).toEqual(select(row(newId)));
+      expect(m.selection).toEqual(select(row(addedId(m))));
       expect(m.history.past).toHaveLength(2);
       m = update(m, Message.RequestedUndo()).model;
       expect(rows(m)[0]?.name).toBe(defaultName);
@@ -1406,10 +1439,16 @@ describe("files", () => {
       }),
       message(Message.RequestedSave()),
       Command.expectHas(SaveFile),
-      Command.resolve(SaveFile, Message.SucceededSaveFile({ fileName: "blog.domain.json" })),
+      Command.resolve(
+        SaveFile,
+        Message.SucceededSaveFile({
+          document: Doc.renameEntity(Doc.sampleDocument, "e3", "Label"),
+          path: "/models/blog.domain.json",
+        }),
+      ),
       model((m) => {
-        expect(m.saveStatus).toBe("Clean");
-        expect(m.maybeFileName).toEqual(Option.some("blog.domain.json"));
+        expect(isDirty(m)).toBe(false);
+        expect(maybeFileName(m)).toEqual(Option.some("blog.domain.json"));
         expect(Option.getOrThrow(Doc.findEntity(m.history.present, "e3")).name).toBe("Label");
       }),
     );
@@ -1422,17 +1461,17 @@ describe("files", () => {
     };
     story(
       update,
-      given({ ...baseModel, saveStatus: "Dirty" }),
+      given({ ...baseModel, maybeSavedDocument: Option.none() }),
       message(Message.RequestedOpen()),
       Command.resolve(
         OpenFile,
-        Message.SucceededOpenFile({ document: opened, fileName: "x.domain.json" }),
+        Message.SucceededOpenFile({ document: opened, path: "/models/x.domain.json" }),
       ),
       model((m) => {
         // Three entities and the Role enum.
         expect(Object.keys(m.history.present.layout.nodes)).toHaveLength(4);
         expect(m.history.past).toHaveLength(0);
-        expect(m.saveStatus).toBe("Clean");
+        expect(isDirty(m)).toBe(false);
       }),
     );
   });
@@ -1440,12 +1479,12 @@ describe("files", () => {
   test("a new model is undoable and forgets the file handle", () => {
     story(
       update,
-      given({ ...baseModel, maybeFileName: Option.some("blog.domain.json") }),
+      given({ ...baseModel, maybeFilePath: Option.some("/models/blog.domain.json") }),
       message(Message.RequestedNewDocument()),
-      Command.resolve(ForgetActiveFile, Message.CompletedForgetActiveFile()),
       model((m) => {
         expect(m.history.present.entities).toHaveLength(0);
-        expect(m.maybeFileName).toEqual(Option.none());
+        expect(m.maybeFilePath).toEqual(Option.none());
+        expect(isDirty(m)).toBe(true);
       }),
       message(Message.RequestedUndo()),
       model((m) => expect(m.history.present.entities).toHaveLength(3)),
@@ -1463,15 +1502,259 @@ describe("files", () => {
   });
 });
 
+describe("unsaved changes", () => {
+  const rename = Message.ChangedDocumentName({ name: "Renamed" });
+
+  test("an edit is dirty and undoing back to the saved document is clean", () => {
+    const edited = update(baseModel, rename).model;
+    expect(isDirty(baseModel)).toBe(false);
+    expect(isDirty(edited)).toBe(true);
+    expect(isDirty(update(edited, Message.RequestedUndo()).model)).toBe(false);
+  });
+
+  test("pan, zoom, and expansion alone stay clean", () => {
+    const zoomed = update(baseModel, Message.RequestedZoomIn()).model;
+    const expanded = update(zoomed, Message.ClickedToggleExpand({ nodeId: "e1" })).model;
+    expect(expanded.history.present).not.toEqual(baseModel.history.present);
+    expect(isDirty(expanded)).toBe(false);
+  });
+
+  test("save success records the written document, so a later edit stays dirty", () => {
+    const editedDuringSave = update(update(baseModel, Message.RequestedSave()).model, rename).model;
+    const saved = update(
+      editedDuringSave,
+      Message.SucceededSaveFile({ document: Doc.sampleDocument, path: "/models/blog.domain.json" }),
+    ).model;
+    expect(saved.maybeSavedDocument).toEqual(Option.some(Doc.sampleDocument));
+    expect(isDirty(saved)).toBe(true);
+  });
+});
+
 describe("window", () => {
   test("a close request with unsaved changes asks before closing", () => {
     story(
       update,
-      given({ ...baseModel, saveStatus: "Dirty" }),
+      given({ ...baseModel, maybeSavedDocument: Option.none() }),
       message(Message.RequestedWindowClose()),
       Command.expectExact(ConfirmCloseWindow),
       Command.resolve(ConfirmCloseWindow, Message.CancelledCloseWindow()),
-      model((m) => expect(m.saveStatus).toBe("Dirty")),
+      model((m) => expect(isDirty(m)).toBe(true)),
+    );
+  });
+});
+
+describe("external edits", () => {
+  const PATH = "/models/blog.domain.json";
+  const saved = Doc.syncLayout(Doc.sampleDocument);
+  const onDisk: Model = {
+    ...baseModel,
+    history: History.init(saved),
+    maybeFilePath: Option.some(PATH),
+    maybeSavedDocument: Option.some(saved),
+  };
+  const theirs = Doc.renameEntity(saved, "e3", "Label");
+  const arrived = (document: typeof saved) => Message.ReadFileOnDisk({ path: PATH, document });
+  const step = (m: Model, msg: Message): Model => update(m, msg).model;
+  // Commands carry their effect, so compare what they are, not how they run.
+  const described = (commands: ReadonlyArray<{ name: string; args?: unknown }> | undefined) =>
+    (commands ?? []).map(({ name, args }) => ({ name, args }));
+  const entityName = (m: Model, entityId: string) =>
+    Option.getOrThrow(Doc.findEntity(m.history.present, entityId)).name;
+
+  test("a change on disk or a return to the window reads the open file back", () => {
+    for (const signal of [Message.ChangedFileOnDisk(), Message.FocusedWindow()]) {
+      expect(described(update(onDisk, signal).commands)).toEqual(
+        described([CheckFileOnDisk({ path: PATH })]),
+      );
+      expect(update(baseModel, signal).commands ?? []).toEqual([]);
+    }
+  });
+
+  test("a clean document takes the change, stays clean, and says so", () => {
+    const m = step(onDisk, arrived(theirs));
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(m.history.past).toHaveLength(1);
+    expect(isDirty(m)).toBe(false);
+    expect(m.maybePendingDiskDocument).toEqual(Option.none());
+    expect(m.maybeNotice).toEqual(
+      Option.some({ tone: "Info", text: "Updated from blog.domain.json" }),
+    );
+  });
+
+  test("the viewport is never taken from disk", () => {
+    const panned = {
+      ...theirs,
+      layout: { ...theirs.layout, viewport: { pan: { x: 9, y: 9 }, zoom: 2 } },
+    };
+    const m = step(onDisk, arrived(panned));
+    expect(m.history.present.layout.viewport).toEqual(saved.layout.viewport);
+  });
+
+  test("unsaved edits merge with a change elsewhere and stay unsaved", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const m = step(edited, arrived(theirs));
+    expect(m.history.present.name).toBe("Mine");
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(m.maybeSavedDocument).toEqual(Option.some(theirs));
+    expect(isDirty(m)).toBe(true);
+  });
+
+  test("a conflict keeps ours and the notice names it", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const m = step(edited, arrived(Doc.renameDocument(theirs, "Theirs")));
+    expect(m.history.present.name).toBe("Mine");
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(m.maybeNotice).toEqual(
+      Option.some({
+        tone: "Info",
+        text: "Merged changes from blog.domain.json. Kept your version of Mine.",
+      }),
+    );
+  });
+
+  test("a long conflict list is capped", () => {
+    const renamedAll = (document: typeof saved, suffix: string) =>
+      ["e1", "e2", "e3"].reduce(
+        (acc, id) => Doc.renameEntity(acc, id, `${id}${suffix}`),
+        Doc.renameDocument(document, `Doc${suffix}`),
+      );
+    const ours = { ...onDisk, history: History.init(renamedAll(saved, "Ours")) };
+    const m = step(ours, arrived(renamedAll(saved, "Theirs")));
+    expect(Option.getOrThrow(m.maybeNotice).text).toMatch(/Kept your version of .+ and 1 more\.$/);
+  });
+
+  test("undo after a merge restores the document from before it", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const merged = step(edited, arrived(theirs));
+    const undone = step(merged, Message.RequestedUndo());
+    expect(undone.history.present).toEqual(edited.history.present);
+    expect(entityName(undone, "e3")).toBe(entityName(onDisk, "e3"));
+  });
+
+  test("a change is held while renaming and merged once the rename commits or cancels", () => {
+    const renaming = step(onDisk, Message.DoubleClickedEntityName({ entityId: "e1" }));
+    expect(renaming.editor._tag).toBe("RenamingEntity");
+    const held = step(renaming, arrived(theirs));
+    expect(entityName(held, "e3")).toBe(entityName(onDisk, "e3"));
+    expect(held.maybePendingDiskDocument).toEqual(Option.some(theirs));
+
+    const typed = step(held, Message.UpdatedEntityDraftName({ name: "Member" }));
+    const committed = step(typed, Message.PressedEnterKey());
+    expect(entityName(committed, "e1")).toBe("Member");
+    expect(entityName(committed, "e3")).toBe("Label");
+    expect(committed.maybePendingDiskDocument).toEqual(Option.none());
+
+    const cancelled = step(held, Message.PressedEscapeKey());
+    expect(entityName(cancelled, "e1")).toBe("User");
+    expect(entityName(cancelled, "e3")).toBe("Label");
+  });
+
+  test("only the latest change waits while busy", () => {
+    const busy = {
+      ...onDisk,
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "User" }),
+    };
+    const latest = Doc.renameEntity(saved, "e3", "Newest");
+    const held = step(step(busy, arrived(theirs)), arrived(latest));
+    expect(held.maybePendingDiskDocument).toEqual(Option.some(latest));
+    const applied = step(held, Message.PressedEscapeKey());
+    expect(entityName(applied, "e3")).toBe("Newest");
+    expect(applied.history.past).toHaveLength(1);
+  });
+
+  test("a change that reverts to the saved document drops what was pending", () => {
+    const busy = {
+      ...onDisk,
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "User" }),
+    };
+    const m = step(step(busy, arrived(theirs)), arrived(saved));
+    expect(m.maybePendingDiskDocument).toEqual(Option.none());
+  });
+
+  test("the saved document read back, as after our own save, is ignored", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    const m = step(edited, arrived(saved));
+    expect(m).toEqual(edited);
+  });
+
+  test("results for a file that is no longer open are ignored", () => {
+    const stale = Message.ReadFileOnDisk({ path: "/models/other.domain.json", document: theirs });
+    expect(step(onDisk, stale)).toEqual(onDisk);
+  });
+
+  test("an invalid file is reported once and the document is kept", () => {
+    const invalid = Message.FailedReadFileOnDisk({ path: PATH, issue: "Invalid" });
+    const first = step(onDisk, invalid);
+    expect(first.history).toBe(onDisk.history);
+    expect(first.maybeNotice).toEqual(
+      Option.some({
+        tone: "Error",
+        text: "blog.domain.json on disk isn't a valid model right now. Keeping your version.",
+      }),
+    );
+    const dismissed = step(first, Message.ClickedDismissNotice());
+    expect(step(dismissed, invalid).maybeNotice).toEqual(Option.none());
+    // Once it's valid again, a later problem is reported afresh.
+    const fixed = step(dismissed, arrived(theirs));
+    expect(step(step(fixed, Message.ClickedDismissNotice()), invalid).maybeNotice).not.toEqual(
+      Option.none(),
+    );
+  });
+
+  test("a missing file makes the document unsaved, so Save writes it back", () => {
+    const m = step(onDisk, Message.FailedReadFileOnDisk({ path: PATH, issue: "Missing" }));
+    expect(isDirty(m)).toBe(true);
+    expect(m.maybeFilePath).toEqual(Option.some(PATH));
+    expect(Option.getOrThrow(m.maybeNotice).tone).toBe("Error");
+    expect(described(update(m, Message.RequestedSave()).commands)).toEqual(
+      described([SaveFile({ document: m.history.present, maybePath: Option.some(PATH) })]),
+    );
+  });
+
+  test("without a saved document a different file waits for Reload from disk", () => {
+    const missing = step(onDisk, Message.FailedReadFileOnDisk({ path: PATH, issue: "Missing" }));
+    const m = step(step(missing, Message.ClickedDismissNotice()), arrived(theirs));
+    expect(entityName(m, "e3")).toBe(entityName(onDisk, "e3"));
+    expect(Option.getOrThrow(m.maybeNotice).text).toMatch(/changed on disk\. Reload from disk/);
+    // The same content back on disk is saved again.
+    const restored = step(missing, arrived(saved));
+    expect(isDirty(restored)).toBe(false);
+  });
+
+  test("save merges a pending change first, so it isn't overwritten", () => {
+    const busy = {
+      ...onDisk,
+      editor: EditorState.RenamingEntity({ entityId: "e1", draftName: "Member" }),
+    };
+    const held = step(busy, arrived(theirs));
+    const { model: m, commands } = update(held, Message.RequestedSave());
+    expect(entityName(m, "e3")).toBe("Label");
+    expect(described(commands)).toEqual(
+      described([SaveFile({ document: m.history.present, maybePath: Option.some(PATH) })]),
+    );
+  });
+
+  test("Reload from disk discards unsaved changes as one undoable step", () => {
+    const edited = step(onDisk, Message.ChangedDocumentName({ name: "Mine" }));
+    expect(described(update(edited, Message.PressedReloadFromDiskKey()).commands)).toEqual(
+      described([ReloadFileFromDisk({ path: PATH })]),
+    );
+    const reloaded = step(edited, Message.SucceededReloadFile({ path: PATH, document: theirs }));
+    expect(reloaded.history.present.name).toBe(saved.name);
+    expect(entityName(reloaded, "e3")).toBe("Label");
+    expect(isDirty(reloaded)).toBe(false);
+    expect(reloaded.maybeNotice).toEqual(
+      Option.some({ tone: "Info", text: "Reloaded blog.domain.json" }),
+    );
+    const undone = step(reloaded, Message.RequestedUndo());
+    expect(undone.history.present).toEqual(edited.history.present);
+  });
+
+  test("Reload from disk without a file says there's nothing to reload", () => {
+    const result = update(baseModel, Message.PressedReloadFromDiskKey());
+    expect(result.commands ?? []).toEqual([]);
+    expect(result.model.maybeNotice).toEqual(
+      Option.some({ tone: "Info", text: "No file to reload." }),
     );
   });
 });

@@ -1,7 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import { Data, Effect } from "effect";
+import { readTextFile, watch, writeTextFile, type UnwatchFn } from "@tauri-apps/plugin-fs";
+import { Data, Effect, Queue, Stream } from "effect";
 
 // Native dialogs pick a file and the fs plugin reads and writes it. Tauri
 // grants the fs plugin access to exactly the paths the user picks, nothing
@@ -51,4 +51,61 @@ export const read = (path: string): Effect.Effect<string, FileError> =>
 export const write = (path: string, contents: string): Effect.Effect<void, FileError> =>
   fromPromise(() => writeTextFile(path, contents));
 
-export const fileNameOf = (path: string): string => path.split(/[\\/]/).at(-1) ?? path;
+// WATCHING
+
+/** How long the watcher waits for a burst of changes to settle. */
+const WATCH_DELAY_MS = 300;
+/** How often to retry watching a file that isn't there (deleted or mid-replace). */
+const REWATCH_DELAY_MS = 2000;
+
+/** While the Stream runs, emits once per settled burst of changes to the file
+ *  at `path`. Many tools save by writing a new file and renaming it over the
+ *  old one, which ends a watch on some platforms, so each burst re-arms the
+ *  watch before it is reported: a read that follows can't miss a later change.
+ *  Outside the desktop shell it never emits. */
+export const changes = (path: string): Stream.Stream<void> =>
+  isTauri()
+    ? Stream.callback<void>((queue) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            let maybeUnwatch: UnwatchFn | undefined;
+            let maybeRetry: ReturnType<typeof setTimeout> | undefined;
+            let isRearming = false;
+            let isStopped = false;
+
+            // A file that comes back after a failed watch counts as a change.
+            const arm = (isRetry: boolean): Promise<void> =>
+              watch(path, onEvent, { delayMs: WATCH_DELAY_MS }).then(
+                (unwatch) => {
+                  if (isStopped) return unwatch();
+                  maybeUnwatch = unwatch;
+                  if (isRetry) Queue.offerUnsafe(queue, undefined);
+                },
+                () => {
+                  if (!isStopped) maybeRetry = setTimeout(() => void arm(true), REWATCH_DELAY_MS);
+                },
+              );
+
+            // One burst can carry several events; they re-arm and report once.
+            function onEvent(): void {
+              if (isRearming || isStopped) return;
+              isRearming = true;
+              maybeUnwatch?.();
+              maybeUnwatch = undefined;
+              void arm(false).then(() => {
+                isRearming = false;
+                if (!isStopped) Queue.offerUnsafe(queue, undefined);
+              });
+            }
+
+            void arm(false);
+            return () => {
+              isStopped = true;
+              clearTimeout(maybeRetry);
+              maybeUnwatch?.();
+            };
+          }),
+          (stop) => Effect.sync(stop),
+        ),
+      )
+    : Stream.empty;

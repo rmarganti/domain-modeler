@@ -7,7 +7,7 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 - `src/domain/`: pure document logic. It imports only `effect`, `pluralize`, and other domain modules: schema, document edits, history, diagnostics, naming, geometry, edge routing, card search.
 - `src/update/`: one module per feature area, called by `src/update.ts`.
 - `src/view/`: rendering. Entity and enum cards share chrome in `card.ts`.
-- `src/platform/`: the only code that touches Tauri (files, window close).
+- `src/platform/`: the only code that touches Tauri (files, file watching, window close).
 - `src/keymap.ts` + `src/subscription.ts`: every keyboard binding.
 
 ## Domain model
@@ -20,7 +20,7 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 - **A list can't be `unique`.** The document API forces `unique: false` when the max is `many`.
 - **Names:** entity and enum names share one case-insensitive namespace.
 - **Vocabulary:** code and the file format say "association" and "attribute"; the UI says "Relationship" and "field".
-- **ID prefixes:** IDs are derived from the document with one prefix per kind: `e` entity, `p` attribute, `t` type, `v` enum value, `r` association.
+- **IDs are random and opaque.** New IDs are 10 random lowercase letters and digits from a seeded generator (`ids.ts`) whose state lives in the Model, outside the document and history, so `update` stays pure and undo never rewinds it. An ID is never reused, so a merge can trust that the same ID means the same thing. Code never reads meaning into an ID, and older files with IDs like `e1` keep working.
 - **File format:** the version stays `1.0.0` while the project is early. The schema changes in place, with no migrations.
 - **JSON Schema:** `schema/domain-model.schema.json` is generated from `schema.ts` for agents and editors, and its descriptions come from the schema's annotations. A test fails when the two drift, and `pnpm schema:generate` rewrites it. It checks shape only. Rules that span the document, like references resolving, stay in diagnostics. Saved files lead with `"$schema": SCHEMA_URL`, the raw GitHub URL of that file on `main`. `$schema` exists only in the file codec (`DomainModelFile`): loading ignores whatever value is there, and `DomainModelDocument` never carries it.
 
@@ -60,7 +60,20 @@ A message records what happened, in the past tense. It is never a command, so th
 
 ## Persistence
 
-Native open and save dialogs go through the Tauri dialog and fs plugins. The active file path is held at runtime, outside the Model. Capabilities are least-privilege: there is no standing fs scope, and the dialog grants access to exactly the paths the user picks. Closing with unsaved changes asks for confirmation.
+Native open and save dialogs go through the Tauri dialog and fs plugins. The open file's path lives in the Model (`maybeFilePath`), so Save writes back to it and the watch subscription is keyed on it. Capabilities are least-privilege: there is no standing fs scope, and the dialog grants access to exactly the paths the user picks, which is also all that can be watched. Closing with unsaved changes asks for confirmation.
+
+Unsaved state isn't stored as a flag. The Model keeps the saved document (as last read from or written to disk), and `isDirty` compares the present document against it, so undoing back to the saved state reads as clean. Pan, zoom, and card expansion don't count as changes. The saved document is also the base for merging external edits to the open file.
+
+## External edits
+
+Coding agents, git, and editors change the open file on disk, and the app merges those changes in without losing unsaved work.
+
+- **Detecting.** A subscription keyed on `maybeFilePath` watches that one file (fs plugin `watch`, 300 ms debounce). Each burst re-arms the watch before it's reported, since saving by renaming a new file over the old one ends a watch on some platforms. Regaining window focus re-checks the file too, as a backstop. Either way the file is read, decoded, and synced with `Doc.syncLayout` so it compares with the saved document.
+- **Base = saved document.** A version equal to the saved document is ignored, which covers our own saves. Anything else becomes `maybePendingDiskDocument`, and a newer one replaces it.
+- **Hold while busy.** `update` merges the pending version after every message, but only while the editor is `Idle` or `ViewingShortcuts`. Editing text, dragging, panning, connecting, picking, and inspecting a relationship hold it. Save merges it first, so a save never overwrites it.
+- **Merging.** `merge(saved, present, theirs)`: ours wins every conflict and the viewport is always ours. The result is one history entry, so `u` restores exactly the document from before it, and the saved document becomes theirs. A notice says "Updated from…", or names what kept your version.
+- **Reload from disk** (`Shift+R`) replaces the document with the file's version as one undoable entry, discarding unsaved changes and anything pending.
+- **Problems.** An invalid file gets one error notice while it stays invalid, and the document is kept. A file that can't be read (deleted, moved) gets one notice and clears the saved document, so the model reads as unsaved and Save writes it back. Without a saved document there's no base to merge from: a differing file only gets a notice pointing at Reload from disk, and the same content counts as saved again.
 
 ## Edge routing
 
