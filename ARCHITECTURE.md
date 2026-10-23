@@ -53,7 +53,7 @@ A message records what happened, in the past tense. It is never a command, so th
 
 ## Keyboard
 
-- `src/keymap.ts` is the single source of truth. Each entry owns its keys, message, modes, description, and typing policy, and the help dialog, toolbar titles, and hints are all built from it. Add shortcuts there, nowhere else. A test requires every entry to appear in help.
+- `src/keymap.ts` is the single source of truth. Each entry owns its keys, message, modes, description, and typing policy, and the help dialog and toolbar titles are built from it. Add shortcuts there, nowhere else. A test requires every entry to appear in help.
 - Foldkit matches `event.key` and Shift exactly. Shifted keys need their produced character as an alias (`Shift+1` / `Shift+!`, `?` / `Shift+?`); `displayKeys` hides the alias.
 - On non-Apple platforms, the command palette is `Ctrl+Shift+K` (`otherKeys`), keeping `Ctrl+K` free for spatial navigation. Find card is `Mod+P` everywhere.
 - Tauri's `zoomHotkeysEnabled` stays off so `Mod+=` / `Mod+-` / `Mod+0` reach the app instead of zooming the webview.

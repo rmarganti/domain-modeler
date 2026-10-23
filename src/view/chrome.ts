@@ -3,7 +3,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import * as Diagnostics from "../domain/diagnostics";
 import * as History from "../domain/history";
-import { shortcutFor, shortcutTitle } from "../keymap";
+import { shortcutTitle } from "../keymap";
 import { Message } from "../message";
 import { EditorState, PickerPurpose, isDirty, maybeFileName, type Model } from "../model";
 
@@ -60,86 +60,69 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
 
 // STATUS
 
-type StatusPill = Readonly<{ label: string; className: string; hint: string }>;
+type StatusPill = Readonly<{ label: string; className: string }>;
 
-const pickingPill = (label: string, className: string, action: string): StatusPill => ({
-  label,
-  className,
-  hint: `${shortcutFor("pickNext")} / ${shortcutFor("pickPrevious")} choose · ${shortcutFor("pickCard")} ${action} · ${shortcutFor("escape")} cancel`,
-});
+const pickingPill = (label: string, className: string): StatusPill => ({ label, className });
 
 export const statusPill = (editor: EditorState): StatusPill =>
   EditorState.match<StatusPill>(editor, {
     Idle: () => ({
       label: "NORMAL",
       className: "bg-slate-800 text-white",
-      hint: `${shortcutFor("commandPalette")} commands · ${shortcutFor("findCard")} find · ${shortcutFor("create")} create · ${shortcutFor("connect")} connect · ${shortcutFor("edit")} edit · ${shortcutFor("undo")} undo · ${shortcutFor("shortcuts")} shortcuts`,
     }),
     Picking: ({ purpose }) =>
       PickerPurpose.match(purpose, {
-        Focus: () => pickingPill("FIND", "bg-indigo-600 text-white", "focus"),
-        Connect: () => pickingPill("CONNECT", "bg-violet-600 text-white", "connect"),
-        RunCommand: () => pickingPill("COMMAND", "bg-slate-800 text-white", "run"),
+        Focus: () => pickingPill("FIND", "bg-indigo-600 text-white"),
+        Connect: () => pickingPill("CONNECT", "bg-violet-600 text-white"),
+        RunCommand: () => pickingPill("COMMAND", "bg-slate-800 text-white"),
       }),
     ViewingShortcuts: () => ({
       label: "HELP",
       className: "bg-slate-800 text-white",
-      hint: `${shortcutFor("escape")} / ${shortcutFor("shortcuts")} close`,
     }),
     ChoosingNew: () => ({
       label: "NEW",
       className: "bg-emerald-600 text-white",
-      hint: `${shortcutFor("chooseUp")}${shortcutFor("chooseDown")} choose · ${shortcutFor("choose")} pick · ${shortcutFor("chooseEntity")} entity · ${shortcutFor("chooseEnum")} enum · ${shortcutFor("escape")} cancel`,
     }),
     CreatingEntity: () => ({
       label: "CREATING",
       className: "bg-emerald-600 text-white",
-      hint: `${shortcutFor("commit")} create · ${shortcutFor("escape")} cancel`,
     }),
     RenamingEntity: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     EditingAttribute: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     CreatingEnum: () => ({
       label: "CREATING",
       className: "bg-emerald-600 text-white",
-      hint: `${shortcutFor("commit")} create · ${shortcutFor("escape")} cancel`,
     }),
     RenamingEnum: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     EditingEnumValue: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: `${shortcutFor("commit")} commit · ${shortcutFor("escape")} cancel`,
     }),
     EditingAssociation: () => ({
       label: "EDITING",
       className: "bg-indigo-600 text-white",
-      hint: `${shortcutFor("delete")} remove edge · ${shortcutFor("escape")} close`,
     }),
     ConnectingAssociation: () => ({
       label: "CONNECTING",
       className: "bg-violet-600 text-white",
-      hint: `Release on an entity to connect · ${shortcutFor("escape")} cancel`,
     }),
     DraggingNode: () => ({
       label: "MOVING",
       className: "bg-sky-600 text-white",
-      hint: "Release to place",
     }),
     PanningCanvas: () => ({
       label: "PANNING",
       className: "bg-sky-600 text-white",
-      hint: "Release to stop",
     }),
   });
 
@@ -302,7 +285,6 @@ export const toolbarView = (
                 ),
               ]
             : []),
-          h.span([h.Class("hidden truncate text-slate-400 lg:inline")], [pill.hint]),
           h.span(
             [
               h.Class(
