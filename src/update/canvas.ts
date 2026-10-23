@@ -1,5 +1,6 @@
 import { Option } from "effect";
 
+import { arrange } from "../domain/arrange";
 import * as Doc from "../domain/document";
 import * as Geometry from "../domain/geometry";
 import type { Point } from "../domain/schema";
@@ -297,6 +298,10 @@ const fitCards = (model: Model, rects: ReadonlyArray<Geometry.Rect>, maximumZoom
 
 export const fitToScreen = (model: Model): Model =>
   fitCards(model, Geometry.cardRects(present(model)));
+
+/** Arranges every card as one undoable edit, then fits them on screen. */
+export const autoArrange = (model: Model): Model =>
+  fitToScreen(commitDocument(toIdle(finishEditing(model)), arrange));
 
 export const zoomToSelection = (model: Model): Model => {
   const document = present(model);
