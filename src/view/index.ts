@@ -23,11 +23,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
       [h.Class("fixed inset-0 overflow-hidden font-sans text-slate-900 antialiased")],
       [
         h.div(
-          [
-            h.Inert(
-              model.editor._tag === "ViewingShortcuts" || model.editor._tag === "PickingCard",
-            ),
-          ],
+          [h.Inert(model.editor._tag === "ViewingShortcuts" || model.editor._tag === "Picking")],
           [
             canvasView(model, diagnostics, h),
             hudView(model, h),

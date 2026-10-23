@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 
-import { FocusInput, RevealCardOption } from "./command";
+import { FocusInput, RevealPickerOption } from "./command";
 import * as Doc from "./domain/document";
 import * as Geometry from "./domain/geometry";
 import * as History from "./domain/history";
@@ -25,11 +25,12 @@ const initial: Model = {
   maybePendingDiskDocument: Option.none(),
   maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
+  recentCommandIds: [],
 };
 const step = (m: Model, msg: Message): Model => update(m, msg).model;
 const opened = (m = initial): Model => step(m, Message.PressedFindCardKey());
 const highlighted = (m: Model): number => {
-  if (m.editor._tag !== "PickingCard") throw new Error("Expected picker");
+  if (m.editor._tag !== "Picking") throw new Error("Expected picker");
   return m.editor.highlighted;
 };
 
@@ -46,22 +47,22 @@ describe("card picker", () => {
       update,
       given(initial),
       message(Message.PressedFindCardKey()),
-      Command.expectExact(FocusInput({ selector: "#card-query-input" })),
+      Command.expectExact(FocusInput({ selector: "#picker-input" })),
       Command.resolve(FocusInput, Message.CompletedFocusInput()),
       model((m) => {
         expect(m.editor).toEqual(
-          EditorState.PickingCard({ query: "", highlighted: 0, purpose: PickerPurpose.Focus() }),
+          EditorState.Picking({ query: "", highlighted: 0, purpose: PickerPurpose.Focus() }),
         );
         expect(toKeyMode(m.editor)).toBe("Picking");
       }),
-      message(Message.MovedCardHighlight({ direction: "Down" })),
-      Command.resolve(RevealCardOption, Message.CompletedRevealCardOption()),
+      message(Message.MovedPickerHighlight({ direction: "Down" })),
+      Command.resolve(RevealPickerOption, Message.CompletedRevealPickerOption()),
       model((m) => expect(highlighted(m)).toBe(1)),
-      message(Message.UpdatedCardQuery({ query: "ta" })),
-      Command.resolve(RevealCardOption, Message.CompletedRevealCardOption()),
+      message(Message.UpdatedPickerQuery({ query: "ta" })),
+      Command.resolve(RevealPickerOption, Message.CompletedRevealPickerOption()),
       model((m) => {
         expect(m.editor).toEqual(
-          EditorState.PickingCard({ query: "ta", highlighted: 0, purpose: PickerPurpose.Focus() }),
+          EditorState.Picking({ query: "ta", highlighted: 0, purpose: PickerPurpose.Focus() }),
         );
         expect(m.history).toBe(initial.history);
         expect(isDirty(m)).toBe(false);
@@ -79,24 +80,24 @@ describe("card picker", () => {
 
   test("highlight wraps both ways and stays valid with one or zero matches", () => {
     let m = opened();
-    m = step(m, Message.MovedCardHighlight({ direction: "Up" }));
+    m = step(m, Message.MovedPickerHighlight({ direction: "Up" }));
     expect(highlighted(m)).toBe(3);
-    m = step(m, Message.MovedCardHighlight({ direction: "Down" }));
+    m = step(m, Message.MovedPickerHighlight({ direction: "Down" }));
     expect(highlighted(m)).toBe(0);
     for (let index = 0; index < 4; index++)
-      m = step(m, Message.MovedCardHighlight({ direction: "Down" }));
+      m = step(m, Message.MovedPickerHighlight({ direction: "Down" }));
     expect(highlighted(m)).toBe(0);
-    m = step(m, Message.UpdatedCardQuery({ query: "role" }));
-    expect(highlighted(step(m, Message.MovedCardHighlight({ direction: "Up" })))).toBe(0);
-    m = step(m, Message.UpdatedCardQuery({ query: "zzz" }));
-    expect(step(m, Message.MovedCardHighlight({ direction: "Down" }))).toBe(m);
+    m = step(m, Message.UpdatedPickerQuery({ query: "role" }));
+    expect(highlighted(step(m, Message.MovedPickerHighlight({ direction: "Up" })))).toBe(0);
+    m = step(m, Message.UpdatedPickerQuery({ query: "zzz" }));
+    expect(step(m, Message.MovedPickerHighlight({ direction: "Down" }))).toBe(m);
     expect(step(m, Message.PressedEnterKey())).toBe(m);
   });
 
   test.each(priorSelections)("cancel preserves prior selection/cursor $._tag", (selection) => {
     const start = { ...initial, selection };
     for (const cancel of [Message.PressedEscapeKey(), Message.ClickedCancelEdit()]) {
-      const end = step(step(opened(start), Message.UpdatedCardQuery({ query: "zzz" })), cancel);
+      const end = step(step(opened(start), Message.UpdatedPickerQuery({ query: "zzz" })), cancel);
       expect(end.editor).toEqual(EditorState.Idle());
       expect(end.selection).toEqual(selection);
       expect(end.history).toBe(start.history);
@@ -121,7 +122,7 @@ describe("card picker", () => {
             history: { present: document, past: [document], future: [document] },
             maybeSavedDocument: Option.none(),
           };
-          const end = step(opened(start), Message.PickedCard({ nodeId }));
+          const end = step(opened(start), Message.PickedOption({ optionId: nodeId }));
           expect(end.editor).toEqual(EditorState.Idle());
           expect(end.selection).toEqual(
             nodeId === "t1"
@@ -162,7 +163,7 @@ describe("card picker", () => {
         zoom: 1,
       });
       const start: Model = { ...initial, history: History.init(document) };
-      const end = step(opened(start), Message.PickedCard({ nodeId }));
+      const end = step(opened(start), Message.PickedOption({ optionId: nodeId }));
       expect(end.selection).toEqual(
         nodeId === "t1"
           ? Selection.SelectedEnum({ typeId: nodeId, row: CardRow.Title() })
@@ -188,12 +189,12 @@ describe("card picker", () => {
   test("empty documents and filtered-out or stale picks cannot mutate a card", () => {
     const empty = opened({ ...initial, history: History.init(Doc.emptyDocument("Empty")) });
     expect(step(empty, Message.PressedEnterKey())).toBe(empty);
-    const m = step(opened(), Message.UpdatedCardQuery({ query: "role" }));
-    expect(step(m, Message.PickedCard({ nodeId: "e1" }))).toBe(m);
-    expect(step(m, Message.PickedCard({ nodeId: "missing" }))).toBe(m);
-    expect(step(initial, Message.PickedCard({ nodeId: "e1" }))).toBe(initial);
-    expect(step(initial, Message.UpdatedCardQuery({ query: "foo" }))).toBe(initial);
-    expect(step(initial, Message.MovedCardHighlight({ direction: "Down" }))).toBe(initial);
+    const m = step(opened(), Message.UpdatedPickerQuery({ query: "role" }));
+    expect(step(m, Message.PickedOption({ optionId: "e1" }))).toBe(m);
+    expect(step(m, Message.PickedOption({ optionId: "missing" }))).toBe(m);
+    expect(step(initial, Message.PickedOption({ optionId: "e1" }))).toBe(initial);
+    expect(step(initial, Message.UpdatedPickerQuery({ query: "foo" }))).toBe(initial);
+    expect(step(initial, Message.MovedPickerHighlight({ direction: "Down" }))).toBe(initial);
   });
 
   test("picker cannot open during text, pointer, help or chooser interactions", () => {
@@ -219,15 +220,15 @@ describe("card picker", () => {
       Message.SucceededOpenFile({ document: Doc.sampleDocument, path: "/models/other.json" }),
     );
     expect(end.editor).toEqual(EditorState.Idle());
-    expect(step(end, Message.PickedCard({ nodeId: "e1" }))).toBe(end);
-    expect(step(end, Message.CompletedRevealCardOption())).toBe(end);
+    expect(step(end, Message.PickedOption({ optionId: "e1" }))).toBe(end);
+    expect(step(end, Message.CompletedRevealPickerOption())).toBe(end);
   });
 
   test("registry restricts Find card to Normal and allows picker controls while typing", () => {
     expect(helpSectionOf("findCard")).toBe("Move around");
     for (const [platform, shortcut] of [
-      ["Apple", "Mod+K"],
-      ["Other", "Mod+Shift+K"],
+      ["Apple", "Mod+P"],
+      ["Other", "Mod+P"],
     ] as const) {
       expect(
         bindingsFor("Normal", platform)
@@ -256,7 +257,7 @@ describe("card picker", () => {
     ] as const) {
       expect(
         bindings.find((binding) => binding.keys === keys)?.mapEvent(new KeyboardEvent("keydown")),
-      ).toEqual(Message.MovedCardHighlight({ direction }));
+      ).toEqual(Message.MovedPickerHighlight({ direction }));
     }
   });
 });

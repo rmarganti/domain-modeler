@@ -43,6 +43,7 @@ const initial: Model = {
   maybePendingDiskDocument: Option.none(),
   maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
+  recentCommandIds: [],
 };
 const selection = (id: string) =>
   id === "t1"
@@ -385,15 +386,15 @@ describe("spatial card navigation", () => {
       expect(
         bindings.find(({ keys }) => keys === "Control+R")?.mapEvent(new KeyboardEvent("keydown")),
       ).toEqual(Message.RequestedRedo());
-      const find = KEYMAP.find(({ id }) => id === "findCard")!;
-      expect(formatKeys(keysFor(find, platform), platform)).toBe(
+      const palette = KEYMAP.find(({ id }) => id === "commandPalette")!;
+      expect(formatKeys(keysFor(palette, platform), platform)).toBe(
         platform === "Apple" ? "⌘K" : "Ctrl+Shift+K",
       );
       expect(
         bindings
-          .find(({ keys }) => keys === keysFor(find, platform)[0])
+          .find(({ keys }) => keys === keysFor(palette, platform)[0])
           ?.mapEvent(new KeyboardEvent("keydown")),
-      ).toEqual(Message.PressedFindCardKey());
+      ).toEqual(Message.PressedCommandPaletteKey());
     }
     for (const id of ["cardLeft", "cardDown", "cardUp", "cardRight"])
       expect(helpSectionOf(id)).toBe("Move around");

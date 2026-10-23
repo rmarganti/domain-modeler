@@ -34,6 +34,7 @@ const baseModel: Model = {
   maybePendingDiskDocument: Option.none(),
   maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
+  recentCommandIds: [],
 };
 
 // New IDs are random, so tests find what an action created instead of naming it.

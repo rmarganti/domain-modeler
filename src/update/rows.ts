@@ -119,6 +119,29 @@ export const toggleExpanded = (model: Model): Model =>
     },
   });
 
+/** Whether the current card is expanded; None without a current card. */
+export const isCurrentCardExpanded = (model: Model): Option.Option<boolean> =>
+  Option.map(
+    cardCursor(model),
+    (cursor) => present(model).layout.nodes[cursor.nodeId]?.isExpanded ?? false,
+  );
+
+/** Expands or collapses every card. Collapsing returns the cursor to the title. */
+export const setAllExpanded = (model: Model, isExpanded: boolean): Model => {
+  const changed = amendDocument(model, (document) =>
+    Object.keys(document.layout.nodes).reduce(
+      (next, nodeId) => Doc.setExpanded(next, nodeId, isExpanded),
+      document,
+    ),
+  );
+  return isExpanded
+    ? changed
+    : Option.match(cardCursor(changed), {
+        onNone: () => changed,
+        onSome: (cursor) => ({ ...changed, selection: cursor.select(CardRow.Title()) }),
+      });
+};
+
 export const select = (model: Model, selection: Selection): Model =>
   reconcile({ ...toIdle(finishEditing(model)), selection });
 

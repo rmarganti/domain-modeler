@@ -2,6 +2,7 @@ import { Option, pipe } from "effect";
 import type { Update } from "foldkit";
 
 import { FocusInput } from "../command";
+import { PICKER_INPUT_ID } from "../dom";
 import * as Doc from "../domain/document";
 import * as Geometry from "../domain/geometry";
 import * as History from "../domain/history";
@@ -56,6 +57,25 @@ export const toggleExpanded = (model: Model, nodeId: string): Model =>
 
 export const toIdle = (model: Model): Model => ({ ...model, editor: EditorState.Idle() });
 
+/** Opens a picker with an empty query and focuses its input. Pickers open from
+ *  Idle, or over the relationship inspector, which they replace. */
+export const openPicker = (model: Model, purpose: PickerPurpose): UpdateReturn =>
+  model.editor._tag !== "Idle" && model.editor._tag !== "EditingAssociation"
+    ? { model }
+    : {
+        model: {
+          ...model,
+          editor: EditorState.Picking({ query: "", highlighted: 0, purpose }),
+          panKey: "Released",
+        },
+        commands: [focus(PICKER_INPUT_ID)],
+      };
+
+export const showShortcuts = (model: Model): UpdateReturn => ({
+  model: { ...model, editor: EditorState.ViewingShortcuts(), panKey: "Released" },
+  commands: [FocusInput({ selector: "#keyboard-shortcuts" })],
+});
+
 export const deselect = (model: Model): Model => ({
   ...model,
   selection: Selection.NoSelection(),
@@ -106,10 +126,11 @@ export const reconcile = (model: Model): Model => {
   const isEditorValid = EditorState.match(model.editor, {
     Idle: () => true,
     ChoosingNew: () => true,
-    PickingCard: ({ purpose }) =>
+    Picking: ({ purpose }) =>
       PickerPurpose.match(purpose, {
         Focus: () => true,
         Connect: ({ sourceEntityId }) => hasEntity(sourceEntityId),
+        RunCommand: () => true,
       }),
     ViewingShortcuts: () => true,
     CreatingEntity: () => true,

@@ -199,7 +199,7 @@ const commitEnumValueEdit = (
 export const finishEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
     Idle: () => model,
-    PickingCard: () => toIdle(model),
+    Picking: () => toIdle(model),
     ChoosingNew: () => toIdle(model),
     ViewingShortcuts: () => toIdle(model),
     CreatingEntity: ({ position, draftName }) => commitCreateEntity(model, position, draftName),
@@ -220,7 +220,7 @@ export const finishEditing = (model: Model): Model =>
 export const cancelEditing = (model: Model): Model =>
   EditorState.match(model.editor, {
     Idle: () => deselect(model),
-    PickingCard: () => toIdle(model),
+    Picking: () => toIdle(model),
     ChoosingNew: () => toIdle(model),
     ViewingShortcuts: () => toIdle(model),
     CreatingEntity: () => toIdle(model),

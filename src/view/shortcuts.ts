@@ -11,16 +11,7 @@ import {
 } from "../keymap";
 import { Message } from "../message";
 import type { Model } from "../model";
-
-const kbd = (h: HtmlBuilder<Message>, chip: string): Html =>
-  h.kbd(
-    [
-      h.Class(
-        "rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-800",
-      ),
-    ],
-    [chip],
-  );
+import { kbd } from "./shared";
 
 /** Alternatives separated by a muted "or"; chips within one alternative sit together. */
 const keysView = (h: HtmlBuilder<Message>, item: HelpItem): Html =>

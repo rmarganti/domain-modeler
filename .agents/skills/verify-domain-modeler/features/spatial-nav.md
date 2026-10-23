@@ -15,7 +15,7 @@ Move between entity and enum cards with Ctrl+h/j/k/l, selecting the title withou
 
 - Select any entity or enum, then hold Control and press h, j, k, or l. Control is literal on every platform, not Command.
 - With nothing selected, or a relationship selected and its inspector open, use any of the four keys to select the nearest card to the viewport center.
-- Find card remains Command+K on Apple; elsewhere it is Ctrl+Shift+K because Ctrl+K now means spatial-up.
+- The command palette is Command+K on Apple; elsewhere it is Ctrl+Shift+K because Ctrl+K means spatial-up. Find card is Command+P (Ctrl+P elsewhere).
 
 ## Driving it with agent-browser
 
@@ -29,13 +29,13 @@ Preconditions: the Blog baseline from the feature index. Store the exact journey
 - **Fallback:** `ab press Escape`, read card/canvas centers, then `ab press Control+j`. The closest card to the canvas center becomes current. Click `Relationship writes 1:0..*`, then any spatial key; the same nearest-center rule applies and the inspector closes. Typing in an inspector input does not navigate.
 - **History:** navigation from the clean sample leaves Undo disabled. Add a row with o, Escape, then undo; use spatial keys, then Control+r. The row returns and Redo clears: navigation did not destroy the redo stack.
 - **Text isolation:** Enter/i on a title enters EDITING; Control+h/j/k/l must not select another card or exit editing. Native text-control behavior may affect the draft; cancel with Escape. The toolbar's Model name is also an editable target even when the mode says NORMAL.
-- **Discovery:** `ab press ?`; `ab get text '[role="dialog"][aria-label="Keyboard shortcuts"]'` lists Select card to the left/below/above/to the right with Control shortcuts. On non-Apple, Find card must show Ctrl+Shift+K. Escape closes help.
+- **Discovery:** `ab press ?`; `ab get text '[role="dialog"][aria-label="Keyboard shortcuts"]'` lists Select card to the left/below/above/to the right with Control shortcuts. On non-Apple, Run a command must show Ctrl+Shift+K. Escape closes help.
 - **Finish:** `ab errors` is empty; run doctor and cleanup.
 
 ## Gotchas
 
 - To hold Space with this CLI, use `ab keydown ' '` / `ab keyup ' '` (a literal space); `keydown Space` sends a key that does not activate panning. Confirm the canvas has `cursor-grab` before dragging.
-- Use `ab press Control+k`, not Meta+k, for spatial-up. Meta+k opens Find card on Apple. Ctrl+k is no longer Find card on non-Apple platforms.
+- Use `ab press Control+k`, not Meta+k, for spatial-up. Meta+k opens the command palette on Apple. Ctrl+k is not the palette on non-Apple platforms.
 - Compact and expanded cards have different centers. Re-read boxes after any pointer header click or explicit size change; these can change the expected cone/score.
 - An oversized card cannot fit fully at unchanged zoom. It aligns the nearest edge or stays put if already spanning the viewport; verify this separately from ordinary full-visibility assertions.
 - Visible-card navigation intentionally does not center the target. A missing directional candidate does not reset a field/value cursor to Title.

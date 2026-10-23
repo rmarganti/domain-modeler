@@ -12,7 +12,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 ## Driving conventions
 
-- Start every recipe from the baseline. `ab reload` restores it (the app keeps no state across reloads).
+- Start every recipe from the baseline. `ab reload` restores it. The only state kept across reloads is the command palette's recent list (`localStorage`).
 - Assert the mode pill after every step that changes mode: `ab get attr '[aria-label^="Mode:"]' aria-label`.
 - Prefer aria labels and roles. For unlabeled or repeated buttons, take a ref from `ab snapshot -i -s '<card selector>'`.
 - Treat every command as literal apart from expanding `ab`. Keep quoted names unchanged.
@@ -41,7 +41,8 @@ Keep implementation details out of the map. Name only user paths, stable handles
 ## Features
 
 - [Spatial navigation](./spatial-nav.md) covers Ctrl+h/j/k/l directional selection, viewport-center fallback, minimal reveal pan, and expansion/history preservation.
-- [Card picker](./card-picker.md) covers Command+K (Ctrl+Shift+K elsewhere) fuzzy entity/enum search, ranking/highlights, keyboard/mouse picking, centering without resize/zoom, and cancellation.
+- [Command palette](./command-palette.md) covers Command+K (Ctrl+Shift+K elsewhere) fuzzy command search, aliases, hidden selection commands, running commands, and recents kept across reloads.
+- [Card picker](./card-picker.md) covers Command+P (Ctrl+P elsewhere) fuzzy entity/enum search, ranking/highlights, keyboard/mouse picking, centering without resize/zoom, and cancellation.
 - [Row cursor](./row-cursor.md) covers title/field/value selection, j/k and gg/G motion, row-aware edit/delete, o/O insertion, J/K reorder, and undo/redo safety.
 - [Zoom and fit](./zoom.md) covers keyboard/HUD zoom, fit-all, fit-selection, text-mode behavior, and history preservation.
 - [Auto-arrange](./auto-arrange.md) covers the HUD button and Shift+A column layout, fitting afterwards, and one-step undo.

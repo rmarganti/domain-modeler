@@ -4,6 +4,7 @@ import { Command, Dom } from "foldkit";
 import { DomainModelDocument, DomainModelDocumentJsonString } from "./domain/schema";
 import { Message } from "./message";
 import * as Files from "./platform/files";
+import * as Preferences from "./platform/preferences";
 import * as AppWindow from "./platform/window";
 
 // FILES
@@ -119,13 +120,24 @@ export const ConfirmCloseWindow = Command.define("ConfirmCloseWindow", {
   }),
 });
 
+// PREFERENCES
+
+export const RememberRecentCommands = Command.define("RememberRecentCommands", {
+  args: { ids: Schema.Array(Schema.String) },
+  messages: [Message.CompletedRememberRecentCommands],
+  execute: ({ ids }) =>
+    Preferences.saveRecentCommandIds(ids).pipe(
+      Effect.as(Message.CompletedRememberRecentCommands()),
+    ),
+});
+
 // FOCUS
 
-export const RevealCardOption = Command.define("RevealCardOption", {
-  messages: [Message.CompletedRevealCardOption],
-  execute: Dom.scrollIntoView('#card-options [aria-selected="true"]', { block: "nearest" }).pipe(
+export const RevealPickerOption = Command.define("RevealPickerOption", {
+  messages: [Message.CompletedRevealPickerOption],
+  execute: Dom.scrollIntoView('#picker-options [aria-selected="true"]', { block: "nearest" }).pipe(
     Effect.ignore,
-    Effect.as(Message.CompletedRevealCardOption()),
+    Effect.as(Message.CompletedRevealPickerOption()),
   ),
 });
 

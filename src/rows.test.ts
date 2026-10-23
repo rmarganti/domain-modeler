@@ -22,6 +22,7 @@ const initial: Model = {
   maybePendingDiskDocument: Option.none(),
   maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
+  recentCommandIds: [],
 };
 const step = (model: Model, message: Message): Model => update(model, message).model;
 const move = (model: Model, motion: "Next" | "Previous" | "First" | "Last") =>

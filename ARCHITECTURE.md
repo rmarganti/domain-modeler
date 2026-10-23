@@ -4,7 +4,7 @@ A canvas editor for domain models (entities, enums, associations), built on Fold
 
 ## Code map
 
-- `src/domain/`: pure document logic. It imports only `effect`, `pluralize`, and other domain modules: schema, document edits, history, diagnostics, naming, geometry, edge routing, card search, auto-arrange.
+- `src/domain/`: pure document logic. It imports only `effect`, `pluralize`, and other domain modules: schema, document edits, history, diagnostics, naming, geometry, edge routing, fuzzy matching, card search, auto-arrange.
 - `src/update/`: one module per feature area, called by `src/update.ts`.
 - `src/view/`: rendering. Entity and enum cards share chrome in `card.ts`.
 - `src/platform/`: the only code that touches Tauri (files, file watching, window close).
@@ -55,8 +55,17 @@ A message records what happened, in the past tense. It is never a command, so th
 
 - `src/keymap.ts` is the single source of truth. Each entry owns its keys, message, modes, description, and typing policy, and the help dialog, toolbar titles, and hints are all built from it. Add shortcuts there, nowhere else. A test requires every entry to appear in help.
 - Foldkit matches `event.key` and Shift exactly. Shifted keys need their produced character as an alias (`Shift+1` / `Shift+!`, `?` / `Shift+?`); `displayKeys` hides the alias.
-- On non-Apple platforms, Find card is `Ctrl+Shift+K` (`otherKeys`), keeping `Ctrl+K` free for spatial navigation.
+- On non-Apple platforms, the command palette is `Ctrl+Shift+K` (`otherKeys`), keeping `Ctrl+K` free for spatial navigation. Find card is `Mod+P` everywhere.
 - Tauri's `zoomHotkeysEnabled` stays off so `Mod+=` / `Mod+-` / `Mod+0` reach the app instead of zooming the webview.
+
+## Pickers and the command palette
+
+Find card (`Mod+P`), Connect to… (`r`), and the command palette (`Mod+K`) are one editor state, `Picking`, with a `PickerPurpose`. They share the query, highlight, `Picking` key mode, messages, and overlay. Only the options and what picking one does differ. All of them rank with `fuzzyMatch` (`fuzzy.ts`).
+
+- **Commands** live in `PALETTE_COMMANDS` (`update/palette.ts`): an id, label, group, aliases, the keymap entry whose keys to show, an availability check, and the update to run. Picking from the palette sends `PickedOption`, never a key's `Pressed…` message, and runs the update directly.
+- **Commands that don't apply are hidden**, not disabled: selection commands without a selection, Undo with nothing to undo, Reload without a file.
+- **Aliases** rank below every label match, and the row shows the alias that matched.
+- **Recents** are command ids, newest first, capped at 5. They're app-wide, not per model, and are kept in `localStorage`: read once into the flags, written by a command after each run. Unknown ids are dropped on load, so renaming a command id only forgets it.
 
 ## Persistence
 

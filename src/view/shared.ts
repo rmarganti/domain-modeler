@@ -28,6 +28,17 @@ export const canvasItem = (h: HtmlBuilder<Message>) => h.DataAttribute(CANVAS_IT
 
 export const px = (value: number): string => `${value}px`;
 
+/** One key chip, as in the shortcuts dialog and the command palette. */
+export const kbd = (h: HtmlBuilder<Message>, chip: string): Html =>
+  h.kbd(
+    [
+      h.Class(
+        "rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-800",
+      ),
+    ],
+    [chip],
+  );
+
 export const iconButton = (
   h: HtmlBuilder<Message>,
   config: Readonly<{

@@ -1,58 +1,58 @@
 import { Option } from "effect";
 
-import { FocusInput, RevealCardOption } from "../command";
+import { RevealPickerOption } from "../command";
 import * as Doc from "../domain/document";
-import { CARD_QUERY_INPUT_ID } from "../dom";
 import { searchCards } from "../domain/card-search";
 import type { MoveDirection } from "../message";
 import { EditorState, PickerPurpose, type Model } from "../model";
 import { create } from "./associations";
 import { focusCard } from "./canvas";
-import { present, toIdle, type UpdateReturn } from "./shared";
+import * as Palette from "./palette";
+import { openPicker, present, toIdle, type UpdateReturn } from "./shared";
 
-const openFor = (model: Model, purpose: PickerPurpose): UpdateReturn =>
-  model.editor._tag !== "Idle" && model.editor._tag !== "EditingAssociation"
-    ? { model }
-    : {
-        model: {
-          ...model,
-          editor: EditorState.PickingCard({ query: "", highlighted: 0, purpose }),
-          panKey: "Released",
-        },
-        commands: [FocusInput({ selector: `#${CARD_QUERY_INPUT_ID}` })],
-      };
+// PICKERS
+// One overlay, three purposes: Find card, Connect to…, and the command palette.
+// They share the query, highlight, keys, and view; only the options and what
+// picking one does differ.
 
-export const open = (model: Model): UpdateReturn => openFor(model, PickerPurpose.Focus());
+type PickingEditor = Extract<EditorState, { _tag: "Picking" }>;
+
+export const open = (model: Model): UpdateReturn => openPicker(model, PickerPurpose.Focus());
+
+export const openPalette = (model: Model): UpdateReturn =>
+  openPicker(model, PickerPurpose.RunCommand());
 
 export const openConnect = (model: Model): UpdateReturn => {
   const selection = model.selection;
   return selection._tag === "SelectedEntity" &&
     Option.isSome(Doc.findEntity(present(model), selection.entityId))
-    ? openFor(model, PickerPurpose.Connect({ sourceEntityId: selection.entityId }))
+    ? openPicker(model, PickerPurpose.Connect({ sourceEntityId: selection.entityId }))
     : { model };
 };
 
-const matches = (model: Model, editor: Extract<EditorState, { _tag: "PickingCard" }>) =>
-  searchCards(
-    present(model),
-    editor.query,
-    editor.purpose._tag === "Connect" ? "Entity" : undefined,
-  );
+/** The ids of the options on offer, in display order. */
+const optionIds = (model: Model, editor: PickingEditor): ReadonlyArray<string> =>
+  PickerPurpose.match(editor.purpose, {
+    Focus: () => searchCards(present(model), editor.query).map(({ card }) => card.nodeId),
+    Connect: () =>
+      searchCards(present(model), editor.query, "Entity").map(({ card }) => card.nodeId),
+    RunCommand: () => Palette.options(model, editor.query).map(({ command }) => command.id),
+  });
 
 export const changeQuery = (model: Model, query: string): UpdateReturn =>
-  model.editor._tag !== "PickingCard"
+  model.editor._tag !== "Picking"
     ? { model }
     : {
         model: { ...model, editor: { ...model.editor, query, highlighted: 0 } },
-        commands: [RevealCardOption()],
+        commands: [RevealPickerOption()],
       };
 
 export const moveHighlight = (model: Model, direction: typeof MoveDirection.Type): UpdateReturn => {
   const editor = model.editor;
-  if (editor._tag !== "PickingCard") {
+  if (editor._tag !== "Picking") {
     return { model };
   }
-  const count = matches(model, editor).length;
+  const count = optionIds(model, editor).length;
   if (count === 0) {
     return { model };
   }
@@ -62,29 +62,27 @@ export const moveHighlight = (model: Model, direction: typeof MoveDirection.Type
       ...model,
       editor: { ...editor, highlighted: (editor.highlighted + step + count) % count },
     },
-    commands: [RevealCardOption()],
+    commands: [RevealPickerOption()],
   };
 };
 
-export const pick = (model: Model, nodeId: string): Model => {
+export const pick = (model: Model, optionId: string): UpdateReturn => {
   const editor = model.editor;
-  if (
-    editor._tag !== "PickingCard" ||
-    !matches(model, editor).some(({ card }) => card.nodeId === nodeId)
-  ) {
-    return model;
+  if (editor._tag !== "Picking" || !optionIds(model, editor).includes(optionId)) {
+    return { model };
   }
   return PickerPurpose.match(editor.purpose, {
-    Focus: () => toIdle(focusCard(model, nodeId)),
-    Connect: ({ sourceEntityId }) => create(model, sourceEntityId, nodeId),
+    Focus: () => ({ model: toIdle(focusCard(model, optionId)) }),
+    Connect: ({ sourceEntityId }) => ({ model: create(model, sourceEntityId, optionId) }),
+    RunCommand: () => Palette.run(model, optionId),
   });
 };
 
-export const pickHighlighted = (model: Model): Model => {
+export const pickHighlighted = (model: Model): UpdateReturn => {
   const editor = model.editor;
-  if (editor._tag !== "PickingCard") {
-    return model;
+  if (editor._tag !== "Picking") {
+    return { model };
   }
-  const match = matches(model, editor)[editor.highlighted];
-  return match === undefined ? model : pick(model, match.card.nodeId);
+  const optionId = optionIds(model, editor)[editor.highlighted];
+  return optionId === undefined ? { model } : pick(model, optionId);
 };

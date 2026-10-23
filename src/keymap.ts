@@ -102,10 +102,17 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
     mapEvent: () => Message.RequestedRedo(),
   },
   {
-    id: "findCard",
+    id: "commandPalette",
     keys: ["Mod+K"],
     // Ctrl+K is spatial-up on non-Apple platforms.
     otherKeys: ["Mod+Shift+K"],
+    description: "Run a command",
+    modes: ["Normal"],
+    mapEvent: () => Message.PressedCommandPaletteKey(),
+  },
+  {
+    id: "findCard",
+    keys: ["Mod+P"],
     description: "Find card",
     modes: ["Normal"],
     mapEvent: () => Message.PressedFindCardKey(),
@@ -141,23 +148,23 @@ export const KEYMAP: ReadonlyArray<KeymapEntry> = [
   {
     id: "pickNext",
     keys: ["ArrowDown", "Control+N"],
-    description: "Next card (wrap)",
+    description: "Next option (wrap)",
     modes: ["Picking"],
     whileTyping: "Allow",
-    mapEvent: () => Message.MovedCardHighlight({ direction: "Down" }),
+    mapEvent: () => Message.MovedPickerHighlight({ direction: "Down" }),
   },
   {
     id: "pickPrevious",
     keys: ["ArrowUp", "Control+P"],
-    description: "Previous card (wrap)",
+    description: "Previous option (wrap)",
     modes: ["Picking"],
     whileTyping: "Allow",
-    mapEvent: () => Message.MovedCardHighlight({ direction: "Up" }),
+    mapEvent: () => Message.MovedPickerHighlight({ direction: "Up" }),
   },
   {
     id: "pickCard",
     keys: ["Enter"],
-    description: "Pick highlighted card (focus / connect)",
+    description: "Pick highlighted option",
     modes: ["Picking"],
     whileTyping: "Allow",
     mapEvent: () => Message.PressedEnterKey(),
@@ -471,6 +478,7 @@ export const HELP_SECTIONS: ReadonlyArray<HelpSection> = [
     column: 0,
     groups: [
       [
+        { label: "Run a command", ids: ["commandPalette"] },
         { label: "Find a card", ids: ["findCard"] },
         {
           label: "Nearby card",

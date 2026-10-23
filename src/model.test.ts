@@ -16,6 +16,7 @@ describe("init", () => {
     const { model } = init({
       screen: { width: 1400, height: 900 },
       idState: Ids.seed([1, 2, 3, 4]),
+      recentCommandIds: [],
     });
     expect(isDirty(model)).toBe(false);
   });

@@ -22,6 +22,7 @@ export const Message = defineMessageUnion({
   // Keyboard
   PressedNewKey: {},
   PressedFindCardKey: {},
+  PressedCommandPaletteKey: {},
   PressedConnectKey: {},
   PressedShortcutsKey: {},
   PressedZoomToSelectionKey: {},
@@ -42,11 +43,12 @@ export const Message = defineMessageUnion({
   MovedChooserHighlight: { direction: MoveDirection },
   PickedNew: { kind: NewKind },
 
-  // Card picker
-  UpdatedCardQuery: { query: Schema.String },
-  MovedCardHighlight: { direction: MoveDirection },
-  PickedCard: { nodeId: Schema.String },
-  CompletedRevealCardOption: {},
+  // Pickers: Find card, Connect to…, and the command palette
+  UpdatedPickerQuery: { query: Schema.String },
+  MovedPickerHighlight: { direction: MoveDirection },
+  /** A card id, or a command id in the command palette. */
+  PickedOption: { optionId: Schema.String },
+  CompletedRevealPickerOption: {},
 
   // Pointer & canvas
   PressedCanvas: PointerFields,
@@ -152,6 +154,9 @@ export const Message = defineMessageUnion({
   CancelledFilePicker: {},
   CompletedFocusInput: {},
   ClickedDismissNotice: {},
+
+  // Preferences
+  CompletedRememberRecentCommands: {},
 
   // External edits to the open file
   ChangedFileOnDisk: {},

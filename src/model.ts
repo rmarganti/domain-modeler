@@ -33,16 +33,19 @@ export type EnumValueSave = typeof EnumValueSave.Type;
 export const NewKind = Schema.Literals(["Entity", "Enum"]);
 export type NewKind = typeof NewKind.Type;
 
+/** What a picker lists and what picking does: focus a card, connect the
+ *  source entity to one, or run a command (the command palette). */
 export const PickerPurpose = defineTaggedUnion({
   Focus: {},
   Connect: { sourceEntityId: Schema.String },
+  RunCommand: {},
 });
 export type PickerPurpose = typeof PickerPurpose.Type;
 
 export const EditorState = defineTaggedUnion({
   Idle: {},
   ViewingShortcuts: {},
-  PickingCard: { query: Schema.String, highlighted: Schema.Number, purpose: PickerPurpose },
+  Picking: { query: Schema.String, highlighted: Schema.Number, purpose: PickerPurpose },
   /** The "New…" chooser is open; picking creates a card at `position`. */
   ChoosingNew: { position: Point, highlighted: NewKind },
   CreatingEntity: { position: Point, draftName: Schema.String },
@@ -137,6 +140,8 @@ export const Model = Schema.Struct({
   maybePendingDiskDocument: Schema.Option(DomainModelDocument),
   maybeDiskIssue: Schema.Option(DiskIssue),
   maybeNotice: Schema.Option(Notice),
+  /** Command palette ids, most recent first. Kept across launches. */
+  recentCommandIds: Schema.Array(Schema.String),
 });
 export type Model = typeof Model.Type;
 

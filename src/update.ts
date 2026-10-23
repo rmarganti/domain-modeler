@@ -1,6 +1,5 @@
 import { Option } from "effect";
 
-import { FocusInput } from "./command";
 import * as Doc from "./domain/document";
 import { ZOOM_STEP } from "./domain/geometry";
 import { Message } from "./message";
@@ -25,15 +24,11 @@ import * as Session from "./update/session";
 import {
   commitDocument,
   deselect,
+  showShortcuts,
   toIdle,
   toggleExpanded,
   type UpdateReturn,
 } from "./update/shared";
-
-const showShortcuts = (model: Model): UpdateReturn => ({
-  model: { ...model, editor: EditorState.ViewingShortcuts(), panKey: "Released" },
-  commands: [FocusInput({ selector: "#keyboard-shortcuts" })],
-});
 
 /** Handles a message, then merges any change from disk the editor is now free for. */
 export const update = (model: Model, message: Message): UpdateReturn => {
@@ -51,11 +46,12 @@ const handle = (model: Model, message: Message): UpdateReturn =>
 
     PressedNewKey: () => ({ model: Chooser.open(model) }),
     PressedFindCardKey: () => Picker.open(model),
+    PressedCommandPaletteKey: () => Picker.openPalette(model),
     PressedConnectKey: () => Picker.openConnect(model),
-    UpdatedCardQuery: ({ query }) => Picker.changeQuery(model, query),
-    MovedCardHighlight: ({ direction }) => Picker.moveHighlight(model, direction),
-    PickedCard: ({ nodeId }) => ({ model: Picker.pick(model, nodeId) }),
-    CompletedRevealCardOption: () => ({ model }),
+    UpdatedPickerQuery: ({ query }) => Picker.changeQuery(model, query),
+    MovedPickerHighlight: ({ direction }) => Picker.moveHighlight(model, direction),
+    PickedOption: ({ optionId }) => Picker.pick(model, optionId),
+    CompletedRevealPickerOption: () => ({ model }),
     PressedZoomToSelectionKey: () => ({ model: Canvas.zoomToSelection(model) }),
     PressedShortcutsKey: () =>
       model.editor._tag === "ViewingShortcuts" ? { model: toIdle(model) } : showShortcuts(model),
@@ -72,7 +68,7 @@ const handle = (model: Model, message: Message): UpdateReturn =>
         {
           Idle: () => Rows.edit(model),
           ChoosingNew: ({ highlighted }) => Chooser.pick(model, highlighted),
-          PickingCard: () => ({ model: Picker.pickHighlighted(model) }),
+          Picking: () => Picker.pickHighlighted(model),
         },
         () => ({ model: finishEditing(model) }),
       ),
@@ -244,6 +240,10 @@ const handle = (model: Model, message: Message): UpdateReturn =>
     CancelledFilePicker: () => ({ model }),
     CompletedFocusInput: () => ({ model }),
     ClickedDismissNotice: () => ({ model: { ...model, maybeNotice: Option.none() } }),
+
+    // Preferences
+
+    CompletedRememberRecentCommands: () => ({ model }),
 
     // External edits to the open file
 

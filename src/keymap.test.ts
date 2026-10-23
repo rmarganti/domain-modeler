@@ -212,6 +212,9 @@ describe("help layout", () => {
     expect(chips(["edit", "enter"])).toEqual([["i"], ["↵"]]);
     expect(chips(["undo"])).toEqual([["u"], ["⌘Z"]]);
     expect(chips(["shortcuts"])).toEqual([["?"]]);
-    expect(helpChips({ label: "Find", ids: ["findCard"] }, "Other")).toEqual([["Ctrl+Shift+K"]]);
+    expect(helpChips({ label: "Commands", ids: ["commandPalette"] }, "Other")).toEqual([
+      ["Ctrl+Shift+K"],
+    ]);
+    expect(helpChips({ label: "Find", ids: ["findCard"] }, "Other")).toEqual([["Ctrl+P"]]);
   });
 });

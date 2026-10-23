@@ -28,11 +28,12 @@ const initial: Model = {
   maybePendingDiskDocument: Option.none(),
   maybeDiskIssue: Option.none(),
   maybeNotice: Option.none(),
+  recentCommandIds: [],
 };
 const step = (model: Model, message: Message): Model => update(model, message).model;
 const open = (model = initial): Model => step(model, Message.PressedConnectKey());
 const query = (model: Model, query: string): Model =>
-  step(model, Message.UpdatedCardQuery({ query }));
+  step(model, Message.UpdatedPickerQuery({ query }));
 const pointerConnect = (model: Model, target: string): Model => {
   const start = Geometry.worldToScreen(model.history.present.layout.viewport, { x: 0, y: 0 });
   const end = Geometry.worldToScreen(model.history.present.layout.viewport, { x: 100, y: 100 });
@@ -63,11 +64,11 @@ describe("keyboard connection picker", () => {
         update,
         given(start),
         message(Message.PressedConnectKey()),
-        Command.expectExact(FocusInput({ selector: "#card-query-input" })),
+        Command.expectExact(FocusInput({ selector: "#picker-input" })),
         Command.resolve(FocusInput, Message.CompletedFocusInput()),
       );
       expect(result.model.editor).toEqual(
-        EditorState.PickingCard({
+        EditorState.Picking({
           query: "",
           highlighted: 0,
           purpose: PickerPurpose.Connect({ sourceEntityId: "e1" }),
@@ -144,11 +145,11 @@ describe("keyboard connection picker", () => {
   });
 
   test("highlight wraps over entities only and query changes reset it", () => {
-    let m = step(open(), Message.MovedCardHighlight({ direction: "Up" }));
+    let m = step(open(), Message.MovedPickerHighlight({ direction: "Up" }));
     expect(m.editor).toMatchObject({ highlighted: 2 });
-    m = step(m, Message.MovedCardHighlight({ direction: "Down" }));
+    m = step(m, Message.MovedPickerHighlight({ direction: "Down" }));
     expect(m.editor).toMatchObject({ highlighted: 0 });
-    m = step(m, Message.MovedCardHighlight({ direction: "Down" }));
+    m = step(m, Message.MovedPickerHighlight({ direction: "Down" }));
     expect(m.editor).toMatchObject({ highlighted: 1 });
     m = query(m, "tag");
     expect(m.editor).toMatchObject({ highlighted: 0 });
@@ -159,11 +160,11 @@ describe("keyboard connection picker", () => {
 
   test.each(["role", "zzzz"])("empty results (%s) cannot move or pick", (text) => {
     const m = query(open(), text);
-    expect(step(m, Message.MovedCardHighlight({ direction: "Down" }))).toBe(m);
+    expect(step(m, Message.MovedPickerHighlight({ direction: "Down" }))).toBe(m);
     expect(step(m, Message.PressedEnterKey())).toBe(m);
-    expect(step(m, Message.PickedCard({ nodeId: "t1" }))).toBe(m);
-    expect(step(m, Message.PickedCard({ nodeId: "e1" }))).toBe(m);
-    expect(step(m, Message.PickedCard({ nodeId: "missing" }))).toBe(m);
+    expect(step(m, Message.PickedOption({ optionId: "t1" }))).toBe(m);
+    expect(step(m, Message.PickedOption({ optionId: "e1" }))).toBe(m);
+    expect(step(m, Message.PickedOption({ optionId: "missing" }))).toBe(m);
   });
 
   test.each(["e3", "e1"])(
@@ -210,9 +211,9 @@ describe("keyboard connection picker", () => {
 
   test("option click shares the Enter path and late picks cannot create twice", () => {
     const start = query(open(), "tag");
-    const picked = step(start, Message.PickedCard({ nodeId: "e3" }));
+    const picked = step(start, Message.PickedOption({ optionId: "e3" }));
     expect(picked).toEqual(step(start, Message.PressedEnterKey()));
-    expect(step(picked, Message.PickedCard({ nodeId: "e3" }))).toBe(picked);
+    expect(step(picked, Message.PickedOption({ optionId: "e3" }))).toBe(picked);
   });
 
   test.each([Message.PressedEscapeKey(), Message.ClickedCancelEdit()])(
@@ -242,7 +243,7 @@ describe("keyboard connection picker", () => {
       ...opened,
       history: History.init(Doc.deleteEntity(Doc.sampleDocument, "e1")),
     };
-    expect(step(sourceGone, Message.PickedCard({ nodeId: "e3" }))).toBe(sourceGone);
+    expect(step(sourceGone, Message.PickedOption({ optionId: "e3" }))).toBe(sourceGone);
     const valid = reconcile(sourceGone);
     expect(valid.editor).toEqual(EditorState.Idle());
     expect(valid.selection).toEqual(Selection.NoSelection());
@@ -250,13 +251,13 @@ describe("keyboard connection picker", () => {
       ...opened,
       history: History.init(Doc.deleteEntity(Doc.sampleDocument, "e3")),
     };
-    expect(step(targetGone, Message.PickedCard({ nodeId: "e3" }))).toBe(targetGone);
+    expect(step(targetGone, Message.PickedOption({ optionId: "e3" }))).toBe(targetGone);
     const replaced = step(
       opened,
       Message.SucceededOpenFile({ document: Doc.sampleDocument, path: "/models/other.json" }),
     );
     expect(replaced.editor).toEqual(EditorState.Idle());
-    expect(step(replaced, Message.PickedCard({ nodeId: "e3" }))).toBe(replaced);
+    expect(step(replaced, Message.PickedOption({ optionId: "e3" }))).toBe(replaced);
   });
 
   test("registry separates plain r from redo and suppresses it outside Normal or while typing", () => {

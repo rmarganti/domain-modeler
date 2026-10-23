@@ -5,7 +5,7 @@ import * as Diagnostics from "../domain/diagnostics";
 import * as History from "../domain/history";
 import { shortcutFor, shortcutTitle } from "../keymap";
 import { Message } from "../message";
-import { EditorState, isDirty, maybeFileName, type Model } from "../model";
+import { EditorState, PickerPurpose, isDirty, maybeFileName, type Model } from "../model";
 
 // HUD
 
@@ -62,19 +62,25 @@ export const hudView = (model: Model, h: HtmlBuilder<Message>): Html => {
 
 type StatusPill = Readonly<{ label: string; className: string; hint: string }>;
 
+const pickingPill = (label: string, className: string, action: string): StatusPill => ({
+  label,
+  className,
+  hint: `${shortcutFor("pickNext")} / ${shortcutFor("pickPrevious")} choose · ${shortcutFor("pickCard")} ${action} · ${shortcutFor("escape")} cancel`,
+});
+
 export const statusPill = (editor: EditorState): StatusPill =>
   EditorState.match<StatusPill>(editor, {
     Idle: () => ({
       label: "NORMAL",
       className: "bg-slate-800 text-white",
-      hint: `${shortcutFor("findCard")} find · ${shortcutFor("create")} create · ${shortcutFor("connect")} connect · ${shortcutFor("edit")} edit · ${shortcutFor("undo")} undo · ${shortcutFor("shortcuts")} shortcuts`,
+      hint: `${shortcutFor("commandPalette")} commands · ${shortcutFor("findCard")} find · ${shortcutFor("create")} create · ${shortcutFor("connect")} connect · ${shortcutFor("edit")} edit · ${shortcutFor("undo")} undo · ${shortcutFor("shortcuts")} shortcuts`,
     }),
-    PickingCard: ({ purpose }) => ({
-      label: purpose._tag === "Connect" ? "CONNECT" : "FIND",
-      className:
-        purpose._tag === "Connect" ? "bg-violet-600 text-white" : "bg-indigo-600 text-white",
-      hint: `${shortcutFor("pickNext")} / ${shortcutFor("pickPrevious")} choose · ${shortcutFor("pickCard")} ${purpose._tag === "Connect" ? "connect" : "focus"} · ${shortcutFor("escape")} cancel`,
-    }),
+    Picking: ({ purpose }) =>
+      PickerPurpose.match(purpose, {
+        Focus: () => pickingPill("FIND", "bg-indigo-600 text-white", "focus"),
+        Connect: () => pickingPill("CONNECT", "bg-violet-600 text-white", "connect"),
+        RunCommand: () => pickingPill("COMMAND", "bg-slate-800 text-white", "run"),
+      }),
     ViewingShortcuts: () => ({
       label: "HELP",
       className: "bg-slate-800 text-white",
