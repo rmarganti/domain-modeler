@@ -291,7 +291,7 @@ export const creatingCardView = (
       h.Style({
         left: px(config.position.x),
         top: px(config.position.y),
-        width: px(Geometry.COLLAPSED_NODE_WIDTH),
+        width: px(Geometry.NODE_WIDTH),
         height: px(Geometry.NODE_HEADER_HEIGHT),
       }),
     ],

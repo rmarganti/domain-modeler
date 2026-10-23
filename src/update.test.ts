@@ -331,7 +331,7 @@ describe("new chooser", () => {
       message(Message.PressedNewKey()),
       model((m) => {
         expect(m.editor).toEqual(
-          EditorState.ChoosingNew({ position: { x: 500, y: 378 }, highlighted: "Entity" }),
+          EditorState.ChoosingNew({ position: { x: 450, y: 378 }, highlighted: "Entity" }),
         );
         expect(m.history).toBe(baseModel.history);
       }),
@@ -348,7 +348,7 @@ describe("new chooser", () => {
     };
     const opened = update(inspecting, Message.PressedNewKey()).model;
     expect(opened.editor).toEqual(
-      EditorState.ChoosingNew({ position: { x: 150, y: 198 }, highlighted: "Entity" }),
+      EditorState.ChoosingNew({ position: { x: 100, y: 198 }, highlighted: "Entity" }),
     );
     expect(opened.history).toBe(inspecting.history);
   });

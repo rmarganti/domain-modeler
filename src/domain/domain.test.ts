@@ -66,9 +66,9 @@ describe("document", () => {
     const synced = Doc.syncLayout(document);
     expect(Object.keys(synced.layout.nodes).sort()).toEqual(["e1", "e2", "e3", "t1"]);
     // e1 occupies the first stagger slot, so e2, e3, and t1 take the next ones.
-    expect(synced.layout.nodes["e2"]?.position).toEqual({ x: 340, y: 80 });
-    expect(synced.layout.nodes["e3"]?.position).toEqual({ x: 600, y: 80 });
-    expect(synced.layout.nodes["t1"]?.position).toEqual({ x: 860, y: 80 });
+    expect(synced.layout.nodes["e2"]?.position).toEqual({ x: 440, y: 80 });
+    expect(synced.layout.nodes["e3"]?.position).toEqual({ x: 800, y: 80 });
+    expect(synced.layout.nodes["t1"]?.position).toEqual({ x: 1160, y: 80 });
   });
 
   test("syncLayout prunes the node of a type that no longer exists", () => {
@@ -293,7 +293,7 @@ describe("document", () => {
     const node = document.layout.nodes["t2"];
     expect(node?.isExpanded).toBe(true);
     // Post is expanded at x 560, so the card starts right of its 300px width.
-    expect(node?.position.x).toBeGreaterThanOrEqual(560 + Geometry.EXPANDED_NODE_WIDTH);
+    expect(node?.position.x).toBeGreaterThanOrEqual(560 + Geometry.NODE_WIDTH);
   });
 
   test("the document codec rejects malformed input", () => {
@@ -611,7 +611,7 @@ describe("geometry", () => {
     );
     const expanded = { ...collapsed, isExpanded: true };
     const rect = Geometry.enumRect(role, expanded, Option.none());
-    expect(rect.width).toBe(Geometry.EXPANDED_NODE_WIDTH);
+    expect(rect.width).toBe(Geometry.NODE_WIDTH);
     expect(rect.height).toBe(
       Geometry.NODE_HEADER_HEIGHT + 3 * Geometry.ATTRIBUTE_ROW_HEIGHT + Geometry.NODE_FOOTER_HEIGHT,
     );

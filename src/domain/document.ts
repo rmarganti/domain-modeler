@@ -1,7 +1,7 @@
 import { Array, Option, Record, pipe } from "effect";
 
 import {
-  COLLAPSED_NODE_WIDTH,
+  NODE_WIDTH,
   NODE_HEADER_HEIGHT,
   cardRects,
   enumRect,
@@ -133,7 +133,7 @@ const placeNewNode = (
     [nodeId]: {
       position: nearestFreePosition(
         position,
-        { width: COLLAPSED_NODE_WIDTH, height: NODE_HEADER_HEIGHT },
+        { width: NODE_WIDTH, height: NODE_HEADER_HEIGHT },
         cardRects(document),
       ),
       isExpanded: false,

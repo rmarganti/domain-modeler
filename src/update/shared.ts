@@ -41,7 +41,7 @@ export const setViewport = (model: Model, next: ViewportLayout): Model =>
 export const newCardPosition = (model: Model): Point => {
   const center = toWorld(model, model.screen.width / 2, model.screen.height / 2);
   return {
-    x: center.x - Geometry.COLLAPSED_NODE_WIDTH / 2,
+    x: center.x - Geometry.NODE_WIDTH / 2,
     y: center.y - Geometry.NODE_HEADER_HEIGHT / 2,
   };
 };

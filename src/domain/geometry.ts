@@ -14,8 +14,9 @@ import type {
 // edge anchors and fit-to-screen are deterministic. The view renders nodes
 // with exactly these dimensions.
 
-export const COLLAPSED_NODE_WIDTH = 200;
-export const EXPANDED_NODE_WIDTH = 300;
+/** Cards keep one width whether collapsed or expanded, so a collapsed card
+ *  has as much room for its name as an expanded one. */
+export const NODE_WIDTH = 300;
 export const NODE_HEADER_HEIGHT = 44;
 export const ATTRIBUTE_ROW_HEIGHT = 30;
 export const ATTRIBUTE_EDITOR_HEIGHT = 96;
@@ -30,7 +31,7 @@ export const ZOOM_STEP = 1.2;
 export const FIT_PADDING = 80;
 
 export const STAGGER_ORIGIN: Point = { x: 80, y: 80 };
-export const STAGGER_STEP: Point = { x: 260, y: 180 };
+export const STAGGER_STEP: Point = { x: 360, y: 180 };
 export const STAGGER_COLUMNS = 4;
 
 export type Size = Readonly<{ width: number; height: number }>;
@@ -41,9 +42,6 @@ export type Rect = Readonly<{
   width: number;
   height: number;
 }>;
-
-export const nodeWidth = (layout: NodeLayout): number =>
-  layout.isExpanded ? EXPANDED_NODE_WIDTH : COLLAPSED_NODE_WIDTH;
 
 /** What decides a card's height: its rows, and the height of the inline
  *  editor when one of those rows is open in it. Entity and enum cards share
@@ -91,7 +89,7 @@ export const cardHeight = (shape: CardShape, layout: NodeLayout): number =>
 export const cardRect = (shape: CardShape, layout: NodeLayout): Rect => ({
   x: layout.position.x,
   y: layout.position.y,
-  width: nodeWidth(layout),
+  width: NODE_WIDTH,
   height: cardHeight(shape, layout),
 });
 
