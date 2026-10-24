@@ -2,3 +2,5 @@ node_modules
 dist
 .verify
 .ralph
+test-results
+playwright-report

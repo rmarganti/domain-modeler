@@ -5,7 +5,7 @@ export default defineConfig({
     environment: "happy-dom",
     setupFiles: ["./src/vitest-setup.ts"],
     // Agent worktrees live under .claude/ and carry their own copies of the tests.
-    exclude: [...configDefaults.exclude, ".claude/**"],
+    exclude: [...configDefaults.exclude, ".claude/**", "e2e/**"],
     server: {
       deps: {
         inline: ["foldkit"],
