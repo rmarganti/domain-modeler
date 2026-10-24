@@ -1,1 +1,372 @@
-{"$schema":"https://raw.githubusercontent.com/rmarganti/domain-modeler/main/schema/domain-model.schema.json","version":"1.0.0","name":"Domain Modeler","entities":[{"id":"entity-DomainModel","name":"DomainModel","attributes":[{"id":"entity-DomainModel-name","name":"name","type":"String","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-DomainModel-version","name":"version","type":"String","multiplicity":{"min":1,"max":"one"},"unique":false}]},{"id":"entity-Entity","name":"Entity","description":"Entity and enum names share a case-insensitive namespace within the model.","attributes":[{"id":"entity-Entity-name","name":"name","type":"String","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-Entity-description","name":"description","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false}]},{"id":"entity-Attribute","name":"Attribute","description":"Exactly one of primitiveType and enumType is present. min is 0 or 1; max is one or many. unique must be false for many-valued attributes. Identity is implicit, never an ID field.","attributes":[{"id":"entity-Attribute-name","name":"name","type":"String","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-Attribute-description","name":"description","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false},{"id":"entity-Attribute-primitiveType","name":"primitiveType","type":{"typeId":"enum-PrimitiveType"},"multiplicity":{"min":0,"max":"one"},"unique":false},{"id":"entity-Attribute-unique","name":"unique","type":"Boolean","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-Attribute-min","name":"min","type":"Integer","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-Attribute-max","name":"max","type":{"typeId":"enum-UpperBound"},"multiplicity":{"min":1,"max":"one"},"unique":false}]},{"id":"entity-EnumDefinition","name":"EnumDefinition","description":"Entity and enum names share a case-insensitive namespace within the model.","attributes":[{"id":"entity-EnumDefinition-name","name":"name","type":"String","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-EnumDefinition-description","name":"description","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false}]},{"id":"entity-EnumValue","name":"EnumValue","attributes":[{"id":"entity-EnumValue-name","name":"name","type":"String","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-EnumValue-description","name":"description","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false}]},{"id":"entity-Association","name":"Association","attributes":[{"id":"entity-Association-name","name":"name","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false},{"id":"entity-Association-description","name":"description","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false}]},{"id":"entity-AssociationEnd","name":"AssociationEnd","description":"An end belongs to exactly one association and targets one entity. min is 0 or 1. An absent role is derived from the target entity name and multiplicity.","attributes":[{"id":"entity-AssociationEnd-role","name":"role","type":"String","multiplicity":{"min":0,"max":"one"},"unique":false},{"id":"entity-AssociationEnd-min","name":"min","type":"Integer","multiplicity":{"min":1,"max":"one"},"unique":false},{"id":"entity-AssociationEnd-max","name":"max","type":{"typeId":"enum-UpperBound"},"multiplicity":{"min":1,"max":"one"},"unique":false}]}],"types":[{"id":"enum-PrimitiveType","kind":"Enum","name":"PrimitiveType","values":[{"id":"enum-PrimitiveType-String","name":"String"},{"id":"enum-PrimitiveType-Integer","name":"Integer"},{"id":"enum-PrimitiveType-Decimal","name":"Decimal"},{"id":"enum-PrimitiveType-Boolean","name":"Boolean"},{"id":"enum-PrimitiveType-Date","name":"Date"},{"id":"enum-PrimitiveType-DateTime","name":"DateTime"},{"id":"enum-PrimitiveType-Json","name":"Json"}]},{"id":"enum-UpperBound","kind":"Enum","name":"UpperBound","values":[{"id":"enum-UpperBound-one","name":"one"},{"id":"enum-UpperBound-many","name":"many"}]}],"associations":[{"id":"association-1","name":"contains","ends":[{"entityId":"entity-DomainModel","role":"model","multiplicity":{"min":1,"max":"one"}},{"entityId":"entity-Entity","role":"entities","multiplicity":{"min":0,"max":"many"}}]},{"id":"association-2","name":"defines","ends":[{"entityId":"entity-DomainModel","role":"model","multiplicity":{"min":1,"max":"one"}},{"entityId":"entity-EnumDefinition","role":"types","multiplicity":{"min":0,"max":"many"}}]},{"id":"association-3","name":"declares","ends":[{"entityId":"entity-DomainModel","role":"model","multiplicity":{"min":1,"max":"one"}},{"entityId":"entity-Association","role":"associations","multiplicity":{"min":0,"max":"many"}}]},{"id":"association-4","name":"has","description":"Attributes are ordered within their entity.","ends":[{"entityId":"entity-Entity","role":"owner","multiplicity":{"min":1,"max":"one"}},{"entityId":"entity-Attribute","role":"attributes","multiplicity":{"min":0,"max":"many"}}]},{"id":"association-5","name":"allows","description":"Values are ordered and names are unique within the enum.","ends":[{"entityId":"entity-EnumDefinition","role":"definition","multiplicity":{"min":1,"max":"one"}},{"entityId":"entity-EnumValue","role":"values","multiplicity":{"min":1,"max":"many"}}]},{"id":"association-6","name":"has ends","description":"Exactly two ordered ends per association. The canvas cannot express a multiplicity of exactly 2.","ends":[{"entityId":"entity-Association","role":"association","multiplicity":{"min":1,"max":"one"}},{"entityId":"entity-AssociationEnd","role":"ends","multiplicity":{"min":1,"max":"many"}}]},{"id":"association-7","name":"targets","description":"A self-association has both ends targeting the same entity.","ends":[{"entityId":"entity-AssociationEnd","role":"associationEnds","multiplicity":{"min":0,"max":"many"}},{"entityId":"entity-Entity","role":"entity","multiplicity":{"min":1,"max":"one"}}]},{"id":"association-8","name":"uses enum","description":"Exactly one of Attribute.primitiveType and enumType must be present.","ends":[{"entityId":"entity-Attribute","role":"typedAttributes","multiplicity":{"min":0,"max":"many"}},{"entityId":"entity-EnumDefinition","role":"enumType","multiplicity":{"min":0,"max":"one"}}]}],"layout":{"nodes":{"entity-DomainModel":{"position":{"x":-159.6533203125,"y":42.783203125},"isExpanded":true},"entity-Entity":{"position":{"x":400,"y":40},"isExpanded":true},"entity-Attribute":{"position":{"x":780,"y":40},"isExpanded":true},"entity-EnumDefinition":{"position":{"x":395.0439453125,"y":-196.2158203125},"isExpanded":true},"entity-EnumValue":{"position":{"x":786.3134765625,"y":-290.048828125},"isExpanded":true},"entity-Association":{"position":{"x":-108.45703125,"y":775.3857421875},"isExpanded":true},"entity-AssociationEnd":{"position":{"x":400,"y":760},"isExpanded":true},"enum-PrimitiveType":{"position":{"x":1160,"y":40},"isExpanded":false},"enum-UpperBound":{"position":{"x":1160,"y":440},"isExpanded":false}},"viewport":{"pan":{"x":-65.30078125,"y":214.16015625},"zoom":0.8}}}
+{
+  "$schema": "https://raw.githubusercontent.com/rmarganti/domain-modeler/main/schema/domain-model.schema.json",
+  "version": "1.0.0",
+  "name": "Domain Modeler",
+  "entities": [
+    {
+      "id": "entity-DomainModel",
+      "name": "DomainModel",
+      "attributes": [
+        {
+          "id": "entity-DomainModel-name",
+          "name": "name",
+          "type": "String",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-DomainModel-version",
+          "name": "version",
+          "type": "String",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "id": "entity-Entity",
+      "name": "Entity",
+      "description": "Entity and enum names share a case-insensitive namespace within the model.",
+      "attributes": [
+        {
+          "id": "entity-Entity-name",
+          "name": "name",
+          "type": "String",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Entity-description",
+          "name": "description",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "id": "entity-Attribute",
+      "name": "Attribute",
+      "description": "Exactly one of primitiveType and enumType is present. min is 0 or 1; max is one or many. unique must be false for many-valued attributes. Identity is implicit, never an ID field.",
+      "attributes": [
+        {
+          "id": "entity-Attribute-name",
+          "name": "name",
+          "type": "String",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Attribute-description",
+          "name": "description",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Attribute-primitiveType",
+          "name": "primitiveType",
+          "type": { "typeId": "enum-PrimitiveType" },
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Attribute-unique",
+          "name": "unique",
+          "type": "Boolean",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Attribute-min",
+          "name": "min",
+          "type": "Integer",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Attribute-max",
+          "name": "max",
+          "type": { "typeId": "enum-UpperBound" },
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "id": "entity-EnumDefinition",
+      "name": "EnumDefinition",
+      "description": "Entity and enum names share a case-insensitive namespace within the model.",
+      "attributes": [
+        {
+          "id": "entity-EnumDefinition-name",
+          "name": "name",
+          "type": "String",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-EnumDefinition-description",
+          "name": "description",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "id": "entity-EnumValue",
+      "name": "EnumValue",
+      "attributes": [
+        {
+          "id": "entity-EnumValue-name",
+          "name": "name",
+          "type": "String",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-EnumValue-description",
+          "name": "description",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "id": "entity-Association",
+      "name": "Association",
+      "attributes": [
+        {
+          "id": "entity-Association-name",
+          "name": "name",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-Association-description",
+          "name": "description",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "id": "entity-AssociationEnd",
+      "name": "AssociationEnd",
+      "description": "An end belongs to exactly one association and targets one entity. min is 0 or 1. An absent role is derived from the target entity name and multiplicity.",
+      "attributes": [
+        {
+          "id": "entity-AssociationEnd-role",
+          "name": "role",
+          "type": "String",
+          "multiplicity": { "min": 0, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-AssociationEnd-min",
+          "name": "min",
+          "type": "Integer",
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        },
+        {
+          "id": "entity-AssociationEnd-max",
+          "name": "max",
+          "type": { "typeId": "enum-UpperBound" },
+          "multiplicity": { "min": 1, "max": "one" },
+          "unique": false
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "id": "enum-PrimitiveType",
+      "kind": "Enum",
+      "name": "PrimitiveType",
+      "values": [
+        { "id": "enum-PrimitiveType-String", "name": "String" },
+        { "id": "enum-PrimitiveType-Integer", "name": "Integer" },
+        { "id": "enum-PrimitiveType-Decimal", "name": "Decimal" },
+        { "id": "enum-PrimitiveType-Boolean", "name": "Boolean" },
+        { "id": "enum-PrimitiveType-Date", "name": "Date" },
+        { "id": "enum-PrimitiveType-DateTime", "name": "DateTime" },
+        { "id": "enum-PrimitiveType-Json", "name": "Json" }
+      ]
+    },
+    {
+      "id": "enum-UpperBound",
+      "kind": "Enum",
+      "name": "UpperBound",
+      "values": [
+        { "id": "enum-UpperBound-one", "name": "one" },
+        { "id": "enum-UpperBound-many", "name": "many" }
+      ]
+    }
+  ],
+  "associations": [
+    {
+      "id": "association-1",
+      "name": "contains",
+      "ends": [
+        {
+          "entityId": "entity-DomainModel",
+          "role": "model",
+          "multiplicity": { "min": 1, "max": "one" }
+        },
+        {
+          "entityId": "entity-Entity",
+          "role": "entities",
+          "multiplicity": { "min": 0, "max": "many" }
+        }
+      ]
+    },
+    {
+      "id": "association-2",
+      "name": "defines",
+      "ends": [
+        {
+          "entityId": "entity-DomainModel",
+          "role": "model",
+          "multiplicity": { "min": 1, "max": "one" }
+        },
+        {
+          "entityId": "entity-EnumDefinition",
+          "role": "types",
+          "multiplicity": { "min": 0, "max": "many" }
+        }
+      ]
+    },
+    {
+      "id": "association-3",
+      "name": "declares",
+      "ends": [
+        {
+          "entityId": "entity-DomainModel",
+          "role": "model",
+          "multiplicity": { "min": 1, "max": "one" }
+        },
+        {
+          "entityId": "entity-Association",
+          "role": "associations",
+          "multiplicity": { "min": 0, "max": "many" }
+        }
+      ]
+    },
+    {
+      "id": "association-4",
+      "name": "has",
+      "description": "Attributes are ordered within their entity.",
+      "ends": [
+        {
+          "entityId": "entity-Entity",
+          "role": "owner",
+          "multiplicity": { "min": 1, "max": "one" }
+        },
+        {
+          "entityId": "entity-Attribute",
+          "role": "attributes",
+          "multiplicity": { "min": 0, "max": "many" }
+        }
+      ]
+    },
+    {
+      "id": "association-5",
+      "name": "allows",
+      "description": "Values are ordered and names are unique within the enum.",
+      "ends": [
+        {
+          "entityId": "entity-EnumDefinition",
+          "role": "definition",
+          "multiplicity": { "min": 1, "max": "one" }
+        },
+        {
+          "entityId": "entity-EnumValue",
+          "role": "values",
+          "multiplicity": { "min": 1, "max": "many" }
+        }
+      ]
+    },
+    {
+      "id": "association-6",
+      "name": "has ends",
+      "description": "Exactly two ordered ends per association. The canvas cannot express a multiplicity of exactly 2.",
+      "ends": [
+        {
+          "entityId": "entity-Association",
+          "role": "association",
+          "multiplicity": { "min": 1, "max": "one" }
+        },
+        {
+          "entityId": "entity-AssociationEnd",
+          "role": "ends",
+          "multiplicity": { "min": 1, "max": "many" }
+        }
+      ]
+    },
+    {
+      "id": "association-7",
+      "name": "targets",
+      "description": "A self-association has both ends targeting the same entity.",
+      "ends": [
+        {
+          "entityId": "entity-AssociationEnd",
+          "role": "associationEnds",
+          "multiplicity": { "min": 0, "max": "many" }
+        },
+        {
+          "entityId": "entity-Entity",
+          "role": "entity",
+          "multiplicity": { "min": 1, "max": "one" }
+        }
+      ]
+    },
+    {
+      "id": "association-8",
+      "name": "uses enum",
+      "description": "Exactly one of Attribute.primitiveType and enumType must be present.",
+      "ends": [
+        {
+          "entityId": "entity-Attribute",
+          "role": "typedAttributes",
+          "multiplicity": { "min": 0, "max": "many" }
+        },
+        {
+          "entityId": "entity-EnumDefinition",
+          "role": "enumType",
+          "multiplicity": { "min": 0, "max": "one" }
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "nodes": {
+      "entity-DomainModel": {
+        "position": { "x": -159.6533203125, "y": 42.783203125 },
+        "isExpanded": true
+      },
+      "entity-Entity": { "position": { "x": 400, "y": 40 }, "isExpanded": true },
+      "entity-Attribute": { "position": { "x": 780, "y": 40 }, "isExpanded": true },
+      "entity-EnumDefinition": {
+        "position": { "x": 395.0439453125, "y": -196.2158203125 },
+        "isExpanded": true
+      },
+      "entity-EnumValue": {
+        "position": { "x": 786.3134765625, "y": -290.048828125 },
+        "isExpanded": true
+      },
+      "entity-Association": {
+        "position": { "x": -108.45703125, "y": 775.3857421875 },
+        "isExpanded": true
+      },
+      "entity-AssociationEnd": { "position": { "x": 400, "y": 760 }, "isExpanded": true },
+      "enum-PrimitiveType": { "position": { "x": 1160, "y": 40 }, "isExpanded": false },
+      "enum-UpperBound": { "position": { "x": 1160, "y": 440 }, "isExpanded": false }
+    },
+    "viewport": { "pan": { "x": -65.30078125, "y": 214.16015625 }, "zoom": 0.8 }
+  }
+}

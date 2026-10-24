@@ -34,6 +34,16 @@ export const enumNameForAttribute = (attributeName: string): string => {
   return name === "" ? "NewEnum" : name;
 };
 
+/** `"My Blog!"` → `my-blog`, the start of a file name suggested for a model. */
+export const fileStem = (name: string): string => {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug === "" ? "untitled" : slug;
+};
+
 export const defaultRole = (entityName: string, multiplicity: Multiplicity): string => {
   const role = toCamelCase(entityName);
   return multiplicity.max === "many" ? pluralize(role) : role;
