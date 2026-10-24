@@ -74,6 +74,8 @@ describe("command palette", () => {
       "saveAs",
       "open",
       "newDocument",
+      "copyMermaid",
+      "exportMermaid",
       "findCard",
       "shortcuts",
     ]);

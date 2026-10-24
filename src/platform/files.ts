@@ -11,7 +11,14 @@ export class PickerCancelled extends Data.TaggedError("PickerCancelled")<{}> {}
 
 export class FileError extends Data.TaggedError("FileError")<{ readonly reason: string }> {}
 
-const FILTERS = [{ name: "Domain Model JSON", extensions: ["json"] }];
+export type FileFilter = Readonly<{ name: string; extensions: ReadonlyArray<string> }>;
+
+const MODEL_FILTER: FileFilter = { name: "Domain Model JSON", extensions: ["json"] };
+export const MERMAID_FILTER: FileFilter = { name: "Mermaid diagram", extensions: ["mmd"] };
+
+const toDialogFilters = (filter: FileFilter) => [
+  { name: filter.name, extensions: [...filter.extensions] },
+];
 
 const toFileError = (error: unknown): FileError =>
   new FileError({ reason: error instanceof Error ? error.message : String(error) });
@@ -32,16 +39,21 @@ const picked = (path: string | null) =>
 
 /** Shows the native open dialog and resolves to the picked path. */
 export const pickToOpen: Effect.Effect<string, PickerCancelled | FileError> = requireDesktop.pipe(
-  Effect.andThen(fromPromise(() => open({ multiple: false, directory: false, filters: FILTERS }))),
+  Effect.andThen(
+    fromPromise(() =>
+      open({ multiple: false, directory: false, filters: toDialogFilters(MODEL_FILTER) }),
+    ),
+  ),
   Effect.flatMap(picked),
 );
 
 /** Shows the native save dialog and resolves to the chosen path. */
 export const pickToSave = (
   defaultPath: string,
+  filter: FileFilter = MODEL_FILTER,
 ): Effect.Effect<string, PickerCancelled | FileError> =>
   requireDesktop.pipe(
-    Effect.andThen(fromPromise(() => save({ defaultPath, filters: FILTERS }))),
+    Effect.andThen(fromPromise(() => save({ defaultPath, filters: toDialogFilters(filter) }))),
     Effect.flatMap(picked),
   );
 

@@ -9,6 +9,7 @@ import * as Canvas from "./canvas";
 import * as Disk from "./disk";
 import * as Entities from "./entities";
 import * as Enums from "./enums";
+import * as Export from "./export";
 import * as Rows from "./rows";
 import * as Session from "./session";
 import { openPicker, present, showShortcuts, toIdle, type UpdateReturn } from "./shared";
@@ -45,6 +46,7 @@ const modelOnly =
 const hasSelection = (model: Model): boolean => model.selection._tag !== "NoSelection";
 const hasCards = (model: Model): boolean =>
   present(model).entities.length + present(model).types.length > 0;
+const hasEntities = (model: Model): boolean => present(model).entities.length > 0;
 const anyCardExpanded = (model: Model, isExpanded: boolean): boolean =>
   Object.values(present(model).layout.nodes).some((node) => node.isExpanded === isExpanded);
 const isCurrentCard = (model: Model, isExpanded: boolean): boolean =>
@@ -244,6 +246,22 @@ export const PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> = [
     aliases: ["revert", "discard changes"],
     isAvailable: (model) => Option.isSome(model.maybeFilePath),
     run: Disk.reload,
+  },
+  {
+    id: "copyMermaid",
+    label: "Copy as Mermaid",
+    group: "File",
+    aliases: ["export", "erd", "diagram", "clipboard"],
+    isAvailable: hasEntities,
+    run: Export.copyMermaid,
+  },
+  {
+    id: "exportMermaid",
+    label: "Export Mermaid…",
+    group: "File",
+    aliases: ["erd", "diagram", "mmd"],
+    isAvailable: hasEntities,
+    run: Export.exportMermaid,
   },
   // Help
   {

@@ -20,6 +20,7 @@ import * as Rows from "./update/rows";
 import * as Enums from "./update/enums";
 import * as Associations from "./update/associations";
 import * as Disk from "./update/disk";
+import * as Export from "./update/export";
 import * as Session from "./update/session";
 import {
   commitDocument,
@@ -236,6 +237,14 @@ const handle = (model: Model, message: Message): UpdateReturn =>
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
     CancelledFilePicker: () => ({ model }),
+    SucceededCopyMermaid: () => ({ model: Export.copied(model) }),
+    FailedCopyMermaid: ({ error }) => ({
+      model: Session.notify(model, { tone: "Error", text: error }),
+    }),
+    SucceededExportMermaid: ({ path }) => ({ model: Export.exported(model, path) }),
+    FailedExportMermaid: ({ error }) => ({
+      model: Session.notify(model, { tone: "Error", text: error }),
+    }),
     CompletedFocusInput: () => ({ model }),
     ClickedDismissNotice: () => ({ model: { ...model, maybeNotice: Option.none() } }),
 

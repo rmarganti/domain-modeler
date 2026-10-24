@@ -150,6 +150,10 @@ export const Message = defineMessageUnion({
   SucceededSaveFile: { document: DomainModelDocument, path: Schema.String },
   FailedSaveFile: { error: Schema.String },
   CancelledFilePicker: {},
+  SucceededCopyMermaid: {},
+  FailedCopyMermaid: { error: Schema.String },
+  SucceededExportMermaid: { path: Schema.String },
+  FailedExportMermaid: { error: Schema.String },
   CompletedFocusInput: {},
   ClickedDismissNotice: {},
 
