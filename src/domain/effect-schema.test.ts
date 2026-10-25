@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-
 import { DateTime, Schema } from "effect";
 import { describe, expect, test } from "vitest";
 
+import example from "../../examples/domain-modeler.json";
 import * as Doc from "./document";
 import { toEffectSchema } from "./effect-schema";
 import * as Blog from "./effect-schema.fixture";
@@ -52,9 +51,9 @@ describe("toEffectSchema", () => {
   });
 
   test("the committed example matches its model", async () => {
-    // Relative to the project root, where vitest runs.
-    const json = readFileSync("examples/domain-modeler.json", "utf8");
-    const document = Schema.decodeUnknownSync(DomainModelDocumentJsonString)(json);
+    const document = Schema.decodeUnknownSync(DomainModelDocumentJsonString)(
+      JSON.stringify(example),
+    );
     await expect(`${toEffectSchema(document)}\n`).toMatchFileSnapshot(
       "../../examples/domain-modeler.schema.ts",
     );

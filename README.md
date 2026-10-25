@@ -29,6 +29,9 @@ pnpm app:build    # desktop app bundle
 ```bash
 pnpm test         # unit tests (vitest)
 pnpm check        # typecheck, lint, format check, and tests
+pnpm test:e2e     # browser smoke test of the production build (Playwright)
 ```
+
+CI (`.github/workflows/ci.yml`) runs on pull requests and `main`: `pnpm check` and `pnpm build`, `cargo fmt` and `cargo clippy` for the Tauri shell, the Playwright smoke test, and a macOS desktop build.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is put together.

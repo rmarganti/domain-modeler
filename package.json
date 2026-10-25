@@ -13,6 +13,7 @@
     "app:build": "tauri build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@foldkit/vite-plugin": "^0.27.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.12.3",
     "@types/pluralize": "0.0.33",
