@@ -76,6 +76,8 @@ describe("command palette", () => {
       "newDocument",
       "copyMermaid",
       "exportMermaid",
+      "copyEffectSchema",
+      "exportEffectSchema",
       "findCard",
       "shortcuts",
     ]);

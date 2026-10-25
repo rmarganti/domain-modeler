@@ -15,6 +15,7 @@ export type FileFilter = Readonly<{ name: string; extensions: ReadonlyArray<stri
 
 const MODEL_FILTER: FileFilter = { name: "Domain Model JSON", extensions: ["json"] };
 export const MERMAID_FILTER: FileFilter = { name: "Mermaid diagram", extensions: ["mmd"] };
+export const EFFECT_SCHEMA_FILTER: FileFilter = { name: "Effect Schema", extensions: ["ts"] };
 
 const toDialogFilters = (filter: FileFilter) => [
   { name: filter.name, extensions: [...filter.extensions] },

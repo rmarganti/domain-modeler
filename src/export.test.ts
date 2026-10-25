@@ -2,8 +2,9 @@ import { Option } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 
-import { CopyMermaid, ExportMermaid, RememberRecentCommands } from "./command";
+import { CopyExport, RememberRecentCommands, SaveExport } from "./command";
 import * as Doc from "./domain/document";
+import { toEffectSchema } from "./domain/effect-schema";
 import * as History from "./domain/history";
 import * as Ids from "./domain/ids";
 import { toMermaid } from "./domain/mermaid";
@@ -35,9 +36,12 @@ describe("Mermaid export", () => {
       given(opened()),
       message(Message.PickedOption({ optionId: "copyMermaid" })),
       Command.expectHas(
-        CopyMermaid({ text: `\`\`\`mermaid\n${toMermaid(Doc.sampleDocument)}\n\`\`\`` }),
+        CopyExport({
+          text: `\`\`\`mermaid\n${toMermaid(Doc.sampleDocument)}\n\`\`\``,
+          format: "Mermaid",
+        }),
       ),
-      Command.resolve(CopyMermaid, Message.SucceededCopyMermaid()),
+      Command.resolve(CopyExport, Message.SucceededCopyExport({ format: "Mermaid" })),
       Command.resolve(RememberRecentCommands, Message.CompletedRememberRecentCommands()),
       model((m) => {
         expect(m.editor).toEqual(EditorState.Idle());
@@ -53,7 +57,7 @@ describe("Mermaid export", () => {
       update,
       given(opened()),
       message(Message.PickedOption({ optionId: "copyMermaid" })),
-      Command.resolve(CopyMermaid, Message.FailedCopyMermaid({ error: "Couldn't copy: denied" })),
+      Command.resolve(CopyExport, Message.FailedCopyExport({ error: "Couldn't copy: denied" })),
       Command.resolve(RememberRecentCommands, Message.CompletedRememberRecentCommands()),
       model((m) => {
         expect(m.maybeNotice).toEqual(
@@ -70,9 +74,13 @@ describe("Mermaid export", () => {
       given(withFile),
       message(Message.PickedOption({ optionId: "exportMermaid" })),
       Command.expectHas(
-        ExportMermaid({ text: `${toMermaid(Doc.sampleDocument)}\n`, fileName: "blog.mmd" }),
+        SaveExport({
+          text: `${toMermaid(Doc.sampleDocument)}\n`,
+          fileName: "blog.mmd",
+          format: "Mermaid",
+        }),
       ),
-      Command.resolve(ExportMermaid, Message.SucceededExportMermaid({ path: "/exports/blog.mmd" })),
+      Command.resolve(SaveExport, Message.SucceededSaveExport({ path: "/exports/blog.mmd" })),
       Command.resolve(RememberRecentCommands, Message.CompletedRememberRecentCommands()),
       model((m) => {
         expect(m.maybeNotice).toEqual(Option.some({ tone: "Info", text: "Exported blog.mmd" }));
@@ -85,7 +93,7 @@ describe("Mermaid export", () => {
   test("a failed export says why, and a cancelled one says nothing", () => {
     const exporting = update(opened(), Message.PickedOption({ optionId: "exportMermaid" })).model;
     expect(
-      update(exporting, Message.FailedExportMermaid({ error: "Disk full" })).model.maybeNotice,
+      update(exporting, Message.FailedSaveExport({ error: "Disk full" })).model.maybeNotice,
     ).toEqual(Option.some({ tone: "Error", text: "Disk full" }));
     expect(update(exporting, Message.CancelledFilePicker()).model).toBe(exporting);
   });
@@ -104,5 +112,57 @@ describe("Mermaid export", () => {
     const empty = { ...initial, history: History.init(Doc.emptyDocument("Blog")) };
     expect(exportIds(empty, "")).toEqual([]);
     expect(exportIds(empty, "mermaid")).toEqual([]);
+  });
+});
+
+describe("Effect Schema export", () => {
+  test("Copy as Effect Schema copies raw TypeScript and confirms it", () => {
+    story(
+      update,
+      given(opened()),
+      message(Message.PickedOption({ optionId: "copyEffectSchema" })),
+      Command.expectHas(
+        CopyExport({ text: toEffectSchema(Doc.sampleDocument), format: "EffectSchema" }),
+      ),
+      Command.resolve(CopyExport, Message.SucceededCopyExport({ format: "EffectSchema" })),
+      Command.resolve(RememberRecentCommands, Message.CompletedRememberRecentCommands()),
+      model((m) => {
+        expect(m.maybeNotice).toEqual(
+          Option.some({ tone: "Info", text: "Copied Effect Schema to clipboard" }),
+        );
+      }),
+    );
+  });
+
+  test("Export Effect Schema writes a .schema.ts file", () => {
+    story(
+      update,
+      given(opened()),
+      message(Message.PickedOption({ optionId: "exportEffectSchema" })),
+      Command.expectHas(
+        SaveExport({
+          text: `${toEffectSchema(Doc.sampleDocument)}\n`,
+          fileName: "blog.schema.ts",
+          format: "EffectSchema",
+        }),
+      ),
+      Command.resolve(SaveExport, Message.SucceededSaveExport({ path: "/exports/blog.schema.ts" })),
+      Command.resolve(RememberRecentCommands, Message.CompletedRememberRecentCommands()),
+      model((m) => {
+        expect(m.maybeNotice).toEqual(
+          Option.some({ tone: "Info", text: "Exported blog.schema.ts" }),
+        );
+      }),
+    );
+  });
+
+  test("both commands are found as TypeScript and hide without entities", () => {
+    const ids = (m: Model, query: string) =>
+      Palette.options(m, query)
+        .map(({ command }) => command.id)
+        .filter((id) => id === "copyEffectSchema" || id === "exportEffectSchema");
+    expect(ids(initial, "typescript")).toEqual(["copyEffectSchema", "exportEffectSchema"]);
+    const empty = { ...initial, history: History.init(Doc.emptyDocument("Blog")) };
+    expect(ids(empty, "effect")).toEqual([]);
   });
 });

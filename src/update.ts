@@ -237,12 +237,12 @@ const handle = (model: Model, message: Message): UpdateReturn =>
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
     CancelledFilePicker: () => ({ model }),
-    SucceededCopyMermaid: () => ({ model: Export.copied(model) }),
-    FailedCopyMermaid: ({ error }) => ({
+    SucceededCopyExport: ({ format }) => ({ model: Export.copied(model, format) }),
+    FailedCopyExport: ({ error }) => ({
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
-    SucceededExportMermaid: ({ path }) => ({ model: Export.exported(model, path) }),
-    FailedExportMermaid: ({ error }) => ({
+    SucceededSaveExport: ({ path }) => ({ model: Export.exported(model, path) }),
+    FailedSaveExport: ({ error }) => ({
       model: Session.notify(model, { tone: "Error", text: error }),
     }),
     CompletedFocusInput: () => ({ model }),

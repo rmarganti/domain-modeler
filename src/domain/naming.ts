@@ -49,6 +49,11 @@ export const defaultRole = (entityName: string, multiplicity: Multiplicity): str
   return multiplicity.max === "many" ? pluralize(role) : role;
 };
 
+/** The field that holds IDs reached through `role`: `author` → `authorId`,
+ *  `tags` → `tagIds`. */
+export const referenceFieldName = (role: string, multiplicity: Multiplicity): string =>
+  multiplicity.max === "many" ? `${pluralize.singular(role)}Ids` : `${role}Id`;
+
 /** The name the other end uses to reach `ends[endIndex]`: the explicit role
  *  unless it is blank, else one derived from the entity name, which is none
  *  when the end's entity does not exist. */
