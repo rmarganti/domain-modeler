@@ -3,7 +3,7 @@ import { Command, Dom } from "foldkit";
 
 import { fileStem } from "./domain/naming";
 import { DomainModelDocument, DomainModelDocumentJsonString } from "./domain/schema";
-import { Message } from "./message";
+import { ExportFormat, Message } from "./message";
 import * as Clipboard from "./platform/clipboard";
 import * as Files from "./platform/files";
 import * as Preferences from "./platform/preferences";
@@ -104,31 +104,32 @@ export const ReloadFileFromDisk = Command.define("ReloadFileFromDisk", {
 
 // EXPORT
 
-export const CopyMermaid = Command.define("CopyMermaid", {
-  args: { text: Schema.String },
-  messages: [Message.SucceededCopyMermaid, Message.FailedCopyMermaid],
-  execute: ({ text }) =>
+const EXPORT_FILTERS: Record<ExportFormat, Files.FileFilter> = {
+  Mermaid: Files.MERMAID_FILTER,
+  EffectSchema: Files.EFFECT_SCHEMA_FILTER,
+};
+
+export const CopyExport = Command.define("CopyExport", {
+  args: { text: Schema.String, format: ExportFormat },
+  messages: [Message.SucceededCopyExport, Message.FailedCopyExport],
+  execute: ({ text, format }) =>
     Clipboard.copy(text).pipe(
-      Effect.as(Message.SucceededCopyMermaid()),
+      Effect.as(Message.SucceededCopyExport({ format })),
       Effect.catch(({ reason }) =>
-        Effect.succeed(Message.FailedCopyMermaid({ error: `Couldn't copy: ${reason}` })),
+        Effect.succeed(Message.FailedCopyExport({ error: `Couldn't copy: ${reason}` })),
       ),
     ),
 });
 
-export const ExportMermaid = Command.define("ExportMermaid", {
-  args: { text: Schema.String, fileName: Schema.String },
-  messages: [
-    Message.SucceededExportMermaid,
-    Message.FailedExportMermaid,
-    Message.CancelledFilePicker,
-  ],
-  execute: ({ text, fileName }) =>
+export const SaveExport = Command.define("SaveExport", {
+  args: { text: Schema.String, fileName: Schema.String, format: ExportFormat },
+  messages: [Message.SucceededSaveExport, Message.FailedSaveExport, Message.CancelledFilePicker],
+  execute: ({ text, fileName, format }) =>
     Effect.gen(function* () {
-      const path = yield* Files.pickToSave(fileName, Files.MERMAID_FILTER);
+      const path = yield* Files.pickToSave(fileName, EXPORT_FILTERS[format]);
       yield* Files.write(path, text);
-      return Message.SucceededExportMermaid({ path });
-    }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedExportMermaid({ error })))),
+      return Message.SucceededSaveExport({ path });
+    }).pipe(Effect.catch(toFailureMessage((error) => Message.FailedSaveExport({ error })))),
 });
 
 // WINDOW

@@ -17,6 +17,8 @@ export const WheelIntent = Schema.Literals(["Zoom", "Pan"]);
  *  couldn't be read at all (deleted, moved, or mid-replace). */
 export const DiskReadIssue = Schema.Literals(["Invalid", "Missing"]);
 export type DiskReadIssue = typeof DiskReadIssue.Type;
+export const ExportFormat = Schema.Literals(["Mermaid", "EffectSchema"]);
+export type ExportFormat = typeof ExportFormat.Type;
 
 export const Message = defineMessageUnion({
   // Keyboard
@@ -150,10 +152,10 @@ export const Message = defineMessageUnion({
   SucceededSaveFile: { document: DomainModelDocument, path: Schema.String },
   FailedSaveFile: { error: Schema.String },
   CancelledFilePicker: {},
-  SucceededCopyMermaid: {},
-  FailedCopyMermaid: { error: Schema.String },
-  SucceededExportMermaid: { path: Schema.String },
-  FailedExportMermaid: { error: Schema.String },
+  SucceededCopyExport: { format: ExportFormat },
+  FailedCopyExport: { error: Schema.String },
+  SucceededSaveExport: { path: Schema.String },
+  FailedSaveExport: { error: Schema.String },
   CompletedFocusInput: {},
   ClickedDismissNotice: {},
 

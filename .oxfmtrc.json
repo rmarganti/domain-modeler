@@ -1,4 +1,8 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["schema/domain-model.schema.json"]
+  "ignorePatterns": [
+    "schema/domain-model.schema.json",
+    "src/domain/effect-schema.fixture.ts",
+    "examples/domain-modeler.schema.ts"
+  ]
 }

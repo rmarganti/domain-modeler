@@ -263,6 +263,22 @@ export const PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> = [
     isAvailable: hasEntities,
     run: Export.exportMermaid,
   },
+  {
+    id: "copyEffectSchema",
+    label: "Copy as Effect Schema",
+    group: "File",
+    aliases: ["export", "typescript", "ts", "clipboard"],
+    isAvailable: hasEntities,
+    run: Export.copyEffectSchema,
+  },
+  {
+    id: "exportEffectSchema",
+    label: "Export Effect Schema…",
+    group: "File",
+    aliases: ["typescript", "ts"],
+    isAvailable: hasEntities,
+    run: Export.exportEffectSchema,
+  },
   // Help
   {
     id: "findCard",
